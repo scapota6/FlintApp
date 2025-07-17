@@ -51,7 +51,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
         
         const tellerConnect = TellerConnect.setup({
           applicationId,
-          environment: process.env.TELLER_ENVIRONMENT || 'sandbox',
+          environment: 'sandbox',
           onSuccess: (enrollment: any) => {
             resolve(enrollment);
           },

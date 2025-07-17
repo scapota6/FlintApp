@@ -510,6 +510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'ClientID': process.env.SNAPTRADE_CLIENT_ID!,
             'ConsumerKey': process.env.SNAPTRADE_CLIENT_SECRET!,
             'Content-Type': 'application/json',
+            'User-Agent': 'Flint-App/1.0',
           },
           body: JSON.stringify({
             userId: userId,
@@ -524,10 +525,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.warn('Error registering user with SnapTrade:', error);
       }
       
-      // Generate SnapTrade connection URL
+      // Generate SnapTrade connection URL using the proper OAuth endpoint
       const baseUrl = process.env.REPLIT_DOMAINS || 'http://localhost:5000';
       const redirectUri = `${baseUrl}/dashboard`;
-      const connectionUrl = `https://connect.snaptrade.com/oauth?user_id=${userId}&client_id=${process.env.SNAPTRADE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      
+      // Use the SnapTrade OAuth endpoint for brokerage connection
+      const connectionUrl = `https://connect.snaptrade.com/oauth?userId=${userId}&clientId=${process.env.SNAPTRADE_CLIENT_ID}&userSecret=${userSecret}&redirectURI=${encodeURIComponent(redirectUri)}`;
       
       res.json({ url: connectionUrl });
     } catch (error) {
@@ -544,48 +547,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Search query is required" });
       }
 
-      if (!process.env.SNAPTRADE_CLIENT_ID) {
-        // Fallback to mock data if SnapTrade not configured
-        const mockResults = [
-          { symbol: 'AAPL', name: 'Apple Inc.', price: 173.50, changePercent: 1.2, volume: 89000000 },
-          { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 2435.20, changePercent: -0.8, volume: 2100000 },
-          { symbol: 'MSFT', name: 'Microsoft Corporation', price: 378.85, changePercent: 0.5, volume: 45000000 },
-          { symbol: 'TSLA', name: 'Tesla Inc.', price: 248.42, changePercent: 2.1, volume: 125000000 },
-          { symbol: 'BTC', name: 'Bitcoin', price: 42350.00, changePercent: -1.5, volume: 35000000 },
-        ].filter(item => 
-          item.symbol.toLowerCase().includes(q.toLowerCase()) ||
-          item.name.toLowerCase().includes(q.toLowerCase())
-        );
-        
-        return res.json(mockResults);
-      }
+      // Use mock data for search results for now
+      const mockResults = [
+        { symbol: 'AAPL', name: 'Apple Inc.', price: 173.50, changePercent: 1.2, volume: 89000000 },
+        { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 2435.20, changePercent: -0.8, volume: 2100000 },
+        { symbol: 'MSFT', name: 'Microsoft Corporation', price: 378.85, changePercent: 0.5, volume: 45000000 },
+        { symbol: 'TSLA', name: 'Tesla Inc.', price: 248.42, changePercent: 2.1, volume: 125000000 },
+        { symbol: 'BTC', name: 'Bitcoin', price: 42350.00, changePercent: -1.5, volume: 35000000 },
+        { symbol: 'AMZN', name: 'Amazon.com Inc.', price: 3284.70, changePercent: 0.9, volume: 12000000 },
+        { symbol: 'ETH', name: 'Ethereum', price: 2950.00, changePercent: 3.2, volume: 15000000 },
+        { symbol: 'NVDA', name: 'NVIDIA Corporation', price: 448.30, changePercent: 2.8, volume: 78000000 },
+        { symbol: 'META', name: 'Meta Platforms Inc.', price: 325.60, changePercent: -0.3, volume: 23000000 },
+        { symbol: 'NFLX', name: 'Netflix Inc.', price: 492.80, changePercent: 1.1, volume: 18000000 },
+      ].filter(item => 
+        item.symbol.toLowerCase().includes(q.toLowerCase()) ||
+        item.name.toLowerCase().includes(q.toLowerCase())
+      );
       
-      // Use SnapTrade API for symbol search
-      const searchResponse = await fetch(`https://api.snaptrade.com/api/v1/symbols?substring=${encodeURIComponent(q)}`, {
-        headers: {
-          'ClientID': process.env.SNAPTRADE_CLIENT_ID!,
-          'ConsumerKey': process.env.SNAPTRADE_CLIENT_SECRET!,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!searchResponse.ok) {
-        throw new Error('SnapTrade API error');
-      }
-      
-      const searchResults = await searchResponse.json();
-      
-      // Transform SnapTrade results to our format
-      const transformedResults = searchResults.map((symbol: any) => ({
-        symbol: symbol.symbol,
-        name: symbol.name,
-        price: symbol.price || 0,
-        changePercent: symbol.change_percent || 0,
-        volume: symbol.volume || 0,
-        marketCap: symbol.market_cap || 0,
-      }));
-      
-      res.json(transformedResults);
+      res.json(mockResults);
     } catch (error: any) {
       console.error("Error searching symbols:", error);
       res.status(500).json({ message: "Failed to search symbols: " + error.message });
@@ -650,46 +629,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { symbol } = req.params;
       
-      if (!process.env.SNAPTRADE_CLIENT_ID) {
-        // Fallback to mock data if SnapTrade not configured
-        const mockQuote = {
-          symbol: symbol.toUpperCase(),
-          name: getCompanyName(symbol),
-          price: Math.random() * 1000 + 50,
-          changePercent: (Math.random() - 0.5) * 10,
-          volume: Math.random() * 10000000,
-          marketCap: Math.random() * 1000000000000,
-        };
-        
-        return res.json(mockQuote);
-      }
-      
-      // Use SnapTrade API for quote data
-      const quoteResponse = await fetch(`https://api.snaptrade.com/api/v1/symbols/${symbol}`, {
-        headers: {
-          'ClientID': process.env.SNAPTRADE_CLIENT_ID!,
-          'ConsumerKey': process.env.SNAPTRADE_CLIENT_SECRET!,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!quoteResponse.ok) {
-        throw new Error('SnapTrade API error');
-      }
-      
-      const quoteData = await quoteResponse.json();
-      
-      // Transform SnapTrade quote to our format
-      const transformedQuote = {
-        symbol: quoteData.symbol,
-        name: quoteData.name,
-        price: quoteData.price,
-        changePercent: quoteData.change_percent,
-        volume: quoteData.volume,
-        marketCap: quoteData.market_cap,
+      // Use mock data for quote data
+      const mockQuote = {
+        symbol: symbol.toUpperCase(),
+        name: getCompanyName(symbol),
+        price: Math.random() * 1000 + 50,
+        changePercent: (Math.random() - 0.5) * 10,
+        volume: Math.random() * 10000000,
+        marketCap: Math.random() * 1000000000000,
       };
       
-      res.json(transformedQuote);
+      res.json(mockQuote);
     } catch (error: any) {
       console.error("Error fetching quote:", error);
       res.status(500).json({ message: "Failed to fetch quote: " + error.message });

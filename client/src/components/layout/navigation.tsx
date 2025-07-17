@@ -27,7 +27,7 @@ export default function Navigation() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/">
-              <h1 className="text-xl font-semibold text-white cursor-pointer">Flint</h1>
+              <span className="text-xl font-semibold text-white cursor-pointer">Flint</span>
             </Link>
           </div>
           
@@ -35,15 +35,15 @@ export default function Navigation() {
           <nav className="hidden md:flex space-x-8">
             {navItems.map((item) => (
               <Link key={item.path} href={item.path}>
-                <a
-                  className={`pb-1 px-1 text-sm font-medium transition-colors ${
+                <span
+                  className={`pb-1 px-1 text-sm font-medium transition-colors cursor-pointer ${
                     item.active
                       ? "text-blue-500 border-b-2 border-blue-500"
                       : "text-gray-400 hover:text-white"
                   }`}
                 >
                   {item.label}
-                </a>
+                </span>
               </Link>
             ))}
           </nav>
