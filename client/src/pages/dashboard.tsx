@@ -1,0 +1,115 @@
+import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import Navigation from "@/components/layout/navigation";
+import MobileNav from "@/components/layout/mobile-nav";
+import BalanceCards from "@/components/dashboard/balance-cards";
+import QuickTrade from "@/components/dashboard/quick-trade";
+import WatchlistCard from "@/components/dashboard/watchlist-card";
+import QuickTransfer from "@/components/dashboard/quick-transfer";
+import ActivityFeed from "@/components/dashboard/activity-feed";
+import ConnectionStatus from "@/components/dashboard/connection-status";
+import { FinancialAPI } from "@/lib/financial-api";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { isUnauthorizedError } from "@/lib/authUtils";
+
+export default function Dashboard() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  // Fetch dashboard data
+  const { data: dashboardData, isLoading, error } = useQuery({
+    queryKey: ["/api/dashboard"],
+    queryFn: FinancialAPI.getDashboardData,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  // Log user login
+  useEffect(() => {
+    FinancialAPI.logLogin().catch(console.error);
+  }, []);
+
+  // Handle unauthorized errors
+  useEffect(() => {
+    if (error && isUnauthorizedError(error as Error)) {
+      toast({
+        title: "Session Expired",
+        description: "Please log in again to continue",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 2000);
+    }
+  }, [error, toast]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white">
+        <Navigation />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-800 rounded w-1/3 mb-6"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-32 bg-gray-800 rounded-xl"></div>
+              ))}
+            </div>
+          </div>
+        </main>
+        <MobileNav />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-black text-white">
+        <Navigation />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-semibold mb-4">Error Loading Dashboard</h2>
+            <p className="text-gray-400">Please try refreshing the page</p>
+          </div>
+        </main>
+        <MobileNav />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <Navigation />
+      
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
+        {/* Dashboard Header */}
+        <div className="mb-8">
+          <h2 className="text-2xl sm:text-3xl font-semibold mb-2">
+            Good morning, {user?.firstName || 'User'}
+          </h2>
+          <p className="text-gray-400 text-sm">Here's your financial overview</p>
+        </div>
+
+        {/* Balance Cards */}
+        <BalanceCards data={dashboardData} />
+
+        {/* Trading and Watchlist */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <QuickTrade />
+          <WatchlistCard data={dashboardData?.watchlist || []} />
+        </div>
+
+        {/* Transfers and Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <QuickTransfer accounts={dashboardData?.accounts || []} />
+          <ActivityFeed activities={dashboardData?.recentActivity || []} />
+        </div>
+
+        {/* Connection Status */}
+        <ConnectionStatus accounts={dashboardData?.accounts || []} />
+      </main>
+
+      <MobileNav />
+    </div>
+  );
+}

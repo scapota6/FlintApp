@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(20, 14.3%, 4.1%);
+  --muted: hsl(60, 4.8%, 95.9%);
+  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(20, 14.3%, 4.1%);
+  --border: hsl(20, 5.9%, 90%);
+  --input: hsl(20, 5.9%, 90%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(60, 4.8%, 95.9%);
+  --secondary-foreground: hsl(24, 9.8%, 10%);
+  --accent: hsl(60, 4.8%, 95.9%);
+  --accent-foreground: hsl(24, 9.8%, 10%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(60, 9.1%, 97.8%);
+  --ring: hsl(20, 14.3%, 4.1%);
+  --radius: 0.5rem;
+  
+  /* Apple-inspired dark theme colors */
+  --dark-primary: hsl(0, 0%, 0%);
+  --dark-secondary: hsl(0, 0%, 6.7%);
+  --dark-tertiary: hsl(0, 0%, 11%);
+  --dark-quaternary: hsl(0, 0%, 17.3%);
+  --dark-quinary: hsl(0, 0%, 22.7%);
+  --dark-senary: hsl(0, 0%, 28.2%);
+  --apple-blue: hsl(207, 100%, 50%);
+  --apple-blue-dark: hsl(207, 100%, 40%);
+  --apple-green: hsl(126, 60%, 55%);
+  --apple-green-dark: hsl(126, 60%, 35%);
+  --apple-red: hsl(5, 100%, 59%);
+  --apple-red-dark: hsl(5, 100%, 42%);
+  --text-primary: hsl(0, 0%, 100%);
+  --text-secondary: hsl(240, 100%, 96%);
+  --text-tertiary: hsl(240, 5%, 58%);
+}
+
+.dark {
+  --background: hsl(0, 0%, 0%);
+  --foreground: hsl(0, 0%, 100%);
+  --muted: hsl(0, 0%, 6.7%);
+  --muted-foreground: hsl(240, 5%, 58%);
+  --popover: hsl(0, 0%, 6.7%);
+  --popover-foreground: hsl(0, 0%, 100%);
+  --card: hsl(0, 0%, 6.7%);
+  --card-foreground: hsl(0, 0%, 100%);
+  --border: hsl(0, 0%, 17.3%);
+  --input: hsl(0, 0%, 17.3%);
+  --primary: hsl(207, 100%, 50%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(0, 0%, 6.7%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --accent: hsl(0, 0%, 6.7%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(5, 100%, 59%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --ring: hsl(240, 4.9%, 83.9%);
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased;
+    @apply bg-black text-white;
+    font-family: -apple-system, BlinkMacSystemFont, 'San Francisco', 'Segoe UI', 'Roboto', sans-serif;
+  }
+}
+
+@layer utilities {
+  .balance-card {
+    background: linear-gradient(135deg, var(--dark-tertiary) 0%, var(--dark-quaternary) 100%);
+    border: 1px solid var(--dark-quinary);
+  }
+  
+  .trade-card {
+    background: linear-gradient(135deg, var(--dark-secondary) 0%, var(--dark-tertiary) 100%);
+    border: 1px solid var(--dark-quaternary);
+  }
+  
+  .activity-item {
+    border-bottom: 1px solid var(--dark-quaternary);
+  }
+  
+  .activity-item:last-child {
+    border-bottom: none;
+  }
+  
+  .tab-indicator {
+    transition: all 0.3s ease;
+  }
+  
+  .watchlist-item {
+    transition: all 0.2s ease;
+  }
+  
+  .watchlist-item:hover {
+    background-color: var(--dark-quaternary);
+  }
+  
+  .loading-shimmer {
+    background: linear-gradient(90deg, var(--dark-quaternary) 25%, var(--dark-quinary) 50%, var(--dark-quaternary) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  
+  .modal-backdrop {
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(20px);
+  }
+  
+  .notification {
+    background: linear-gradient(135deg, var(--dark-tertiary) 0%, var(--dark-quaternary) 100%);
+    border: 1px solid var(--dark-quinary);
+    animation: slideIn 0.3s ease;
+  }
+  
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--dark-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--dark-quaternary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dark-quinary);
+}
