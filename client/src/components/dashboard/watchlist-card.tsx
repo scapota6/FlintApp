@@ -4,9 +4,10 @@ import { Star } from "lucide-react";
 
 interface WatchlistCardProps {
   data: any[];
+  onAccountDetail?: (account: any) => void;
 }
 
-export default function WatchlistCard({ data }: WatchlistCardProps) {
+export default function WatchlistCard({ data, onAccountDetail }: WatchlistCardProps) {
   const formatCurrency = (amount: string | number) => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-US', {

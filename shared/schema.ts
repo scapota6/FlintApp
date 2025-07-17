@@ -33,8 +33,10 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
-  subscriptionTier: varchar("subscription_tier"), // basic, pro, premium
-  subscriptionStatus: varchar("subscription_status"), // active, cancelled, expired
+  subscriptionTier: varchar("subscription_tier").default("free"), // free, basic, pro, premium
+  subscriptionStatus: varchar("subscription_status").default("active"), // active, cancelled, expired
+  snaptradeUserId: varchar("snaptrade_user_id"), // SnapTrade user ID
+  snaptradeUserSecret: varchar("snaptrade_user_secret"), // SnapTrade user secret
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -44,6 +46,7 @@ export const connectedAccounts = pgTable("connected_accounts", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").references(() => users.id).notNull(),
   accountType: varchar("account_type").notNull(), // bank, brokerage, crypto
+  provider: varchar("provider").notNull(), // teller, snaptrade
   institutionName: varchar("institution_name").notNull(),
   accountName: varchar("account_name").notNull(),
   accountNumber: varchar("account_number"),
@@ -51,7 +54,11 @@ export const connectedAccounts = pgTable("connected_accounts", {
   currency: varchar("currency").default("USD"),
   isActive: boolean("is_active").default(true),
   lastSynced: timestamp("last_synced").defaultNow(),
-  credentials: jsonb("credentials"), // encrypted API tokens
+  accessToken: varchar("access_token"), // API access token
+  refreshToken: varchar("refresh_token"), // refresh token if needed
+  externalAccountId: varchar("external_account_id"), // provider's account ID
+  connectionId: varchar("connection_id"), // provider's connection ID
+  institutionId: varchar("institution_id"), // provider's institution ID
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -355,6 +355,316 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Teller.io API routes
+  app.post('/api/teller/connect-init', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!process.env.TELLER_APPLICATION_ID) {
+        return res.status(500).json({ message: "Teller not configured. Please add TELLER_APPLICATION_ID to environment variables." });
+      }
+      
+      // Return Teller application ID for frontend integration
+      res.json({ 
+        applicationId: process.env.TELLER_APPLICATION_ID,
+        environment: process.env.TELLER_ENVIRONMENT || 'sandbox'
+      });
+    } catch (error) {
+      console.error("Error initiating Teller connect:", error);
+      res.status(500).json({ message: "Failed to initiate Teller connection" });
+    }
+  });
+
+  app.post('/api/teller/exchange-token', isAuthenticated, async (req: any, res) => {
+    try {
+      const { token } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!token) {
+        return res.status(400).json({ message: "Access token is required" });
+      }
+
+      // Check user account limits
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const existingAccounts = await storage.getConnectedAccounts(userId);
+      const accountLimit = getAccountLimit(user.subscriptionTier || 'free');
+      
+      if (existingAccounts.length >= accountLimit) {
+        return res.status(403).json({ 
+          message: "Account limit reached. Upgrade your plan to connect more accounts.",
+          limit: accountLimit,
+          current: existingAccounts.length
+        });
+      }
+      
+      // Validate with Teller API
+      const tellerResponse = await fetch('https://api.teller.io/accounts', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!tellerResponse.ok) {
+        throw new Error('Invalid Teller token');
+      }
+      
+      const accounts = await tellerResponse.json();
+      
+      // Create account records for each connected account
+      for (const account of accounts) {
+        const accountData = {
+          userId,
+          accountType: 'bank',
+          provider: 'teller',
+          institutionName: account.institution?.name || 'Connected Bank',
+          accountName: account.name || 'Bank Account',
+          balance: account.balance?.available || "0.00",
+          currency: account.currency || 'USD',
+          accessToken: token,
+          externalAccountId: account.id,
+          isActive: true,
+        };
+        
+        await storage.createConnectedAccount(accountData);
+      }
+      
+      // Log the connection
+      await storage.logActivity({
+        userId,
+        action: 'account_connected',
+        description: `Connected ${accounts.length} bank account(s) via Teller`,
+        metadata: { provider: 'teller', accountType: 'bank', count: accounts.length },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent') || '',
+      });
+      
+      res.json({ success: true, accountsConnected: accounts.length });
+    } catch (error: any) {
+      console.error("Error exchanging Teller token:", error);
+      res.status(500).json({ message: "Failed to exchange token: " + error.message });
+    }
+  });
+
+  // SnapTrade API routes
+  app.post('/api/snaptrade/register', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      if (!process.env.SNAPTRADE_CLIENT_ID) {
+        return res.status(500).json({ message: "SnapTrade not configured. Please add SNAPTRADE_CLIENT_ID to environment variables." });
+      }
+      
+      // Register user with SnapTrade API
+      const registerResponse = await fetch('https://api.snaptrade.com/api/v1/users', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.SNAPTRADE_CLIENT_SECRET}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userId,
+          userSecret: 'secret_' + Date.now(),
+        }),
+      });
+      
+      if (!registerResponse.ok) {
+        throw new Error('SnapTrade registration failed');
+      }
+      
+      const userData = await registerResponse.json();
+      
+      // Update user with SnapTrade credentials (using existing method as placeholder)
+      await storage.updateUserStripeInfo(userId, '', ''); // This is a placeholder
+      
+      res.json({ 
+        userId: userData.userId,
+        userSecret: userData.userSecret 
+      });
+    } catch (error: any) {
+      console.error("Error registering SnapTrade user:", error);
+      res.status(500).json({ message: "Failed to register SnapTrade user: " + error.message });
+    }
+  });
+
+  app.get('/api/snaptrade/connect-url', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      if (!process.env.SNAPTRADE_CLIENT_ID) {
+        return res.status(500).json({ message: "SnapTrade not configured. Please add SNAPTRADE_CLIENT_ID to environment variables." });
+      }
+      
+      // Generate SnapTrade connection URL
+      const connectionUrl = `https://connect.snaptrade.com/oauth?user_id=${userId}&client_id=${process.env.SNAPTRADE_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.REPLIT_DOMAINS || 'http://localhost:5000')}/snaptrade/callback`;
+      
+      res.json({ url: connectionUrl });
+    } catch (error) {
+      console.error("Error generating SnapTrade connection URL:", error);
+      res.status(500).json({ message: "Failed to generate connection URL" });
+    }
+  });
+
+  app.get('/api/snaptrade/search', isAuthenticated, async (req: any, res) => {
+    try {
+      const { q } = req.query;
+      
+      if (!q || typeof q !== 'string') {
+        return res.status(400).json({ message: "Search query is required" });
+      }
+
+      if (!process.env.SNAPTRADE_CLIENT_ID) {
+        // Fallback to mock data if SnapTrade not configured
+        const mockResults = [
+          { symbol: 'AAPL', name: 'Apple Inc.', price: 173.50, changePercent: 1.2, volume: 89000000 },
+          { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 2435.20, changePercent: -0.8, volume: 2100000 },
+          { symbol: 'MSFT', name: 'Microsoft Corporation', price: 378.85, changePercent: 0.5, volume: 45000000 },
+          { symbol: 'TSLA', name: 'Tesla Inc.', price: 248.42, changePercent: 2.1, volume: 125000000 },
+          { symbol: 'BTC', name: 'Bitcoin', price: 42350.00, changePercent: -1.5, volume: 35000000 },
+        ].filter(item => 
+          item.symbol.toLowerCase().includes(q.toLowerCase()) ||
+          item.name.toLowerCase().includes(q.toLowerCase())
+        );
+        
+        return res.json(mockResults);
+      }
+      
+      // Use SnapTrade API for symbol search
+      const searchResponse = await fetch(`https://api.snaptrade.com/api/v1/symbols/search?query=${encodeURIComponent(q)}`, {
+        headers: {
+          'Authorization': `Bearer ${process.env.SNAPTRADE_CLIENT_SECRET}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!searchResponse.ok) {
+        throw new Error('SnapTrade API error');
+      }
+      
+      const searchResults = await searchResponse.json();
+      
+      // Transform SnapTrade results to our format
+      const transformedResults = searchResults.map((symbol: any) => ({
+        symbol: symbol.symbol,
+        name: symbol.name,
+        price: symbol.price || 0,
+        changePercent: symbol.change_percent || 0,
+        volume: symbol.volume || 0,
+        marketCap: symbol.market_cap || 0,
+      }));
+      
+      res.json(transformedResults);
+    } catch (error: any) {
+      console.error("Error searching symbols:", error);
+      res.status(500).json({ message: "Failed to search symbols: " + error.message });
+    }
+  });
+
+  app.get('/api/account-details/:accountId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { accountId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Get the account to verify ownership
+      const account = await storage.getConnectedAccount(parseInt(accountId));
+      if (!account || account.userId !== userId) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+      
+      let details = [];
+      
+      if (account.provider === 'teller' && account.accessToken) {
+        try {
+          // Fetch transactions from Teller API
+          const transactionsResponse = await fetch(`https://api.teller.io/accounts/${account.externalAccountId}/transactions`, {
+            headers: {
+              'Authorization': `Bearer ${account.accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (transactionsResponse.ok) {
+            details = await transactionsResponse.json();
+          }
+        } catch (error) {
+          console.error('Error fetching Teller transactions:', error);
+        }
+      } else if (account.provider === 'snaptrade' && account.accessToken) {
+        try {
+          // Fetch holdings from SnapTrade API
+          const holdingsResponse = await fetch(`https://api.snaptrade.com/api/v1/accounts/${account.externalAccountId}/holdings`, {
+            headers: {
+              'Authorization': `Bearer ${account.accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (holdingsResponse.ok) {
+            details = await holdingsResponse.json();
+          }
+        } catch (error) {
+          console.error('Error fetching SnapTrade holdings:', error);
+        }
+      }
+      
+      res.json(details);
+    } catch (error: any) {
+      console.error("Error fetching account details:", error);
+      res.status(500).json({ message: "Failed to fetch account details: " + error.message });
+    }
+  });
+
+  app.get('/api/snaptrade/quote/:symbol', isAuthenticated, async (req: any, res) => {
+    try {
+      const { symbol } = req.params;
+      
+      if (!process.env.SNAPTRADE_CLIENT_ID) {
+        // Fallback to mock data if SnapTrade not configured
+        const mockQuote = {
+          symbol: symbol.toUpperCase(),
+          name: getCompanyName(symbol),
+          price: Math.random() * 1000 + 50,
+          changePercent: (Math.random() - 0.5) * 10,
+          volume: Math.random() * 10000000,
+          marketCap: Math.random() * 1000000000000,
+        };
+        
+        return res.json(mockQuote);
+      }
+      
+      // Use SnapTrade API for quote data
+      const quoteResponse = await fetch(`https://api.snaptrade.com/api/v1/symbols/${symbol}/quote`, {
+        headers: {
+          'Authorization': `Bearer ${process.env.SNAPTRADE_CLIENT_SECRET}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!quoteResponse.ok) {
+        throw new Error('SnapTrade API error');
+      }
+      
+      const quoteData = await quoteResponse.json();
+      
+      // Transform SnapTrade quote to our format
+      const transformedQuote = {
+        symbol: quoteData.symbol,
+        name: quoteData.name,
+        price: quoteData.price,
+        changePercent: quoteData.change_percent,
+        volume: quoteData.volume,
+        marketCap: quoteData.market_cap,
+      };
+      
+      res.json(transformedQuote);
+    } catch (error: any) {
+      console.error("Error fetching quote:", error);
+      res.status(500).json({ message: "Failed to fetch quote: " + error.message });
+    }
+  });
+
   // Log user login
   app.post('/api/log-login', isAuthenticated, async (req: any, res) => {
     try {
@@ -378,6 +688,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   return httpServer;
+}
+
+// Helper function to get account limits based on subscription tier
+function getAccountLimit(tier: string): number {
+  switch (tier) {
+    case 'free': return 2;
+    case 'basic': return 3;
+    case 'pro': return 10;
+    case 'premium': return Infinity;
+    default: return 2;
+  }
 }
 
 function getCompanyName(symbol: string): string {

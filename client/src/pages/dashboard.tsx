@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Navigation from "@/components/layout/navigation";
 import MobileNav from "@/components/layout/mobile-nav";
 import BalanceCards from "@/components/dashboard/balance-cards";
@@ -7,7 +7,9 @@ import QuickTrade from "@/components/dashboard/quick-trade";
 import WatchlistCard from "@/components/dashboard/watchlist-card";
 import QuickTransfer from "@/components/dashboard/quick-transfer";
 import ActivityFeed from "@/components/dashboard/activity-feed";
-import ConnectionStatus from "@/components/dashboard/connection-status";
+import SimpleConnectButtons from "@/components/dashboard/simple-connect-buttons";
+import AccountDetailModal from "@/components/dashboard/account-detail-modal";
+import SearchBar from "@/components/ui/search-bar";
 import { FinancialAPI } from "@/lib/financial-api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +18,8 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 export default function Dashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [selectedAccount, setSelectedAccount] = useState<any>(null);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
   // Fetch dashboard data
   const { data: dashboardData, isLoading, error } = useQuery({
@@ -28,6 +32,32 @@ export default function Dashboard() {
   useEffect(() => {
     FinancialAPI.logLogin().catch(console.error);
   }, []);
+
+  const handleAccountDetail = (account: any) => {
+    setSelectedAccount(account);
+    setIsAccountModalOpen(true);
+  };
+
+  const handleAddToWatchlist = async (symbol: string, name: string) => {
+    try {
+      await FinancialAPI.addToWatchlist(symbol, name, 'stock');
+      toast({
+        title: "Added to Watchlist",
+        description: `${symbol} has been added to your watchlist.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add to watchlist. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTradeSymbol = (symbol: string, name: string) => {
+    // Navigate to trade page with symbol
+    window.location.href = `/trading?symbol=${symbol}`;
+  };
 
   // Handle unauthorized errors
   useEffect(() => {
@@ -90,13 +120,31 @@ export default function Dashboard() {
           <p className="text-gray-400 text-sm">Here's your financial overview</p>
         </div>
 
+        {/* Universal Search Bar */}
+        <div className="mb-8">
+          <SearchBar 
+            onAddToWatchlist={handleAddToWatchlist}
+            onTrade={handleTradeSymbol}
+            className="max-w-2xl mx-auto"
+          />
+        </div>
+
         {/* Balance Cards */}
         <BalanceCards data={dashboardData} />
+
+        {/* Simple Connect Buttons */}
+        <SimpleConnectButtons 
+          accounts={dashboardData?.accounts || []} 
+          userTier={user?.subscriptionTier || 'free'}
+        />
 
         {/* Trading and Watchlist */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <QuickTrade />
-          <WatchlistCard data={dashboardData?.watchlist || []} />
+          <WatchlistCard 
+            data={dashboardData?.watchlist || []} 
+            onAccountDetail={handleAccountDetail}
+          />
         </div>
 
         {/* Transfers and Activity */}
@@ -104,12 +152,16 @@ export default function Dashboard() {
           <QuickTransfer accounts={dashboardData?.accounts || []} />
           <ActivityFeed activities={dashboardData?.recentActivity || []} />
         </div>
-
-        {/* Connection Status */}
-        <ConnectionStatus accounts={dashboardData?.accounts || []} />
       </main>
 
       <MobileNav />
+      
+      {/* Account Detail Modal */}
+      <AccountDetailModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        account={selectedAccount}
+      />
     </div>
   );
 }
