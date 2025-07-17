@@ -15,7 +15,7 @@ import { Check, Crown, Star, Zap } from "lucide-react";
 
 // Make sure to call `loadStripe` outside of a component's render to avoid
 // recreating the `Stripe` object on every render.
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
+const stripePromise = import.meta.env.VITE_STRIPE_PUBLIC_KEY ? loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY) : null;
 
 const SubscribeForm = ({ tier }: { tier: string }) => {
   const stripe = useStripe();
@@ -222,7 +222,7 @@ export default function Subscribe() {
                 </ul>
                 <Button
                   onClick={() => handleSelectTier(tier.id)}
-                  disabled={isProcessing || currentTier === tier.id}
+                  disabled={isProcessing || currentTier === tier.id || !stripePromise}
                   className={`w-full ${
                     tier.id === 'pro' 
                       ? 'bg-blue-600 hover:bg-blue-700' 
@@ -233,6 +233,8 @@ export default function Subscribe() {
                     'Processing...'
                   ) : currentTier === tier.id ? (
                     'Current Plan'
+                  ) : !stripePromise ? (
+                    'Payment Unavailable'
                   ) : (
                     'Select Plan'
                   )}
@@ -252,9 +254,20 @@ export default function Subscribe() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Elements stripe={stripePromise} options={{ clientSecret }}>
-                  <SubscribeForm tier={selectedTier} />
-                </Elements>
+                {stripePromise ? (
+                  <Elements stripe={stripePromise} options={{ clientSecret }}>
+                    <SubscribeForm tier={selectedTier} />
+                  </Elements>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-red-400 mb-4">
+                      Payment processing is currently unavailable.
+                    </p>
+                    <p className="text-gray-400 text-sm">
+                      Please contact support to complete your subscription.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
