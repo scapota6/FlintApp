@@ -44,10 +44,14 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
       
       return new Promise((resolve, reject) => {
         // @ts-ignore - TellerConnect is loaded via CDN
+        if (typeof TellerConnect === 'undefined') {
+          reject(new Error('Teller Connect SDK not loaded'));
+          return;
+        }
+        
         const tellerConnect = TellerConnect.setup({
           applicationId,
-          environment: 'sandbox', // Change to 'production' for live
-          products: ['verify'],
+          environment: process.env.TELLER_ENVIRONMENT || 'sandbox',
           onSuccess: (enrollment: any) => {
             resolve(enrollment);
           },
@@ -90,29 +94,13 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
   const snapTradeConnectMutation = useMutation({
     mutationFn: async () => {
       const { url } = await SnapTradeAPI.getConnectionUrl();
-      // Open SnapTrade OAuth in new window
-      const authWindow = window.open(url, 'snaptrade-auth', 'width=500,height=600');
       
-      return new Promise((resolve, reject) => {
-        const checkClosed = setInterval(() => {
-          if (authWindow?.closed) {
-            clearInterval(checkClosed);
-            // Check if connection was successful
-            setTimeout(() => {
-              queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
-              resolve(true);
-            }, 1000);
-          }
-        }, 1000);
-        
-        // Timeout after 10 minutes
-        setTimeout(() => {
-          clearInterval(checkClosed);
-          if (authWindow && !authWindow.closed) {
-            authWindow.close();
-          }
-          reject(new Error('Connection timeout'));
-        }, 600000);
+      // Redirect to SnapTrade OAuth in same window
+      window.location.href = url;
+      
+      return new Promise((resolve) => {
+        // This will resolve when user returns to dashboard
+        resolve(true);
       });
     },
     onSuccess: () => {

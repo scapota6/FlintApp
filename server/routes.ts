@@ -458,20 +458,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Register user with SnapTrade API
-      const registerResponse = await fetch('https://api.snaptrade.com/api/v1/users', {
+      const userSecret = 'secret_' + Date.now();
+      const registerResponse = await fetch('https://api.snaptrade.com/api/v1/snapTrade/registerUser', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.SNAPTRADE_CLIENT_SECRET}`,
+          'ClientID': process.env.SNAPTRADE_CLIENT_ID!,
+          'ConsumerKey': process.env.SNAPTRADE_CLIENT_SECRET!,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           userId: userId,
-          userSecret: 'secret_' + Date.now(),
+          userSecret: userSecret,
         }),
       });
       
       if (!registerResponse.ok) {
-        throw new Error('SnapTrade registration failed');
+        const errorText = await registerResponse.text();
+        throw new Error(`SnapTrade registration failed: ${errorText}`);
       }
       
       const userData = await registerResponse.json();
@@ -497,8 +500,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "SnapTrade not configured. Please add SNAPTRADE_CLIENT_ID to environment variables." });
       }
       
+      // First register the user with SnapTrade
+      const userSecret = 'secret_' + Date.now();
+      
+      try {
+        const registerResponse = await fetch('https://api.snaptrade.com/api/v1/snapTrade/registerUser', {
+          method: 'POST',
+          headers: {
+            'ClientID': process.env.SNAPTRADE_CLIENT_ID!,
+            'ConsumerKey': process.env.SNAPTRADE_CLIENT_SECRET!,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: userId,
+            userSecret: userSecret,
+          }),
+        });
+        
+        if (!registerResponse.ok) {
+          console.warn('User may already be registered with SnapTrade');
+        }
+      } catch (error) {
+        console.warn('Error registering user with SnapTrade:', error);
+      }
+      
       // Generate SnapTrade connection URL
-      const connectionUrl = `https://connect.snaptrade.com/oauth?user_id=${userId}&client_id=${process.env.SNAPTRADE_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.REPLIT_DOMAINS || 'http://localhost:5000')}/snaptrade/callback`;
+      const baseUrl = process.env.REPLIT_DOMAINS || 'http://localhost:5000';
+      const redirectUri = `${baseUrl}/dashboard`;
+      const connectionUrl = `https://connect.snaptrade.com/oauth?user_id=${userId}&client_id=${process.env.SNAPTRADE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}`;
       
       res.json({ url: connectionUrl });
     } catch (error) {
@@ -532,9 +561,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Use SnapTrade API for symbol search
-      const searchResponse = await fetch(`https://api.snaptrade.com/api/v1/symbols/search?query=${encodeURIComponent(q)}`, {
+      const searchResponse = await fetch(`https://api.snaptrade.com/api/v1/symbols?substring=${encodeURIComponent(q)}`, {
         headers: {
-          'Authorization': `Bearer ${process.env.SNAPTRADE_CLIENT_SECRET}`,
+          'ClientID': process.env.SNAPTRADE_CLIENT_ID!,
+          'ConsumerKey': process.env.SNAPTRADE_CLIENT_SECRET!,
           'Content-Type': 'application/json',
         },
       });
@@ -635,9 +665,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Use SnapTrade API for quote data
-      const quoteResponse = await fetch(`https://api.snaptrade.com/api/v1/symbols/${symbol}/quote`, {
+      const quoteResponse = await fetch(`https://api.snaptrade.com/api/v1/symbols/${symbol}`, {
         headers: {
-          'Authorization': `Bearer ${process.env.SNAPTRADE_CLIENT_SECRET}`,
+          'ClientID': process.env.SNAPTRADE_CLIENT_ID!,
+          'ConsumerKey': process.env.SNAPTRADE_CLIENT_SECRET!,
           'Content-Type': 'application/json',
         },
       });
