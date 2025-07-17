@@ -8,6 +8,14 @@ Flint is a comprehensive financial management web application built with React a
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### July 17, 2025
+- **Fixed Stripe Integration Issues**: Resolved startup errors by making Stripe initialization conditional on API key presence
+- **Updated Error Handling**: Added proper error responses for Stripe subscription routes when Stripe is not configured
+- **Application Startup**: Successfully debugged and fixed application startup failures
+- **Status**: Application is now running successfully on port 5000
+
 ## System Architecture
 
 ### Frontend Architecture
