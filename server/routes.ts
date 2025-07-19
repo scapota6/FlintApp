@@ -563,42 +563,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 if (retryResponse.ok) {
                   console.log('Successfully registered SnapTrade user with unique ID');
+                  console.log('DEBUG: Registered user ID:', uniqueUserId);
+                  console.log('DEBUG: Registered user secret pattern:', uniqueUserSecret.substring(0, 30) + '...');
+                  
                   userSecret = uniqueUserSecret;
-                  // Use the unique userId for SnapTrade operations
-                  const snapTradeUserId = uniqueUserId;
+                  userId = uniqueUserId; // Update the userId to use the unique one
+                  
                   await storage.createSnapTradeUser(req.user.claims.sub, uniqueUserSecret); // Store with original Flint userId
+                  console.log('DEBUG: Stored user secret in database for user:', req.user.claims.sub);
                   
-                  // Continue with login using the new unique user ID
-                  const loginTimestamp = Math.floor(Date.now() / 1000);
-                  const loginQueryParams = new URLSearchParams({
-                    clientId: process.env.SNAPTRADE_CLIENT_ID,
-                    userId: snapTradeUserId,
-                    userSecret: uniqueUserSecret,
-                    timestamp: loginTimestamp.toString()
-                  });
-                  
-                  const loginSignature = generateSnapTradeSignature(
-                    'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
-                    { userId: snapTradeUserId, userSecret: uniqueUserSecret },
-                    '/api/v1/snapTrade/login',
-                    loginQueryParams.toString()
-                  );
-                  
-                  const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?${loginQueryParams}`, {
-                    method: 'POST',
-                    headers: {
-                      'Signature': loginSignature,
-                    }
-                  });
-                  
-                  if (!loginResponse.ok) {
-                    const loginError = await loginResponse.text();
-                    console.log('Login failed after registration:', loginError);
-                    throw new Error('Login failed after successful registration');
-                  }
-                  
-                  const loginData = await loginResponse.json();
-                  return res.json({ redirectURI: loginData.redirectURI });
+                  // Don't return here, let the main login flow continue
                 } else {
                   const retryError = await retryResponse.text();
                   console.log('Retry registration failed:', retryError);
@@ -620,12 +594,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Generate login link with query parameters (UNIX timestamp in seconds)
       const timestamp = Math.floor(Date.now() / 1000);
+      
+      // Get the actual stored user data to use correct SnapTrade user ID
+      const storedUser = await storage.getSnapTradeUser(req.user.claims.sub);
+      let actualUserId = userId;
+      let actualUserSecret = userSecret;
+      
+      if (storedUser && storedUser.userSecret !== userSecret) {
+        console.log('DEBUG: Using stored user secret instead of generated one');
+        actualUserSecret = storedUser.userSecret;
+        // Try to extract the unique user ID from the stored secret pattern
+        const secretMatch = storedUser.userSecret.match(/secret_(.+)_\d+$/);
+        if (secretMatch && secretMatch[1].includes('_')) {
+          actualUserId = secretMatch[1];
+          console.log('DEBUG: Extracted unique user ID from stored secret:', actualUserId);
+        }
+      }
+      
+      console.log('DEBUG: Final userId for login:', actualUserId);
+      console.log('DEBUG: Final userSecret pattern:', actualUserSecret.substring(0, 20) + '...');
+      
       const queryParams = new URLSearchParams({
         clientId: process.env.SNAPTRADE_CLIENT_ID,
-        userId,
-        userSecret,
+        userId: actualUserId,
+        userSecret: actualUserSecret,
         timestamp: timestamp.toString()
       });
+      
+      console.log('DEBUG: Login query params:', queryParams.toString());
       
       const loginSignature = generateSnapTradeSignature(
         'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
@@ -637,6 +633,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         '/api/v1/snapTrade/login',
         queryParams.toString()
       );
+      
+      console.log('DEBUG: Login signature generated:', loginSignature);
       
       const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?${queryParams}`, {
         method: 'POST',
@@ -855,6 +853,7 @@ function generateSnapTradeSignature(consumerKey: string, content: any, path: str
   const sigContent = JSON.stringify(sigObject, null, 0);
   
   console.log('Signature content:', sigContent);
+  console.log('Consumer key (first 10 chars):', consumerKey.substring(0, 10));
   
   const signature = crypto
     .createHmac('sha256', consumerKey)
