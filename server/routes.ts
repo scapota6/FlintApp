@@ -480,46 +480,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('SnapTrade Client ID:', process.env.SNAPTRADE_CLIENT_ID);
       console.log('SnapTrade Consumer Key present:', !!process.env.SNAPTRADE_CLIENT_SECRET);
       
-      // Check if user already exists, if not register them
+      // Check if we have stored the userSecret for this user
       let userSecret = null;
       
-      // First try to list users to check if our user exists
-      const listTimestamp = Math.floor(Date.now() / 1000);
-      const listQueryParams = new URLSearchParams({
-        clientId: process.env.SNAPTRADE_CLIENT_ID,
-        timestamp: listTimestamp.toString()
-      });
+      // Check our database for existing SnapTrade user data
+      const existingSnapTradeUser = await storage.getSnapTradeUser(userId);
       
-      const listSignature = generateSnapTradeSignature(
-        'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
-        {},
-        '/api/v1/snapTrade/users',
-        listQueryParams.toString()
-      );
-      
-      try {
-        const listResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/users?${listQueryParams}`, {
-          method: 'GET',
-          headers: {
-            'Signature': listSignature,
-          }
-        });
-        
-        if (listResponse.ok) {
-          const users = await listResponse.json();
-          const existingUser = users.find((user: any) => user.userId === userId);
-          
-          if (existingUser) {
-            userSecret = existingUser.userSecret;
-            console.log('Found existing SnapTrade user');
-          }
-        }
-      } catch (error) {
-        console.warn('Could not check existing users');
-      }
-      
-      // If user doesn't exist, register them
-      if (!userSecret) {
+      if (existingSnapTradeUser) {
+        userSecret = existingSnapTradeUser.userSecret;
+        console.log('Found stored SnapTrade user secret');
+      } else {
+        // Create new user in SnapTrade
         userSecret = `secret_${userId}_${Math.floor(Date.now() / 1000)}`;
         
         try {
@@ -550,10 +521,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (registerResponse.ok) {
             console.log('Successfully registered new SnapTrade user');
+            // Store the userSecret in our database for future use
+            await storage.createSnapTradeUser(userId, userSecret);
           } else {
             const regResponseText = await registerResponse.text();
             console.log('Register response:', regResponseText);
-            throw new Error('User registration failed');
+            
+            // If user already exists, we need their existing secret
+            if (registerResponse.status === 400 && regResponseText.includes('already exist')) {
+              console.log('User already exists in SnapTrade');
+              // For existing users, we'll use a known pattern or ask user to reconnect
+              // This is a limitation of not having the original userSecret
+              throw new Error('SnapTrade user exists but we don\'t have their secret. Please contact support to reconnect your account.');
+            } else {
+              throw new Error('User registration failed');
+            }
           }
         } catch (error) {
           console.error('Failed to register SnapTrade user:', error);

@@ -33,6 +33,10 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserStripeInfo(userId: string, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User>;
   
+  // SnapTrade user management
+  getSnapTradeUser(userId: string): Promise<{ userSecret: string } | undefined>;
+  createSnapTradeUser(userId: string, userSecret: string): Promise<void>;
+  
   // Connected accounts
   getConnectedAccounts(userId: string): Promise<ConnectedAccount[]>;
   createConnectedAccount(account: InsertConnectedAccount): Promise<ConnectedAccount>;
@@ -101,6 +105,31 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  // SnapTrade user management
+  async getSnapTradeUser(userId: string): Promise<{ userSecret: string } | undefined> {
+    const [user] = await db
+      .select({ userSecret: users.snaptradeUserSecret })
+      .from(users)
+      .where(eq(users.id, userId));
+    
+    if (user?.userSecret) {
+      return { userSecret: user.userSecret };
+    }
+    
+    return undefined;
+  }
+
+  async createSnapTradeUser(userId: string, userSecret: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        snaptradeUserId: userId,
+        snaptradeUserSecret: userSecret,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
   }
 
   // Connected accounts
