@@ -472,21 +472,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       
-      if (!process.env.SNAPTRADE_CLIENT_ID) {
-        return res.status(500).json({ message: "SnapTrade not configured. Please add SNAPTRADE_CLIENT_ID to environment variables." });
+      if (!process.env.SNAPTRADE_CLIENT_ID || !process.env.SNAPTRADE_CLIENT_SECRET) {
+        return res.status(500).json({ message: "SnapTrade not configured. Please add SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET to environment variables." });
       }
       
-      // Generate SnapTrade connection URL using correct format
-      const baseUrl = process.env.REPLIT_DOMAINS || 'http://localhost:5000';
-      const redirectUri = `${baseUrl}/api/snaptrade/callback`;
+      // First register the user if not already registered
+      const userSecret = `secret_${userId}_${Date.now()}`;
       
-      // Use the correct SnapTrade Connect URL format
-      const connectionUrl = `https://connect.snaptrade.com/connect?user_id=${userId}&client_id=${process.env.SNAPTRADE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&user_secret=secret_${userId}_${Date.now()}`;
+      try {
+        // Generate signature for registerUser request
+        const registerSignature = generateSnapTradeSignature(
+          process.env.SNAPTRADE_CLIENT_SECRET,
+          { userId, userSecret },
+          '/api/v1/snapTrade/registerUser',
+          `clientId=${process.env.SNAPTRADE_CLIENT_ID}&timestamp=${Date.now()}`
+        );
+        
+        const registerResponse = await fetch('https://api.snaptrade.com/api/v1/snapTrade/registerUser', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Signature': registerSignature,
+          },
+          body: JSON.stringify({
+            userId,
+            userSecret,
+            clientId: process.env.SNAPTRADE_CLIENT_ID,
+            timestamp: Date.now()
+          }),
+        });
+        
+        if (!registerResponse.ok && registerResponse.status !== 400) {
+          throw new Error('User registration failed');
+        }
+      } catch (error) {
+        console.warn('User may already be registered with SnapTrade');
+      }
       
-      res.json({ url: connectionUrl });
-    } catch (error) {
+      // Generate login link
+      const loginSignature = generateSnapTradeSignature(
+        process.env.SNAPTRADE_CLIENT_SECRET,
+        { 
+          userId, 
+          userSecret,
+          broker: 'QUESTRADE', // Default broker, user can change
+          immediateRedirect: true,
+          customRedirect: `${process.env.REPLIT_DOMAINS || 'http://localhost:5000'}/dashboard`
+        },
+        '/api/v1/snapTrade/login',
+        `clientId=${process.env.SNAPTRADE_CLIENT_ID}&timestamp=${Date.now()}`
+      );
+      
+      const loginResponse = await fetch('https://api.snaptrade.com/api/v1/snapTrade/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Signature': loginSignature,
+        },
+        body: JSON.stringify({
+          userId,
+          userSecret,
+          broker: 'QUESTRADE',
+          immediateRedirect: true,
+          customRedirect: `${process.env.REPLIT_DOMAINS || 'http://localhost:5000'}/dashboard`,
+          clientId: process.env.SNAPTRADE_CLIENT_ID,
+          timestamp: Date.now()
+        }),
+      });
+      
+      if (!loginResponse.ok) {
+        throw new Error('Failed to generate login link');
+      }
+      
+      const loginData = await loginResponse.json();
+      res.json({ url: loginData.redirectURI });
+      
+    } catch (error: any) {
       console.error("Error generating SnapTrade connection URL:", error);
-      res.status(500).json({ message: "Failed to generate connection URL" });
+      res.status(500).json({ message: "Failed to generate connection URL: " + error.message });
     }
   });
 
@@ -663,6 +726,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   return httpServer;
+}
+
+// Helper function to generate SnapTrade HMAC signature
+function generateSnapTradeSignature(consumerKey: string, content: any, path: string, query: string): string {
+  const crypto = require('crypto');
+  
+  const sigObject = {
+    content,
+    path,
+    query
+  };
+  
+  const sigContent = JSON.stringify(sigObject, {
+    replacer: null,
+    space: null
+  });
+  
+  const signature = crypto
+    .createHmac('sha256', consumerKey)
+    .update(sigContent)
+    .digest('base64');
+    
+  return signature;
 }
 
 // Helper function to get account limits based on subscription tier
