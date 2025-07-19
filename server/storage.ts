@@ -36,6 +36,7 @@ export interface IStorage {
   // SnapTrade user management
   getSnapTradeUser(userId: string): Promise<{ userSecret: string } | undefined>;
   createSnapTradeUser(userId: string, userSecret: string): Promise<void>;
+  deleteSnapTradeUser(userId: string): Promise<void>;
   
   // Connected accounts
   getConnectedAccounts(userId: string): Promise<ConnectedAccount[]>;
@@ -127,6 +128,17 @@ export class DatabaseStorage implements IStorage {
       .set({
         snaptradeUserId: userId,
         snaptradeUserSecret: userSecret,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async deleteSnapTradeUser(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        snaptradeUserId: null,
+        snaptradeUserSecret: null,
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));

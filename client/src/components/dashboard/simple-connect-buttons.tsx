@@ -200,26 +200,78 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                   <span className="text-gray-400 text-sm">Brokerage account linked</span>
                 </div>
               ) : (
-                <Button
-                  onClick={() => {
-                    if (!canConnectMore) {
-                      handleUpgradeNeeded();
-                      return;
-                    }
-                    snapTradeConnectMutation.mutate();
-                  }}
-                  disabled={snapTradeConnectMutation.isPending}
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  {snapTradeConnectMutation.isPending ? (
-                    "Connecting..."
-                  ) : (
-                    <>
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Connect Brokerage
-                    </>
-                  )}
-                </Button>
+                <div className="space-y-2">
+                  <Button
+                    onClick={() => {
+                      if (!canConnectMore) {
+                        handleUpgradeNeeded();
+                        return;
+                      }
+                      snapTradeConnectMutation.mutate();
+                    }}
+                    disabled={snapTradeConnectMutation.isPending}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    {snapTradeConnectMutation.isPending ? (
+                      "Connecting..."
+                    ) : (
+                      <>
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Connect Brokerage
+                      </>
+                    )}
+                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={async () => {
+                        try {
+                          const response = await apiRequest('/api/snaptrade/create-fresh-account', {
+                            method: 'POST',
+                          });
+                          toast({
+                            title: "Success",
+                            description: "Fresh SnapTrade account created! Try connecting again.",
+                          });
+                          setTimeout(() => window.location.reload(), 1500);
+                        } catch (error) {
+                          toast({
+                            title: "Error", 
+                            description: "Failed to create fresh account. Please try again.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      variant="outline"
+                      className="text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
+                    >
+                      Fresh Account
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        try {
+                          const response = await apiRequest('/api/snaptrade/sync-accounts', {
+                            method: 'GET',
+                          });
+                          toast({
+                            title: "Success",
+                            description: `Synced ${response.accountCount || 0} account(s) from SnapTrade`,
+                          });
+                          setTimeout(() => window.location.reload(), 1500);
+                        } catch (error) {
+                          toast({
+                            title: "Error", 
+                            description: "Failed to sync accounts. Please try again.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      variant="outline"
+                      className="text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
+                    >
+                      Sync Accounts
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           </div>

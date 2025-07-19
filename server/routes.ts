@@ -842,6 +842,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Force create fresh SnapTrade account for current user
+  app.post('/api/snaptrade/create-fresh-account', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      console.log('Creating fresh SnapTrade account for current user:', userId);
+      
+      // Delete existing credentials if any
+      try {
+        const existingUser = await storage.getSnapTradeUser(userId);
+        if (existingUser) {
+          console.log('Deleting existing SnapTrade credentials');
+          await storage.deleteSnapTradeUser(userId);
+        }
+      } catch (error) {
+        console.log('No existing credentials to delete');
+      }
+      
+      // Create completely new unique credentials
+      const timestamp = Math.floor(Date.now() / 1000);
+      const uniqueUserId = `${userId}_fresh_${timestamp}`;
+      const uniqueUserSecret = `secret_${uniqueUserId}_${timestamp}`;
+      
+      console.log('Creating SnapTrade user with ID:', uniqueUserId);
+      
+      const queryParams = new URLSearchParams({
+        clientId: process.env.SNAPTRADE_CLIENT_ID,
+        timestamp: timestamp.toString()
+      });
+      
+      const registerSignature = generateSnapTradeSignature(
+        'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
+        { userId: uniqueUserId, userSecret: uniqueUserSecret },
+        '/api/v1/snapTrade/registerUser',
+        queryParams.toString()
+      );
+      
+      const registerResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${queryParams}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Signature': registerSignature,
+        },
+        body: JSON.stringify({
+          userId: uniqueUserId,
+          userSecret: uniqueUserSecret
+        }),
+      });
+      
+      if (registerResponse.ok) {
+        // Store the new credentials
+        await storage.createSnapTradeUser(userId, uniqueUserSecret);
+        console.log('Successfully created fresh SnapTrade account');
+        res.json({ success: true, message: 'Fresh SnapTrade account created' });
+      } else {
+        const errorText = await registerResponse.text();
+        console.log('Registration failed:', errorText);
+        res.status(500).json({ success: false, message: 'Failed to create SnapTrade account', error: errorText });
+      }
+      
+    } catch (error) {
+      console.error('Error creating fresh SnapTrade account:', error);
+      res.status(500).json({ success: false, message: 'Error creating account' });
+    }
+  });
+
   // SnapTrade callback handler
   app.get('/api/snaptrade/callback', isAuthenticated, async (req: any, res) => {
     try {
@@ -849,39 +914,205 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       
       if (code) {
-        // Create a mock brokerage account for successful connection
-        const accountData = {
-          userId,
-          accountType: 'brokerage',
-          provider: 'snaptrade',
-          institutionName: 'Connected Broker',
-          accountName: 'Investment Account',
-          balance: "10000.00",
-          currency: 'USD',
-          accessToken: code,
-          externalAccountId: 'snaptrade_acc_' + Date.now(),
-          isActive: true,
-        };
+        console.log('SnapTrade connection successful, fetching real account data...');
         
-        await storage.createConnectedAccount(accountData);
+        // Get the user's SnapTrade credentials
+        const storedUser = await storage.getSnapTradeUser(userId);
+        if (!storedUser) {
+          console.log('No SnapTrade user found for callback');
+          res.redirect('/dashboard?error=no_user_found');
+          return;
+        }
         
-        // Log the connection
-        await storage.logActivity({
-          userId,
-          action: 'account_connected',
-          description: 'Connected brokerage account via SnapTrade',
-          metadata: { provider: 'snaptrade', accountType: 'brokerage' },
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent') || '',
-        });
+        // Extract the unique user ID from stored secret
+        const secretMatch = storedUser.userSecret.match(/secret_(.+)_\d+$/);
+        const snapTradeUserId = secretMatch ? secretMatch[1] : userId;
         
-        res.redirect('/dashboard?connected=snaptrade');
+        // Fetch real SnapTrade accounts
+        try {
+          const timestamp = Math.floor(Date.now() / 1000);
+          const queryParams = new URLSearchParams({
+            clientId: process.env.SNAPTRADE_CLIENT_ID,
+            userId: snapTradeUserId,
+            userSecret: storedUser.userSecret,
+            timestamp: timestamp.toString()
+          });
+          
+          const accountsSignature = generateSnapTradeSignature(
+            'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
+            {},
+            '/api/v1/accounts',
+            queryParams.toString()
+          );
+          
+          const accountsResponse = await fetch(`https://api.snaptrade.com/api/v1/accounts?${queryParams}`, {
+            method: 'GET',
+            headers: {
+              'Signature': accountsSignature,
+            }
+          });
+          
+          if (accountsResponse.ok) {
+            const snapTradeAccounts = await accountsResponse.json();
+            console.log('Retrieved SnapTrade accounts:', snapTradeAccounts.length);
+            
+            // Create connected accounts from SnapTrade data
+            for (const account of snapTradeAccounts) {
+              const accountData = {
+                userId,
+                accountType: 'brokerage',
+                provider: 'snaptrade',
+                institutionName: account.institution_name || 'SnapTrade Brokerage',
+                accountName: account.name || account.number,
+                balance: account.total_value?.toString() || "0.00",
+                currency: account.currency || 'USD',
+                accessToken: code,
+                externalAccountId: account.id,
+                isActive: true,
+              };
+              
+              await storage.createConnectedAccount(accountData);
+            }
+            
+            // Log the connection
+            await storage.logActivity({
+              userId,
+              action: 'account_connected',
+              description: `Connected ${snapTradeAccounts.length} brokerage account(s) via SnapTrade`,
+              metadata: { provider: 'snaptrade', accountCount: snapTradeAccounts.length },
+              ipAddress: req.ip,
+              userAgent: req.get('User-Agent') || '',
+            });
+            
+            console.log('Successfully created connected accounts from SnapTrade');
+            res.redirect('/dashboard?connected=snaptrade');
+          } else {
+            console.log('Failed to fetch SnapTrade accounts, creating placeholder');
+            // Create a placeholder account if API call fails
+            const accountData = {
+              userId,
+              accountType: 'brokerage',
+              provider: 'snaptrade',
+              institutionName: 'Connected Brokerage',
+              accountName: 'Investment Account',
+              balance: "0.00",
+              currency: 'USD',
+              accessToken: code,
+              externalAccountId: 'snaptrade_pending_' + Date.now(),
+              isActive: true,
+            };
+            
+            await storage.createConnectedAccount(accountData);
+            res.redirect('/dashboard?connected=snaptrade&status=pending');
+          }
+        } catch (error) {
+          console.error('Error fetching SnapTrade accounts:', error);
+          res.redirect('/dashboard?error=account_fetch_failed');
+        }
       } else {
         res.redirect('/dashboard?error=connection_failed');
       }
     } catch (error: any) {
       console.error("Error handling SnapTrade callback:", error);
       res.redirect('/dashboard?error=connection_failed');
+    }
+  });
+
+  // Fetch existing SnapTrade connections and accounts
+  app.get('/api/snaptrade/sync-accounts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get the user's SnapTrade credentials
+      const storedUser = await storage.getSnapTradeUser(userId);
+      if (!storedUser) {
+        return res.status(404).json({ message: 'No SnapTrade user found. Please create a fresh account first.' });
+      }
+      
+      // Extract the unique user ID from stored secret
+      const secretMatch = storedUser.userSecret.match(/secret_(.+)_\d+$/);
+      const snapTradeUserId = secretMatch ? secretMatch[1] : userId;
+      
+      console.log('Syncing SnapTrade accounts for user:', snapTradeUserId);
+      
+      const timestamp = Math.floor(Date.now() / 1000);
+      const queryParams = new URLSearchParams({
+        clientId: process.env.SNAPTRADE_CLIENT_ID,
+        userId: snapTradeUserId,
+        userSecret: storedUser.userSecret,
+        timestamp: timestamp.toString()
+      });
+      
+      const accountsSignature = generateSnapTradeSignature(
+        'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
+        {},
+        '/api/v1/accounts',
+        queryParams.toString()
+      );
+      
+      const accountsResponse = await fetch(`https://api.snaptrade.com/api/v1/accounts?${queryParams}`, {
+        method: 'GET',
+        headers: {
+          'Signature': accountsSignature,
+        }
+      });
+      
+      if (accountsResponse.ok) {
+        const snapTradeAccounts = await accountsResponse.json();
+        console.log('Retrieved SnapTrade accounts:', snapTradeAccounts.length);
+        
+        // Create/update connected accounts from SnapTrade data
+        let syncedCount = 0;
+        for (const account of snapTradeAccounts) {
+          const accountData = {
+            userId,
+            accountType: 'brokerage' as const,
+            provider: 'snaptrade',
+            institutionName: account.institution_name || 'SnapTrade Brokerage',
+            accountName: account.name || account.number,
+            balance: account.total_value?.toString() || "0.00",
+            currency: account.currency || 'USD',
+            accessToken: 'snaptrade_connected',
+            externalAccountId: account.id,
+            isActive: true,
+          };
+          
+          await storage.createConnectedAccount(accountData);
+          syncedCount++;
+        }
+        
+        // Log the sync
+        await storage.logActivity({
+          userId,
+          action: 'accounts_synced',
+          description: `Synced ${syncedCount} SnapTrade account(s)`,
+          metadata: { provider: 'snaptrade', syncedCount },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent') || '',
+        });
+        
+        res.json({ 
+          success: true, 
+          message: `Successfully synced ${syncedCount} account(s)`,
+          accountCount: syncedCount 
+        });
+      } else {
+        const errorText = await accountsResponse.text();
+        console.log('Failed to fetch SnapTrade accounts:', errorText);
+        res.status(500).json({ 
+          success: false, 
+          message: 'Failed to fetch SnapTrade accounts',
+          error: errorText 
+        });
+      }
+      
+    } catch (error: any) {
+      console.error("Error syncing SnapTrade accounts:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Error syncing accounts",
+        error: error.message 
+      });
     }
   });
 
