@@ -477,6 +477,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "SnapTrade not configured. Please add SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET to environment variables." });
       }
       
+      console.log('SnapTrade Client ID:', process.env.SNAPTRADE_CLIENT_ID);
+      console.log('SnapTrade Consumer Key present:', !!process.env.SNAPTRADE_CLIENT_SECRET);
+      
       // First register the user if not already registered
       const userSecret = `secret_${userId}_${Date.now()}`;
       
@@ -541,11 +544,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }),
       });
       
+      const responseText = await loginResponse.text();
+      console.log('SnapTrade login response status:', loginResponse.status);
+      console.log('SnapTrade login response:', responseText);
+      
       if (!loginResponse.ok) {
-        throw new Error('Failed to generate login link');
+        throw new Error(`Failed to generate login link: ${loginResponse.status} - ${responseText}`);
       }
       
-      const loginData = await loginResponse.json();
+      const loginData = JSON.parse(responseText);
       res.json({ url: loginData.redirectURI });
       
     } catch (error: any) {
