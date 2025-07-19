@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import Stripe from "stripe";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { 
@@ -730,18 +731,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 // Helper function to generate SnapTrade HMAC signature
 function generateSnapTradeSignature(consumerKey: string, content: any, path: string, query: string): string {
-  const crypto = require('crypto');
-  
   const sigObject = {
     content,
     path,
     query
   };
   
-  const sigContent = JSON.stringify(sigObject, {
-    replacer: null,
-    space: null
-  });
+  const sigContent = JSON.stringify(sigObject, null, 0);
   
   const signature = crypto
     .createHmac('sha256', consumerKey)
