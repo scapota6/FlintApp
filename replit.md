@@ -35,6 +35,7 @@ Preferred communication style: Simple, everyday language.
 15. **Database Storage Solution**: Added snaptradeUserSecret to users table and implemented proper storage methods
 16. **Smart User Management**: Now checks database first, only registers if no stored secret found
 17. **Delete/Recreate Solution**: Implemented automatic user deletion and recreation for existing users without stored secrets
+18. **Unique User ID Strategy**: Modified approach to create unique SnapTrade user IDs to avoid conflicts with existing users
 
 **Known Issues**:
 - SnapTrade timestamp validation failing during user registration

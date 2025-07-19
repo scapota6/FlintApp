@@ -527,81 +527,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const regResponseText = await registerResponse.text();
             console.log('Register response:', regResponseText);
             
-            // If user already exists, delete and recreate them
+            // If user already exists, use a modified user ID to create a fresh account
             if (registerResponse.status === 400 && regResponseText.includes('already exist')) {
-              console.log('User already exists in SnapTrade - deleting and recreating...');
+              console.log('User already exists in SnapTrade - creating with modified ID...');
+              
+              // Use a unique user ID by appending timestamp
+              const uniqueUserId = `${userId}_${Math.floor(Date.now() / 1000)}`;
+              const uniqueUserSecret = `secret_${uniqueUserId}_${Math.floor(Date.now() / 1000)}`;
               
               try {
-                // Delete existing user first
-                const deleteTimestamp = Math.floor(Date.now() / 1000);
-                const deleteQueryParams = new URLSearchParams({
+                const newTimestamp = Math.floor(Date.now() / 1000);
+                const newQueryParams = new URLSearchParams({
                   clientId: process.env.SNAPTRADE_CLIENT_ID,
-                  timestamp: deleteTimestamp.toString(),
-                  userId: userId
+                  timestamp: newTimestamp.toString()
                 });
                 
-                const deleteSignature = generateSnapTradeSignature(
+                const newSignature = generateSnapTradeSignature(
                   'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
-                  {},
-                  '/api/v1/snapTrade/deleteUser',
-                  deleteQueryParams.toString()
+                  { userId: uniqueUserId, userSecret: uniqueUserSecret },
+                  '/api/v1/snapTrade/registerUser',
+                  newQueryParams.toString()
                 );
                 
-                const deleteResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/deleteUser?${deleteQueryParams}`, {
-                  method: 'DELETE',
+                const retryResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${newQueryParams}`, {
+                  method: 'POST',
                   headers: {
-                    'Signature': deleteSignature,
-                  }
+                    'Content-Type': 'application/json',
+                    'Signature': newSignature,
+                  },
+                  body: JSON.stringify({
+                    userId: uniqueUserId,
+                    userSecret: uniqueUserSecret
+                  }),
                 });
                 
-                if (deleteResponse.ok) {
-                  console.log('Successfully deleted existing SnapTrade user');
-                  
-                  // Wait a moment and then register fresh user
-                  await new Promise(resolve => setTimeout(resolve, 1000));
-                  
-                  // Try registration again with new timestamp
-                  const newTimestamp = Math.floor(Date.now() / 1000);
-                  const newQueryParams = new URLSearchParams({
-                    clientId: process.env.SNAPTRADE_CLIENT_ID,
-                    timestamp: newTimestamp.toString()
-                  });
-                  
-                  const newSignature = generateSnapTradeSignature(
-                    'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
-                    { userId, userSecret },
-                    '/api/v1/snapTrade/registerUser',
-                    newQueryParams.toString()
-                  );
-                  
-                  const retryResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${newQueryParams}`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Signature': newSignature,
-                    },
-                    body: JSON.stringify({
-                      userId,
-                      userSecret
-                    }),
-                  });
-                  
-                  if (retryResponse.ok) {
-                    console.log('Successfully registered fresh SnapTrade user');
-                    await storage.createSnapTradeUser(userId, userSecret);
-                  } else {
-                    const retryError = await retryResponse.text();
-                    console.log('Retry registration failed:', retryError);
-                    throw new Error('Failed to register user after deletion');
-                  }
+                if (retryResponse.ok) {
+                  console.log('Successfully registered SnapTrade user with unique ID');
+                  userSecret = uniqueUserSecret;
+                  // Update userId for this session
+                  userId = uniqueUserId;
+                  await storage.createSnapTradeUser(req.user.claims.sub, uniqueUserSecret); // Store with original Flint userId
                 } else {
-                  const deleteError = await deleteResponse.text();
-                  console.log('Delete failed:', deleteError);
-                  throw new Error('Failed to delete existing user');
+                  const retryError = await retryResponse.text();
+                  console.log('Retry registration failed:', retryError);
+                  throw new Error('Failed to register user with unique ID');
                 }
-              } catch (deleteError) {
-                console.error('Error in delete/recreate flow:', deleteError);
-                throw new Error('Failed to handle existing user');
+              } catch (uniqueError) {
+                console.error('Error in unique user flow:', uniqueError);
+                throw new Error('Failed to create unique user');
               }
             } else {
               throw new Error('User registration failed');
