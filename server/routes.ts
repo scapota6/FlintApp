@@ -603,10 +603,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (storedUser && storedUser.userSecret !== userSecret) {
         console.log('DEBUG: Using stored user secret instead of generated one');
         actualUserSecret = storedUser.userSecret;
-        // Try to extract the unique user ID from the stored secret pattern
+        // Try to extract the unique user ID from the stored secret pattern: secret_{uniqueUserId}_{timestamp}
         const secretMatch = storedUser.userSecret.match(/secret_(.+)_\d+$/);
-        if (secretMatch && secretMatch[1].includes('_')) {
-          actualUserId = secretMatch[1];
+        if (secretMatch) {
+          actualUserId = secretMatch[1]; // This captures the full unique user ID including the timestamp suffix
           console.log('DEBUG: Extracted unique user ID from stored secret:', actualUserId);
         }
       }

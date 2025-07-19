@@ -1,0 +1,141 @@
+Chrome is moving towards a new experience that allows users to choose to browse without third-party cookies.Understand this warning
+eruda.js:2 
+            
+            
+           GET https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/snaptrade/connect-url 500 (Internal Server Error)
+window.fetch @ VM416 eruda.js:2
+apiRequest @ VM468 queryClient.ts:9
+getConnectionUrl @ VM524 snaptrade-api.ts:8
+mutationFn @ VM501 simple-connect-buttons.tsx:98
+fn @ VM464 @tanstack_react-query.js:1189
+run @ VM464 @tanstack_react-query.js:494
+start @ VM464 @tanstack_react-query.js:536
+execute @ VM464 @tanstack_react-query.js:1225
+await in execute
+mutate @ VM464 @tanstack_react-query.js:2630
+(anonymous) @ VM464 @tanstack_react-query.js:3295
+onClick @ VM501 simple-connect-buttons.tsx:299
+callCallback2 @ VM462 chunk-WERSD76P.js:3674
+invokeGuardedCallbackDev @ VM462 chunk-WERSD76P.js:3699
+invokeGuardedCallback @ VM462 chunk-WERSD76P.js:3733
+invokeGuardedCallbackAndCatchFirstError @ VM462 chunk-WERSD76P.js:3736
+executeDispatch @ VM462 chunk-WERSD76P.js:7014
+processDispatchQueueItemsInOrder @ VM462 chunk-WERSD76P.js:7034
+processDispatchQueue @ VM462 chunk-WERSD76P.js:7043
+dispatchEventsForPlugins @ VM462 chunk-WERSD76P.js:7051
+(anonymous) @ VM462 chunk-WERSD76P.js:7174
+batchedUpdates$1 @ VM462 chunk-WERSD76P.js:18913
+batchedUpdates @ VM462 chunk-WERSD76P.js:3579
+dispatchEventForPluginEventSystem @ VM462 chunk-WERSD76P.js:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ VM462 chunk-WERSD76P.js:5478
+dispatchEvent @ VM462 chunk-WERSD76P.js:5472
+dispatchDiscreteEvent @ VM462 chunk-WERSD76P.js:5449Understand this error
+eruda.js:2 [vite] server connection lost. Polling for restart...
+workspace_iframe.html:32 Unrecognized feature: 'ambient-light-sensor'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'battery'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-not-rendered'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-out-of-viewport'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'layout-animations'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'legacy-image-formats'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'navigation-override'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'oversized-images'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'publickey-credentials'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'speaker-selection'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'unoptimized-images'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'unsized-media'.Understand this warning
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowfullscreen'.Understand this warning
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowpaymentrequest'.Understand this warning
+Console.js:61 Warning: validateDOMNesting(...): <a> cannot appear as a descendant of <a>.
+    at a
+    at a
+    at https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=ea51f3c8:337:18
+    at div
+    at div
+    at MobileNav (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/components/layout/mobile-nav.tsx:23:22)
+    at div
+    at Dashboard (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/pages/dashboard.tsx:36:20)
+    at Route (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=ea51f3c8:323:16)
+    at Switch (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=ea51f3c8:379:17)
+    at Router (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/App.tsx?v=8O4FH8tDWutYFeH3-IKHw:34:42)
+    at div
+    at Provider (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-O46BVKQA.js?v=ea51f3c8:48:15)
+    at TooltipProvider (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=ea51f3c8:58:5)
+    at QueryClientProvider (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=ea51f3c8:2805:3)
+    at App
+Mt.forEach.n.<computed> @ Console.js:61
+printWarning @ chunk-WERSD76P.js?v=ea51f3c8:521
+error @ chunk-WERSD76P.js?v=ea51f3c8:505
+validateDOMNesting @ chunk-WERSD76P.js?v=ea51f3c8:8256
+createInstance @ chunk-WERSD76P.js?v=ea51f3c8:8328
+completeWork @ chunk-WERSD76P.js?v=ea51f3c8:16290
+completeUnitOfWork @ chunk-WERSD76P.js?v=ea51f3c8:19224
+performUnitOfWork @ chunk-WERSD76P.js?v=ea51f3c8:19206
+workLoopSync @ chunk-WERSD76P.js?v=ea51f3c8:19137
+renderRootSync @ chunk-WERSD76P.js?v=ea51f3c8:19116
+performSyncWorkOnRoot @ chunk-WERSD76P.js?v=ea51f3c8:18874
+flushSyncCallbacks @ chunk-WERSD76P.js?v=ea51f3c8:9119
+(anonymous) @ chunk-WERSD76P.js?v=ea51f3c8:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=ea51f3c8:555
+flush @ @tanstack_react-query.js?v=ea51f3c8:569
+batch @ @tanstack_react-query.js?v=ea51f3c8:587
+dispatch_fn @ @tanstack_react-query.js?v=ea51f3c8:996
+setData @ @tanstack_react-query.js?v=ea51f3c8:696
+onSuccess @ @tanstack_react-query.js?v=ea51f3c8:897
+resolve @ @tanstack_react-query.js?v=ea51f3c8:456
+Promise.then
+run @ @tanstack_react-query.js?v=ea51f3c8:498
+start @ @tanstack_react-query.js?v=ea51f3c8:536
+fetch @ @tanstack_react-query.js?v=ea51f3c8:926
+executeFetch_fn @ @tanstack_react-query.js?v=ea51f3c8:2211
+onSubscribe @ @tanstack_react-query.js?v=ea51f3c8:1898
+subscribe @ @tanstack_react-query.js?v=ea51f3c8:24
+(anonymous) @ @tanstack_react-query.js?v=ea51f3c8:3022
+subscribeToStore @ chunk-WERSD76P.js?v=ea51f3c8:11984
+commitHookEffectListMount @ chunk-WERSD76P.js?v=ea51f3c8:16915
+commitPassiveMountOnFiber @ chunk-WERSD76P.js?v=ea51f3c8:18156
+commitPassiveMountEffects_complete @ chunk-WERSD76P.js?v=ea51f3c8:18129
+commitPassiveMountEffects_begin @ chunk-WERSD76P.js?v=ea51f3c8:18119
+commitPassiveMountEffects @ chunk-WERSD76P.js?v=ea51f3c8:18109
+flushPassiveEffectsImpl @ chunk-WERSD76P.js?v=ea51f3c8:19490
+flushPassiveEffects @ chunk-WERSD76P.js?v=ea51f3c8:19447
+performSyncWorkOnRoot @ chunk-WERSD76P.js?v=ea51f3c8:18868
+flushSyncCallbacks @ chunk-WERSD76P.js?v=ea51f3c8:9119
+commitRootImpl @ chunk-WERSD76P.js?v=ea51f3c8:19432
+commitRoot @ chunk-WERSD76P.js?v=ea51f3c8:19277
+finishConcurrentRender @ chunk-WERSD76P.js?v=ea51f3c8:18805
+performConcurrentWorkOnRoot @ chunk-WERSD76P.js?v=ea51f3c8:18718
+workLoop @ chunk-WERSD76P.js?v=ea51f3c8:197
+flushWork @ chunk-WERSD76P.js?v=ea51f3c8:176
+performWorkUntilDeadline @ chunk-WERSD76P.js?v=ea51f3c8:384Understand this error
+queryClient.ts:15 
+            
+            
+           GET https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/snaptrade/connect-url 500 (Internal Server Error)
+window.fetch @ Network.js:219
+apiRequest @ queryClient.ts:15
+getConnectionUrl @ snaptrade-api.ts:52
+mutationFn @ simple-connect-buttons.tsx:96
+fn @ @tanstack_react-query.js?v=ea51f3c8:1189
+run @ @tanstack_react-query.js?v=ea51f3c8:494
+start @ @tanstack_react-query.js?v=ea51f3c8:536
+execute @ @tanstack_react-query.js?v=ea51f3c8:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=ea51f3c8:2630
+(anonymous) @ @tanstack_react-query.js?v=ea51f3c8:3295
+onClick @ simple-connect-buttons.tsx:209
+callCallback2 @ chunk-WERSD76P.js?v=ea51f3c8:3674
+invokeGuardedCallbackDev @ chunk-WERSD76P.js?v=ea51f3c8:3699
+invokeGuardedCallback @ chunk-WERSD76P.js?v=ea51f3c8:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-WERSD76P.js?v=ea51f3c8:3736
+executeDispatch @ chunk-WERSD76P.js?v=ea51f3c8:7014
+processDispatchQueueItemsInOrder @ chunk-WERSD76P.js?v=ea51f3c8:7034
+processDispatchQueue @ chunk-WERSD76P.js?v=ea51f3c8:7043
+dispatchEventsForPlugins @ chunk-WERSD76P.js?v=ea51f3c8:7051
+(anonymous) @ chunk-WERSD76P.js?v=ea51f3c8:7174
+batchedUpdates$1 @ chunk-WERSD76P.js?v=ea51f3c8:18913
+batchedUpdates @ chunk-WERSD76P.js?v=ea51f3c8:3579
+dispatchEventForPluginEventSystem @ chunk-WERSD76P.js?v=ea51f3c8:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-WERSD76P.js?v=ea51f3c8:5478
+dispatchEvent @ chunk-WERSD76P.js?v=ea51f3c8:5472
+dispatchDiscreteEvent @ chunk-WERSD76P.js?v=ea51f3c8:5449Understand this error
