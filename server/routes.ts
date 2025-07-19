@@ -480,43 +480,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('SnapTrade Client ID:', process.env.SNAPTRADE_CLIENT_ID);
       console.log('SnapTrade Consumer Key present:', !!process.env.SNAPTRADE_CLIENT_SECRET);
       
-      // First register the user if not already registered
-      const userSecret = `secret_${userId}_${Math.floor(Date.now() / 1000)}`;
+      // Check if user already exists, if not register them
+      let userSecret = null;
+      
+      // First try to list users to check if our user exists
+      const listTimestamp = Math.floor(Date.now() / 1000);
+      const listQueryParams = new URLSearchParams({
+        clientId: process.env.SNAPTRADE_CLIENT_ID,
+        timestamp: listTimestamp.toString()
+      });
+      
+      const listSignature = generateSnapTradeSignature(
+        'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
+        {},
+        '/api/v1/snapTrade/users',
+        listQueryParams.toString()
+      );
       
       try {
-        // Generate signature for registerUser request (UNIX timestamp in seconds)
-        const regTimestamp = Math.floor(Date.now() / 1000);
-        const regQueryParams = new URLSearchParams({
-          clientId: process.env.SNAPTRADE_CLIENT_ID,
-          timestamp: regTimestamp.toString()
-        });
-        
-        const registerSignature = generateSnapTradeSignature(
-          'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
-          { userId, userSecret },
-          '/api/v1/snapTrade/registerUser',
-          regQueryParams.toString()
-        );
-        
-        const registerResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${regQueryParams}`, {
-          method: 'POST',
+        const listResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/users?${listQueryParams}`, {
+          method: 'GET',
           headers: {
-            'Content-Type': 'application/json',
-            'Signature': registerSignature,
-          },
-          body: JSON.stringify({
-            userId,
-            userSecret
-          }),
+            'Signature': listSignature,
+          }
         });
         
-        if (!registerResponse.ok && registerResponse.status !== 400) {
-          const regResponseText = await registerResponse.text();
-          console.log('Register response:', regResponseText);
-          throw new Error('User registration failed');
+        if (listResponse.ok) {
+          const users = await listResponse.json();
+          const existingUser = users.find((user: any) => user.userId === userId);
+          
+          if (existingUser) {
+            userSecret = existingUser.userSecret;
+            console.log('Found existing SnapTrade user');
+          }
         }
       } catch (error) {
-        console.warn('User may already be registered with SnapTrade');
+        console.warn('Could not check existing users');
+      }
+      
+      // If user doesn't exist, register them
+      if (!userSecret) {
+        userSecret = `secret_${userId}_${Math.floor(Date.now() / 1000)}`;
+        
+        try {
+          const regTimestamp = Math.floor(Date.now() / 1000);
+          const regQueryParams = new URLSearchParams({
+            clientId: process.env.SNAPTRADE_CLIENT_ID,
+            timestamp: regTimestamp.toString()
+          });
+          
+          const registerSignature = generateSnapTradeSignature(
+            'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
+            { userId, userSecret },
+            '/api/v1/snapTrade/registerUser',
+            regQueryParams.toString()
+          );
+          
+          const registerResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${regQueryParams}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Signature': registerSignature,
+            },
+            body: JSON.stringify({
+              userId,
+              userSecret
+            }),
+          });
+          
+          if (registerResponse.ok) {
+            console.log('Successfully registered new SnapTrade user');
+          } else {
+            const regResponseText = await registerResponse.text();
+            console.log('Register response:', regResponseText);
+            throw new Error('User registration failed');
+          }
+        } catch (error) {
+          console.error('Failed to register SnapTrade user:', error);
+          throw error;
+        }
       }
       
       // Generate login link with query parameters (UNIX timestamp in seconds)

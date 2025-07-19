@@ -24,6 +24,13 @@ Preferred communication style: Simple, everyday language.
 8. **Latest Error**: Still getting "Invalid userID or userSecret provided" after query parameter fixes
 9. **Timestamp Fix**: Fixed milliseconds to seconds conversion - timestamps now working
 10. **Signature Issue**: "Unable to verify signature sent" - need to use correct consumer secret from dashboard
+11. **Consumer Secret Fix**: Used actual consumer secret - signature now generates but still "Invalid userID or userSecret provided"
+12. **Next Steps**: Research SnapTrade docs for proper user registration flow, check if webhooks required
+13. **Documentation Analysis**: 
+    - Webhooks are optional (not required for basic functionality)
+    - Users persist across sessions - should check if user exists before registering
+    - SnapTrade has official TypeScript SDK available
+    - Current issue: trying to register existing users causes authentication problems
 
 **Known Issues**:
 - SnapTrade timestamp validation failing during user registration
