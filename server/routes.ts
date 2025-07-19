@@ -492,7 +492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         const registerSignature = generateSnapTradeSignature(
-          process.env.SNAPTRADE_CLIENT_SECRET,
+          'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
           { userId, userSecret },
           '/api/v1/snapTrade/registerUser',
           regQueryParams.toString()
@@ -529,7 +529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const loginSignature = generateSnapTradeSignature(
-        process.env.SNAPTRADE_CLIENT_SECRET,
+        'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
         { 
           broker: 'QUESTRADE',
           immediateRedirect: true,
