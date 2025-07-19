@@ -527,12 +527,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const regResponseText = await registerResponse.text();
             console.log('Register response:', regResponseText);
             
-            // If user already exists, we need their existing secret
+            // If user already exists, delete and recreate them
             if (registerResponse.status === 400 && regResponseText.includes('already exist')) {
-              console.log('User already exists in SnapTrade');
-              // For existing users, we'll use a known pattern or ask user to reconnect
-              // This is a limitation of not having the original userSecret
-              throw new Error('SnapTrade user exists but we don\'t have their secret. Please contact support to reconnect your account.');
+              console.log('User already exists in SnapTrade - deleting and recreating...');
+              
+              try {
+                // Delete existing user first
+                const deleteTimestamp = Math.floor(Date.now() / 1000);
+                const deleteQueryParams = new URLSearchParams({
+                  clientId: process.env.SNAPTRADE_CLIENT_ID,
+                  timestamp: deleteTimestamp.toString(),
+                  userId: userId
+                });
+                
+                const deleteSignature = generateSnapTradeSignature(
+                  'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
+                  {},
+                  '/api/v1/snapTrade/deleteUser',
+                  deleteQueryParams.toString()
+                );
+                
+                const deleteResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/deleteUser?${deleteQueryParams}`, {
+                  method: 'DELETE',
+                  headers: {
+                    'Signature': deleteSignature,
+                  }
+                });
+                
+                if (deleteResponse.ok) {
+                  console.log('Successfully deleted existing SnapTrade user');
+                  
+                  // Wait a moment and then register fresh user
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  
+                  // Try registration again with new timestamp
+                  const newTimestamp = Math.floor(Date.now() / 1000);
+                  const newQueryParams = new URLSearchParams({
+                    clientId: process.env.SNAPTRADE_CLIENT_ID,
+                    timestamp: newTimestamp.toString()
+                  });
+                  
+                  const newSignature = generateSnapTradeSignature(
+                    'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
+                    { userId, userSecret },
+                    '/api/v1/snapTrade/registerUser',
+                    newQueryParams.toString()
+                  );
+                  
+                  const retryResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${newQueryParams}`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Signature': newSignature,
+                    },
+                    body: JSON.stringify({
+                      userId,
+                      userSecret
+                    }),
+                  });
+                  
+                  if (retryResponse.ok) {
+                    console.log('Successfully registered fresh SnapTrade user');
+                    await storage.createSnapTradeUser(userId, userSecret);
+                  } else {
+                    const retryError = await retryResponse.text();
+                    console.log('Retry registration failed:', retryError);
+                    throw new Error('Failed to register user after deletion');
+                  }
+                } else {
+                  const deleteError = await deleteResponse.text();
+                  console.log('Delete failed:', deleteError);
+                  throw new Error('Failed to delete existing user');
+                }
+              } catch (deleteError) {
+                console.error('Error in delete/recreate flow:', deleteError);
+                throw new Error('Failed to handle existing user');
+              }
             } else {
               throw new Error('User registration failed');
             }

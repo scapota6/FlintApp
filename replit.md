@@ -34,6 +34,7 @@ Preferred communication style: Simple, everyday language.
 14. **User Already Exists**: Getting "User with the following userId already exist: '45137738'" - need to handle existing users properly
 15. **Database Storage Solution**: Added snaptradeUserSecret to users table and implemented proper storage methods
 16. **Smart User Management**: Now checks database first, only registers if no stored secret found
+17. **Delete/Recreate Solution**: Implemented automatic user deletion and recreation for existing users without stored secrets
 
 **Known Issues**:
 - SnapTrade timestamp validation failing during user registration
