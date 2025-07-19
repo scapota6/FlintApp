@@ -8,19 +8,74 @@ Flint is a comprehensive financial management web application built with React a
 
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes
+## Development Activity Log
 
-### July 17, 2025
-- **Fixed Stripe Integration Issues**: Resolved startup errors by making Stripe initialization conditional on API key presence
-- **Updated Error Handling**: Added proper error responses for Stripe subscription routes when Stripe is not configured
-- **Application Startup**: Successfully debugged and fixed application startup failures
-- **Stripe Configuration**: Added Stripe secret key to environment variables - payment processing now fully enabled
-- **Frontend Stripe Error Fix**: Resolved "empty string" error in frontend by adding conditional Stripe loading and proper error handling
-- **Payment UI Enhancement**: Added proper error messages when Stripe publishable key is not available
-- **Comprehensive Financial Platform**: Implemented simplified account connections, real-time search, account limits, and activity logging
-- **API Integrations**: Added Teller.io and SnapTrade API integrations with proper authentication and error handling
-- **Fixed Connection Issues**: Resolved Teller.io CDN script loading and SnapTrade OAuth URL formatting
-- **Status**: Application is running successfully on port 5000 with all backend features enabled
+### July 19, 2025 - SnapTrade Integration Debugging Session
+**SnapTrade Integration Attempts**:
+1. **Initial Implementation**: Used direct connection URL format `https://connect.snaptrade.com/connect?user_id=${userId}&client_id=${clientId}&redirect_uri=${redirectUri}&user_secret=secret_${userId}_${timestamp}`
+2. **OAuth Flow Research**: Studied official SnapTrade documentation for proper registerUser → login → redirectURI flow
+3. **HMAC Signature Authentication**: Implemented proper signature generation with consumer key
+4. **Crypto Import Error**: Fixed "require is not defined" by changing from `const crypto = require('crypto')` to `import crypto from "crypto"`
+5. **Query Parameters Fix**: Moved clientId, userId, userSecret from request body to URL query parameters (fixed 401 "Please provide clientId, userId and userSecret in query params")
+6. **Timestamp Issues**: 
+   - Registration: "Invalid timestamp" error
+   - Login: "Invalid userID or userSecret provided" error
+7. **Current Status**: User registration failing, login failing due to invalid user credentials
+
+**Known Issues**:
+- SnapTrade timestamp validation failing during user registration
+- User secrets not being accepted by SnapTrade login API
+- Need to investigate SnapTrade's exact timestamp format requirements
+
+**Working Integrations**:
+- ✅ Teller.io: Chase login working properly
+- ✅ Stripe: Payment processing configured and functional
+- ✅ Database: PostgreSQL with Drizzle ORM working
+- ✅ Authentication: Replit Auth functioning properly
+
+**Frontend Issues Identified**:
+- Navigation warning: nested anchor tags in mobile navigation component
+- Various browser warnings about iframe attributes and features
+
+### July 17, 2025 - Core Application Setup
+**Infrastructure & Authentication**:
+- ✅ Set up Express.js backend with TypeScript
+- ✅ Configured PostgreSQL database with Neon
+- ✅ Implemented Replit Auth with OpenID Connect
+- ✅ Added session management with PostgreSQL storage
+- ✅ Created user management system
+
+**Frontend Development**:
+- ✅ Built React frontend with Vite
+- ✅ Implemented Tailwind CSS with dark mode
+- ✅ Added Radix UI components with shadcn/ui
+- ✅ Created responsive dashboard layout
+- ✅ Built account connection interface
+
+**Payment Integration**:
+- ✅ Fixed Stripe initialization errors by making it conditional
+- ✅ Added proper error handling for missing Stripe keys
+- ✅ Implemented subscription tiers (Basic, Pro, Premium)
+- ✅ Created payment UI with error states
+
+**Database Schema**:
+- ✅ Users table with subscription management
+- ✅ Connected accounts for external integrations
+- ✅ Holdings, trades, transfers tables
+- ✅ Activity logging system
+- ✅ Watchlist functionality
+
+**External API Integrations**:
+- ✅ Teller.io: Successfully integrated for bank account connections
+- ❌ SnapTrade: Multiple integration attempts, currently failing authentication
+- ✅ Stripe: Payment processing working
+
+**Current Application State**:
+- Application running on port 5000
+- All core features functional except SnapTrade
+- User can authenticate, connect bank accounts via Teller.io, manage subscriptions
+- Dashboard showing account balances and portfolio data
+- Real-time updates working (30-second intervals for dashboard, 10-second for trades)
 
 ## System Architecture
 
