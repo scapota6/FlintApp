@@ -600,8 +600,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let actualUserId = userId;
       let actualUserSecret = userSecret;
       
-      if (storedUser && storedUser.userSecret !== userSecret) {
-        console.log('DEBUG: Using stored user secret instead of generated one');
+      if (storedUser) {
+        console.log('DEBUG: Found stored SnapTrade user data');
         actualUserSecret = storedUser.userSecret;
         // Try to extract the unique user ID from the stored secret pattern: secret_{uniqueUserId}_{timestamp}
         const secretMatch = storedUser.userSecret.match(/secret_(.+)_\d+$/);
@@ -609,6 +609,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           actualUserId = secretMatch[1]; // This captures the full unique user ID including the timestamp suffix
           console.log('DEBUG: Extracted unique user ID from stored secret:', actualUserId);
         }
+      } else {
+        console.log('DEBUG: No stored SnapTrade user found, registration should have been completed above');
       }
       
       console.log('DEBUG: Final userId for login:', actualUserId);
@@ -777,6 +779,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/log-login', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      
+      // Ensure every Flint user has a SnapTrade account
+      try {
+        const existingSnapTradeUser = await storage.getSnapTradeUser(userId);
+        if (!existingSnapTradeUser) {
+          console.log('Creating automatic SnapTrade account for new user:', userId);
+          
+          const timestamp = Math.floor(Date.now() / 1000);
+          const uniqueUserId = `${userId}_${timestamp}`;
+          const uniqueUserSecret = `secret_${uniqueUserId}_${timestamp}`;
+          
+          const queryParams = new URLSearchParams({
+            clientId: process.env.SNAPTRADE_CLIENT_ID,
+            timestamp: timestamp.toString()
+          });
+          
+          const registerSignature = generateSnapTradeSignature(
+            'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
+            { userId: uniqueUserId, userSecret: uniqueUserSecret },
+            '/api/v1/snapTrade/registerUser',
+            queryParams.toString()
+          );
+          
+          const registerResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${queryParams}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Signature': registerSignature,
+            },
+            body: JSON.stringify({
+              userId: uniqueUserId,
+              userSecret: uniqueUserSecret
+            }),
+          });
+          
+          if (registerResponse.ok) {
+            await storage.createSnapTradeUser(userId, uniqueUserSecret);
+            console.log('Successfully created automatic SnapTrade account for user:', userId);
+          } else {
+            console.log('Failed to create automatic SnapTrade account, will retry on connection attempt');
+          }
+        }
+      } catch (snaptradeError) {
+        console.log('Error creating automatic SnapTrade account:', snaptradeError);
+        // Don't fail the login process if SnapTrade account creation fails
+      }
       
       await storage.logActivity({
         userId,

@@ -20,8 +20,8 @@ export default function MobileNav() {
           const Icon = item.icon;
           return (
             <Link key={item.path} href={item.path}>
-              <a
-                className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg transition-colors ${
+              <div
+                className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg transition-colors cursor-pointer ${
                   item.active
                     ? "text-blue-500"
                     : "text-gray-400 hover:text-white"
@@ -29,7 +29,7 @@ export default function MobileNav() {
               >
                 <Icon className="h-5 w-5" />
                 <span className="text-xs">{item.label}</span>
-              </a>
+              </div>
             </Link>
           );
         })}
