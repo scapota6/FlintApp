@@ -1,0 +1,58 @@
+Allow attribute will take precedence over 'allowpaymentrequest'.Understand this warning
+Console.js:61 Warning: validateDOMNesting(...): <a> cannot appear as a descendant of <a>.
+    at a
+    at a
+    at https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=014cfcb4:337:18
+    at div
+    at div
+    at MobileNav (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/components/layout/mobile-nav.tsx:23:22)
+    at div
+    at Dashboard (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/pages/dashboard.tsx:36:20)
+    at Route (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=014cfcb4:323:16)
+    at Switch (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=014cfcb4:379:17)
+    at Router (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/App.tsx?v=Q5Vg071LcS31KSNUrv3a9:34:42)
+    at div
+    at Provider (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-O46BVKQA.js?v=014cfcb4:48:15)
+    at TooltipProvider (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=014cfcb4:58:5)
+    at QueryClientProvider (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=014cfcb4:2805:3)
+    at App
+Mt.forEach.n.<computed> @ Console.js:61Understand this error
+
+                
+          
+          
+          
+         Chrome is moving towards a new experience that allows users to choose to browse without third-party cookies.Understand this warning
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+queryClient.ts:15 
+            
+            
+           GET https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/snaptrade/connect-url 500 (Internal Server Error)
+window.fetch @ Network.js:219
+apiRequest @ queryClient.ts:15
+getConnectionUrl @ snaptrade-api.ts:52
+mutationFn @ simple-connect-buttons.tsx:96
+fn @ @tanstack_react-query.js?v=014cfcb4:1189
+run @ @tanstack_react-query.js?v=014cfcb4:494
+start @ @tanstack_react-query.js?v=014cfcb4:536
+execute @ @tanstack_react-query.js?v=014cfcb4:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=014cfcb4:2630
+(anonymous) @ @tanstack_react-query.js?v=014cfcb4:3295
+onClick @ simple-connect-buttons.tsx:209
+callCallback2 @ chunk-WERSD76P.js?v=014cfcb4:3674
+invokeGuardedCallbackDev @ chunk-WERSD76P.js?v=014cfcb4:3699
+invokeGuardedCallback @ chunk-WERSD76P.js?v=014cfcb4:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-WERSD76P.js?v=014cfcb4:3736
+executeDispatch @ chunk-WERSD76P.js?v=014cfcb4:7014
+processDispatchQueueItemsInOrder @ chunk-WERSD76P.js?v=014cfcb4:7034
+processDispatchQueue @ chunk-WERSD76P.js?v=014cfcb4:7043
+dispatchEventsForPlugins @ chunk-WERSD76P.js?v=014cfcb4:7051
+(anonymous) @ chunk-WERSD76P.js?v=014cfcb4:7174
+batchedUpdates$1 @ chunk-WERSD76P.js?v=014cfcb4:18913
+batchedUpdates @ chunk-WERSD76P.js?v=014cfcb4:3579
+dispatchEventForPluginEventSystem @ chunk-WERSD76P.js?v=014cfcb4:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-WERSD76P.js?v=014cfcb4:5478
+dispatchEvent @ chunk-WERSD76P.js?v=014cfcb4:5472
+dispatchDiscreteEvent @ chunk-WERSD76P.js?v=014cfcb4:5449Understand this error

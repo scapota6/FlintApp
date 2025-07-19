@@ -485,14 +485,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         // Generate signature for registerUser request
+        const regTimestamp = Date.now();
+        const regQueryParams = new URLSearchParams({
+          clientId: process.env.SNAPTRADE_CLIENT_ID,
+          timestamp: regTimestamp.toString()
+        });
+        
         const registerSignature = generateSnapTradeSignature(
           process.env.SNAPTRADE_CLIENT_SECRET,
           { userId, userSecret },
           '/api/v1/snapTrade/registerUser',
-          `clientId=${process.env.SNAPTRADE_CLIENT_ID}&timestamp=${Date.now()}`
+          regQueryParams.toString()
         );
         
-        const registerResponse = await fetch('https://api.snaptrade.com/api/v1/snapTrade/registerUser', {
+        const registerResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${regQueryParams}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -500,47 +506,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           body: JSON.stringify({
             userId,
-            userSecret,
-            clientId: process.env.SNAPTRADE_CLIENT_ID,
-            timestamp: Date.now()
+            userSecret
           }),
         });
         
         if (!registerResponse.ok && registerResponse.status !== 400) {
+          const regResponseText = await registerResponse.text();
+          console.log('Register response:', regResponseText);
           throw new Error('User registration failed');
         }
       } catch (error) {
         console.warn('User may already be registered with SnapTrade');
       }
       
-      // Generate login link
+      // Generate login link with query parameters
+      const timestamp = Date.now();
+      const queryParams = new URLSearchParams({
+        clientId: process.env.SNAPTRADE_CLIENT_ID,
+        userId,
+        userSecret,
+        timestamp: timestamp.toString()
+      });
+      
       const loginSignature = generateSnapTradeSignature(
         process.env.SNAPTRADE_CLIENT_SECRET,
         { 
-          userId, 
-          userSecret,
-          broker: 'QUESTRADE', // Default broker, user can change
+          broker: 'QUESTRADE',
           immediateRedirect: true,
           customRedirect: `${process.env.REPLIT_DOMAINS || 'http://localhost:5000'}/dashboard`
         },
         '/api/v1/snapTrade/login',
-        `clientId=${process.env.SNAPTRADE_CLIENT_ID}&timestamp=${Date.now()}`
+        queryParams.toString()
       );
       
-      const loginResponse = await fetch('https://api.snaptrade.com/api/v1/snapTrade/login', {
+      const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?${queryParams}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Signature': loginSignature,
         },
         body: JSON.stringify({
-          userId,
-          userSecret,
           broker: 'QUESTRADE',
           immediateRedirect: true,
-          customRedirect: `${process.env.REPLIT_DOMAINS || 'http://localhost:5000'}/dashboard`,
-          clientId: process.env.SNAPTRADE_CLIENT_ID,
-          timestamp: Date.now()
+          customRedirect: `${process.env.REPLIT_DOMAINS || 'http://localhost:5000'}/dashboard`
         }),
       });
       
