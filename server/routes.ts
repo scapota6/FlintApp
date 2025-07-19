@@ -481,11 +481,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('SnapTrade Consumer Key present:', !!process.env.SNAPTRADE_CLIENT_SECRET);
       
       // First register the user if not already registered
-      const userSecret = `secret_${userId}_${Date.now()}`;
+      const userSecret = `secret_${userId}_${Math.floor(Date.now() / 1000)}`;
       
       try {
-        // Generate signature for registerUser request
-        const regTimestamp = Date.now();
+        // Generate signature for registerUser request (UNIX timestamp in seconds)
+        const regTimestamp = Math.floor(Date.now() / 1000);
         const regQueryParams = new URLSearchParams({
           clientId: process.env.SNAPTRADE_CLIENT_ID,
           timestamp: regTimestamp.toString()
@@ -519,8 +519,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.warn('User may already be registered with SnapTrade');
       }
       
-      // Generate login link with query parameters
-      const timestamp = Date.now();
+      // Generate login link with query parameters (UNIX timestamp in seconds)
+      const timestamp = Math.floor(Date.now() / 1000);
       const queryParams = new URLSearchParams({
         clientId: process.env.SNAPTRADE_CLIENT_ID,
         userId,
@@ -752,13 +752,17 @@ function generateSnapTradeSignature(consumerKey: string, content: any, path: str
     query
   };
   
+  // Use exact JSON format as specified in SnapTrade docs
   const sigContent = JSON.stringify(sigObject, null, 0);
+  
+  console.log('Signature content:', sigContent);
   
   const signature = crypto
     .createHmac('sha256', consumerKey)
     .update(sigContent)
     .digest('base64');
     
+  console.log('Generated signature:', signature);
   return signature;
 }
 

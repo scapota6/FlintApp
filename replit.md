@@ -21,6 +21,7 @@ Preferred communication style: Simple, everyday language.
    - Registration: "Invalid timestamp" error
    - Login: "Invalid userID or userSecret provided" error
 7. **Current Status**: User registration failing, login failing due to invalid user credentials
+8. **Latest Error**: Still getting "Invalid userID or userSecret provided" after query parameter fixes
 
 **Known Issues**:
 - SnapTrade timestamp validation failing during user registration
