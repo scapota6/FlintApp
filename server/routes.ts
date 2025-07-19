@@ -564,9 +564,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 if (retryResponse.ok) {
                   console.log('Successfully registered SnapTrade user with unique ID');
                   userSecret = uniqueUserSecret;
-                  // Update userId for this session
-                  userId = uniqueUserId;
+                  // Use the unique userId for SnapTrade operations
+                  const snapTradeUserId = uniqueUserId;
                   await storage.createSnapTradeUser(req.user.claims.sub, uniqueUserSecret); // Store with original Flint userId
+                  
+                  // Continue with login using the new unique user ID
+                  const loginTimestamp = Math.floor(Date.now() / 1000);
+                  const loginQueryParams = new URLSearchParams({
+                    clientId: process.env.SNAPTRADE_CLIENT_ID,
+                    userId: snapTradeUserId,
+                    userSecret: uniqueUserSecret,
+                    timestamp: loginTimestamp.toString()
+                  });
+                  
+                  const loginSignature = generateSnapTradeSignature(
+                    'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
+                    { userId: snapTradeUserId, userSecret: uniqueUserSecret },
+                    '/api/v1/snapTrade/login',
+                    loginQueryParams.toString()
+                  );
+                  
+                  const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?${loginQueryParams}`, {
+                    method: 'POST',
+                    headers: {
+                      'Signature': loginSignature,
+                    }
+                  });
+                  
+                  if (!loginResponse.ok) {
+                    const loginError = await loginResponse.text();
+                    console.log('Login failed after registration:', loginError);
+                    throw new Error('Login failed after successful registration');
+                  }
+                  
+                  const loginData = await loginResponse.json();
+                  return res.json({ redirectURI: loginData.redirectURI });
                 } else {
                   const retryError = await retryResponse.text();
                   console.log('Retry registration failed:', retryError);
