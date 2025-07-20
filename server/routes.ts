@@ -806,7 +806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           const registerSignature = generateSnapTradeSignature(
-            'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
+            process.env.SNAPTRADE_CLIENT_SECRET!,
             { userId: uniqueUserId, userSecret: uniqueUserSecret },
             '/api/v1/snapTrade/registerUser',
             queryParams.toString()
@@ -825,7 +825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           if (registerResponse.ok) {
-            await storage.createSnapTradeUser(userId, uniqueUserSecret);
+            await storage.createSnapTradeUser(userId, uniqueUserId, uniqueUserSecret);
             console.log('Successfully created automatic SnapTrade account for user:', userId);
           } else {
             console.log('Failed to create automatic SnapTrade account, will retry on connection attempt');
@@ -955,84 +955,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Creating SnapTrade user with SDK, ID:', uniqueUserId);
       
-      // First try SDK approach
+      // Use the same working approach as automatic account creation
       try {
-        console.log('Attempting user registration with SnapTrade SDK...');
-        const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
-          requestBody: {
-            userId: uniqueUserId
-          }
+        const userSecret = `secret_${uniqueUserId}_${timestamp}`;
+        
+        const content = {
+          userId: uniqueUserId,
+          userSecret: userSecret
+        };
+        
+        const signature = generateSnapTradeSignature(
+          process.env.SNAPTRADE_CLIENT_SECRET!, // Use actual environment variable
+          content,
+          '/api/v1/snapTrade/registerUser',
+          `clientId=${process.env.SNAPTRADE_CLIENT_ID}&timestamp=${timestamp}`
+        );
+        
+        const response = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?clientId=${process.env.SNAPTRADE_CLIENT_ID}&timestamp=${timestamp}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Signature': signature,
+          },
+          body: JSON.stringify(content),
         });
         
-        if (registerResponse && registerResponse.data && registerResponse.data.userSecret) {
-          // Store the credentials returned by SnapTrade
-          await storage.createSnapTradeUser(userId, uniqueUserId, registerResponse.data.userSecret);
-          console.log('Successfully created fresh SnapTrade account with SDK');
+        if (response.ok) {
+          const data = await response.json();
+          await storage.createSnapTradeUser(userId, uniqueUserId, data.userSecret || userSecret);
+          console.log('Successfully created fresh SnapTrade account');
           
           res.json({ 
             success: true, 
-            method: 'SDK',
-            message: 'Fresh SnapTrade account created using official SDK', 
+            message: 'Fresh SnapTrade account created successfully', 
             uniqueUserId,
-            userSecret: registerResponse.data.userSecret.substring(0, 10) + '...'
+            userSecret: (data.userSecret || userSecret).substring(0, 10) + '...'
           });
-          return;
-        }
-      } catch (sdkError: any) {
-        console.log('SDK registration failed, falling back to manual approach:', sdkError.message);
-        
-        // Fallback to manual registration that's working
-        try {
-          const timestamp = Math.floor(Date.now() / 1000);
-          const userSecret = `secret_${uniqueUserId}_${timestamp}`;
-          
-          const content = {
-            userId: uniqueUserId,
-            userSecret: userSecret
-          };
-          
-          const signature = generateSnapTradeSignature(
-            process.env.SNAPTRADE_CLIENT_SECRET!,
-            content,
-            '/api/v1/snapTrade/registerUser',
-            `clientId=${process.env.SNAPTRADE_CLIENT_ID}&timestamp=${timestamp}`
-          );
-          
-          const response = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?clientId=${process.env.SNAPTRADE_CLIENT_ID}&timestamp=${timestamp}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Signature': signature,
-            },
-            body: JSON.stringify(content),
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            await storage.createSnapTradeUser(userId, uniqueUserId, data.userSecret || userSecret);
-            console.log('Successfully created SnapTrade account with manual approach');
-            
-            res.json({ 
-              success: true, 
-              method: 'Manual',
-              message: 'Fresh SnapTrade account created using fallback method', 
-              uniqueUserId,
-              userSecret: (data.userSecret || userSecret).substring(0, 10) + '...'
-            });
-            return;
-          } else {
-            const errorData = await response.text();
-            throw new Error(`Manual registration failed: ${response.status} ${errorData}`);
-          }
-        } catch (manualError: any) {
-          console.error('Both SDK and manual registration failed:', manualError);
+        } else {
+          const errorData = await response.text();
+          console.error('Registration failed:', errorData);
           res.status(500).json({ 
             success: false, 
-            message: 'Both SDK and manual registration failed', 
-            sdkError: sdkError.message,
-            manualError: manualError.message
+            message: `Registration failed: ${response.status} ${errorData}`
           });
         }
+      } catch (error: any) {
+        console.error('Error in fresh account creation:', error);
+        res.status(500).json({ 
+          success: false, 
+          message: 'Error creating fresh account', 
+          error: error.message
+        });
       }
       
     } catch (error: any) {
