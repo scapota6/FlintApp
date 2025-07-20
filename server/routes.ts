@@ -955,27 +955,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Creating SnapTrade user with SDK, ID:', uniqueUserId);
       
-      // Use SnapTrade SDK to register user
-      const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
-        requestBody: {
-          userId: uniqueUserId
-        }
-      });
-      
-      if (registerResponse && registerResponse.data && registerResponse.data.userSecret) {
-        // Store the credentials returned by SnapTrade
-        await storage.createSnapTradeUser(userId, uniqueUserId, registerResponse.data.userSecret);
-        console.log('Successfully created fresh SnapTrade account with SDK');
-        
-        res.json({ 
-          success: true, 
-          message: 'Fresh SnapTrade account created using official SDK', 
-          uniqueUserId,
-          userSecret: registerResponse.data.userSecret.substring(0, 10) + '...' // Partial for debugging
+      // First try SDK approach
+      try {
+        console.log('Attempting user registration with SnapTrade SDK...');
+        const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
+          requestBody: {
+            userId: uniqueUserId
+          }
         });
-      } else {
-        console.log('Registration failed: No user secret returned', registerResponse);
-        res.status(500).json({ success: false, message: 'Failed to create SnapTrade account - no secret returned' });
+        
+        if (registerResponse && registerResponse.data && registerResponse.data.userSecret) {
+          // Store the credentials returned by SnapTrade
+          await storage.createSnapTradeUser(userId, uniqueUserId, registerResponse.data.userSecret);
+          console.log('Successfully created fresh SnapTrade account with SDK');
+          
+          res.json({ 
+            success: true, 
+            method: 'SDK',
+            message: 'Fresh SnapTrade account created using official SDK', 
+            uniqueUserId,
+            userSecret: registerResponse.data.userSecret.substring(0, 10) + '...'
+          });
+          return;
+        }
+      } catch (sdkError: any) {
+        console.log('SDK registration failed, falling back to manual approach:', sdkError.message);
+        
+        // Fallback to manual registration that's working
+        try {
+          const timestamp = Math.floor(Date.now() / 1000);
+          const userSecret = `secret_${uniqueUserId}_${timestamp}`;
+          
+          const content = {
+            userId: uniqueUserId,
+            userSecret: userSecret
+          };
+          
+          const signature = generateSnapTradeSignature(
+            process.env.SNAPTRADE_CLIENT_SECRET!,
+            content,
+            '/api/v1/snapTrade/registerUser',
+            `clientId=${process.env.SNAPTRADE_CLIENT_ID}&timestamp=${timestamp}`
+          );
+          
+          const response = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?clientId=${process.env.SNAPTRADE_CLIENT_ID}&timestamp=${timestamp}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Signature': signature,
+            },
+            body: JSON.stringify(content),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            await storage.createSnapTradeUser(userId, uniqueUserId, data.userSecret || userSecret);
+            console.log('Successfully created SnapTrade account with manual approach');
+            
+            res.json({ 
+              success: true, 
+              method: 'Manual',
+              message: 'Fresh SnapTrade account created using fallback method', 
+              uniqueUserId,
+              userSecret: (data.userSecret || userSecret).substring(0, 10) + '...'
+            });
+            return;
+          } else {
+            const errorData = await response.text();
+            throw new Error(`Manual registration failed: ${response.status} ${errorData}`);
+          }
+        } catch (manualError: any) {
+          console.error('Both SDK and manual registration failed:', manualError);
+          res.status(500).json({ 
+            success: false, 
+            message: 'Both SDK and manual registration failed', 
+            sdkError: sdkError.message,
+            manualError: manualError.message
+          });
+        }
       }
       
     } catch (error: any) {
