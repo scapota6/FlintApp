@@ -925,110 +925,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate SnapTrade connection portal URL for widget
-  app.post('/api/snaptrade/generate-portal-url', isAuthenticated, async (req: any, res) => {
+  // SnapTrade Integration - Follow official docs exactly
+  // Step 1: Register SnapTrade user (one per Flint user)
+  app.post('/api/snaptrade/register-user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      console.log('Generating SnapTrade connection portal URL for user:', userId);
+      console.log('SnapTrade: Registering user for Flint user:', userId);
       
       if (!snapTradeClient) {
         return res.status(500).json({ success: false, message: 'SnapTrade client not initialized' });
       }
       
-      // Get or create SnapTrade user
-      let snapTradeUser = await storage.getSnapTradeUser(userId);
+      // Check if user already exists - one SnapTrade user per Flint user
+      const existingUser = await storage.getSnapTradeUser(userId);
+      if (existingUser) {
+        console.log('SnapTrade user already exists for Flint user:', userId);
+        return res.json({
+          success: true,
+          message: 'SnapTrade user already exists',
+          userId: existingUser.snaptradeUserId
+        });
+      }
       
-      if (!snapTradeUser) {
-        // Create SnapTrade user first using SDK (more reliable)
-        const timestamp = Math.floor(Date.now() / 1000);
-        const uniqueUserId = `flint_${userId}_${timestamp}`;
-        
-        try {
-          console.log('Creating SnapTrade user with SDK, ID:', uniqueUserId);
-          const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
-            requestBody: {
-              userId: uniqueUserId
-            }
-          });
-          
-          if (registerResponse?.data?.userSecret) {
-            await storage.createSnapTradeUser(userId, uniqueUserId, registerResponse.data.userSecret);
-            snapTradeUser = await storage.getSnapTradeUser(userId);
-            console.log('Successfully created SnapTrade user via SDK');
-          } else {
-            throw new Error('SDK registration failed - no userSecret returned');
-          }
-        } catch (sdkError: any) {
-          console.log('SDK registration failed, trying manual approach:', sdkError.message);
-          
-          // Fallback to manual registration with corrected signature
-          const userSecret = `secret_${uniqueUserId}_${timestamp}`;
-          
-          const queryParams = new URLSearchParams({
-            clientId: process.env.SNAPTRADE_CLIENT_ID!,
-            timestamp: timestamp.toString()
-          });
-          
-          const signature = generateSnapTradeSignature(
-            process.env.SNAPTRADE_CLIENT_SECRET!,
-            { userId: uniqueUserId, userSecret: userSecret },
-            '/api/v1/snapTrade/registerUser',
-            queryParams.toString()
-          );
-          
-          const response = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${queryParams}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Signature': signature,
-            },
-            body: JSON.stringify({
-              userId: uniqueUserId,
-              userSecret: userSecret
-            }),
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            await storage.createSnapTradeUser(userId, uniqueUserId, data.userSecret || userSecret);
-            snapTradeUser = await storage.getSnapTradeUser(userId);
-            console.log('Successfully created SnapTrade user via manual registration');
-          } else {
-            const errorData = await response.text();
-            throw new Error(`Manual registration failed: ${response.status} ${errorData}`);
-          }
+      // Create unique userId as recommended by SnapTrade (immutable, not email)
+      const snapTradeUserId = `flint_user_${userId}`;
+      
+      console.log('Creating SnapTrade user with ID:', snapTradeUserId);
+      
+      // Use SDK to register user (official SnapTrade approach)
+      const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
+        requestBody: {
+          userId: snapTradeUserId
         }
+      });
+      
+      if (registerResponse?.data?.userSecret) {
+        // Store the user credentials
+        await storage.createSnapTradeUser(userId, snapTradeUserId, registerResponse.data.userSecret);
+        
+        console.log('Successfully registered SnapTrade user:', snapTradeUserId);
+        
+        res.json({
+          success: true,
+          message: 'SnapTrade user registered successfully',
+          userId: snapTradeUserId
+        });
+      } else {
+        throw new Error('Registration failed - no userSecret returned');
       }
       
+    } catch (error: any) {
+      console.error('SnapTrade user registration error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to register SnapTrade user',
+        error: error.message
+      });
+    }
+  });
+
+  // Step 2: Generate connection portal URL (official SnapTrade flow)
+  app.post('/api/snaptrade/connection-portal', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      console.log('SnapTrade: Generating connection portal for Flint user:', userId);
+      
+      if (!snapTradeClient) {
+        return res.status(500).json({ success: false, message: 'SnapTrade client not initialized' });
+      }
+      
+      // Get SnapTrade user (must exist)
+      const snapTradeUser = await storage.getSnapTradeUser(userId);
       if (!snapTradeUser) {
-        throw new Error('Failed to create or retrieve SnapTrade user');
+        return res.status(400).json({
+          success: false,
+          message: 'SnapTrade user not found. Please register first.'
+        });
       }
       
-      // Generate connection portal URL using SDK
+      console.log('Generating portal URL for SnapTrade user:', snapTradeUser.snaptradeUserId);
+      
+      // Generate connection portal URL using official SnapTrade SDK
       const portalResponse = await snapTradeClient.authentication.getConnectionPortalUrl({
         requestBody: {
           userId: snapTradeUser.snaptradeUserId,
           userSecret: snapTradeUser.snaptradeUserSecret,
-          returnUrl: `${req.protocol}://${req.get('host')}/dashboard`
+          returnUrl: `${req.protocol}://${req.get('host')}/dashboard?connected=true`
         }
       });
       
       if (portalResponse?.data?.redirectURI) {
-        res.json({ 
-          success: true, 
+        console.log('Connection portal URL generated successfully');
+        res.json({
+          success: true,
           portalUrl: portalResponse.data.redirectURI,
-          message: 'Connection portal URL generated successfully'
+          message: 'Connection portal ready'
         });
       } else {
-        throw new Error('Failed to generate portal URL');
+        throw new Error('No portal URL returned from SnapTrade');
       }
       
     } catch (error: any) {
-      console.error("Error generating portal URL:", error);
-      res.status(500).json({ 
-        success: false, 
-        message: "Error generating connection portal URL",
-        error: error.message 
+      console.error('SnapTrade portal generation error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to generate connection portal',
+        error: error.message
+      });
+    }
+  });
+
+  // Step 3: List SnapTrade accounts (after successful connection)
+  app.get('/api/snaptrade/accounts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      console.log('SnapTrade: Fetching accounts for Flint user:', userId);
+      
+      if (!snapTradeClient) {
+        return res.status(500).json({ success: false, message: 'SnapTrade client not initialized' });
+      }
+      
+      // Get SnapTrade user
+      const snapTradeUser = await storage.getSnapTradeUser(userId);
+      if (!snapTradeUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'SnapTrade user not found. Please register first.'
+        });
+      }
+      
+      // Fetch accounts using SnapTrade SDK
+      const accountsResponse = await snapTradeClient.accountInformation.listUserAccounts({
+        userId: snapTradeUser.snaptradeUserId,
+        userSecret: snapTradeUser.snaptradeUserSecret
+      });
+      
+      const accounts = accountsResponse?.data || [];
+      console.log(`Found ${accounts.length} SnapTrade accounts`);
+      
+      res.json({
+        success: true,
+        accounts: accounts,
+        message: `Found ${accounts.length} account(s)`
+      });
+      
+    } catch (error: any) {
+      console.error('SnapTrade accounts fetch error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch SnapTrade accounts',
+        error: error.message
       });
     }
   });

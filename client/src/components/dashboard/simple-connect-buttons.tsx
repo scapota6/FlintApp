@@ -264,24 +264,28 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                     <Button
                       onClick={async () => {
                         try {
-                          const response = await apiRequest('POST', '/api/snaptrade/generate-portal-url');
+                          // Step 1: Ensure SnapTrade user exists (one per Flint user)
+                          await apiRequest('POST', '/api/snaptrade/register-user');
+                          
+                          // Step 2: Generate connection portal URL
+                          const response = await apiRequest('POST', '/api/snaptrade/connection-portal');
                           const data = await response.json();
                           
                           if (data.success && data.portalUrl) {
-                            // Open SnapTrade connection portal in new window
+                            // Open SnapTrade connection portal (official approach)
                             window.open(data.portalUrl, '_blank', 'width=800,height=600');
                             toast({
-                              title: "Connection Portal Opened",
+                              title: "SnapTrade Connection Portal",
                               description: "Complete the brokerage connection in the new window",
                             });
                           } else {
                             throw new Error(data.message || 'Failed to generate portal URL');
                           }
                         } catch (error: any) {
-                          console.error('Portal generation error:', error);
+                          console.error('SnapTrade connection error:', error);
                           toast({
-                            title: "Error", 
-                            description: error.message || "Failed to open connection portal.",
+                            title: "Connection Error", 
+                            description: error.message || "Failed to start SnapTrade connection.",
                             variant: "destructive",
                           });
                         }
@@ -289,23 +293,23 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                       variant="outline"
                       className="text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
                     >
-                      Connect Portal
+                      Connect Brokerage
                     </Button>
                     <Button
                       onClick={async () => {
                         try {
-                          const response = await apiRequest('GET', '/api/snaptrade/sync-accounts');
+                          const response = await apiRequest('GET', '/api/snaptrade/accounts');
                           const data = await response.json();
                           toast({
                             title: "Success",
-                            description: `Synced ${data.accountCount || 0} account(s) from SnapTrade`,
+                            description: `Found ${data.accounts?.length || 0} SnapTrade account(s)`,
                           });
                           await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
                         } catch (error: any) {
-                          console.error('Sync accounts error:', error);
+                          console.error('List accounts error:', error);
                           toast({
                             title: "Error", 
-                            description: error.message || "Failed to sync accounts. Please try again.",
+                            description: error.message || "Failed to list accounts. Please try again.",
                             variant: "destructive",
                           });
                         }
@@ -313,7 +317,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                       variant="outline"
                       className="text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
                     >
-                      Sync Accounts
+                      List Accounts
                     </Button>
 
                   </div>
