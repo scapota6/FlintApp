@@ -794,7 +794,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const existingSnapTradeUser = await storage.getSnapTradeUser(userId);
         if (!existingSnapTradeUser) {
-          console.log('Creating automatic SnapTrade account for new user:', userId);
+          console.log('No SnapTrade account found for user:', userId, '- use Fresh Account to create one');
+          // Disabled automatic creation to avoid conflicts with manual fresh account creation
           
           const timestamp = Math.floor(Date.now() / 1000);
           const uniqueUserId = `${userId}_${timestamp}`;
@@ -824,12 +825,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }),
           });
           
-          if (registerResponse.ok) {
-            await storage.createSnapTradeUser(userId, uniqueUserId, uniqueUserSecret);
-            console.log('Successfully created automatic SnapTrade account for user:', userId);
-          } else {
-            console.log('Failed to create automatic SnapTrade account, will retry on connection attempt');
-          }
+          // Automatic account creation disabled to prevent conflicts
+          console.log('Automatic account creation disabled - use Fresh Account button instead');
         }
       } catch (snaptradeError) {
         console.log('Error creating automatic SnapTrade account:', snaptradeError);
@@ -955,29 +952,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Creating SnapTrade user with SDK, ID:', uniqueUserId);
       
-      // Use the same working approach as automatic account creation
+      // Use exact same working approach as automatic account creation
       try {
         const userSecret = `secret_${uniqueUserId}_${timestamp}`;
         
-        const content = {
-          userId: uniqueUserId,
-          userSecret: userSecret
-        };
+        const queryParams = new URLSearchParams({
+          clientId: process.env.SNAPTRADE_CLIENT_ID,
+          timestamp: timestamp.toString()
+        });
         
         const signature = generateSnapTradeSignature(
-          process.env.SNAPTRADE_CLIENT_SECRET!, // Use actual environment variable
-          content,
+          process.env.SNAPTRADE_CLIENT_SECRET!,
+          { userId: uniqueUserId, userSecret: userSecret },
           '/api/v1/snapTrade/registerUser',
-          `clientId=${process.env.SNAPTRADE_CLIENT_ID}&timestamp=${timestamp}`
+          queryParams.toString()
         );
         
-        const response = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?clientId=${process.env.SNAPTRADE_CLIENT_ID}&timestamp=${timestamp}`, {
+        const response = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${queryParams}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Signature': signature,
           },
-          body: JSON.stringify(content),
+          body: JSON.stringify({
+            userId: uniqueUserId,
+            userSecret: userSecret
+          }),
         });
         
         if (response.ok) {
