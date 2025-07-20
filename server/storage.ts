@@ -327,6 +327,19 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return newData;
   }
+
+  // SnapTrade user management (addition)
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
+  async getAllSnapTradeUsers(): Promise<Array<{ userId: string; snaptradeUserId: string; snaptradeUserSecret: string }>> {
+    return await db.select({
+      userId: snaptradeUsers.userId,
+      snaptradeUserId: snaptradeUsers.snaptradeUserId,
+      snaptradeUserSecret: snaptradeUsers.snaptradeUserSecret
+    }).from(snaptradeUsers);
+  }
 }
 
 export const storage = new DatabaseStorage();

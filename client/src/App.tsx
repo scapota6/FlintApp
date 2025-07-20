@@ -12,6 +12,7 @@ import Transfers from "@/pages/transfers";
 import Watchlist from "@/pages/watchlist";
 import Activity from "@/pages/activity";
 import Subscribe from "@/pages/subscribe";
+import Admin from "@/pages/admin";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -36,6 +37,7 @@ function Router() {
           <Route path="/watchlist" component={Watchlist} />
           <Route path="/activity" component={Activity} />
           <Route path="/subscribe" component={Subscribe} />
+          <Route path="/admin" component={Admin} />
         </>
       )}
       <Route component={NotFound} />

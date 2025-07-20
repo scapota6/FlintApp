@@ -237,7 +237,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                       </>
                     )}
                   </Button>
-                  <div className="grid grid-cols-4 gap-1">
+                  <div className="grid grid-cols-3 gap-1">
                     <Button
                       onClick={async () => {
                         try {
@@ -309,29 +309,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                     >
                       Sync Accounts
                     </Button>
-                    <Button
-                      onClick={async () => {
-                        try {
-                          const response = await apiRequest('GET', '/api/snaptrade/list-users');
-                          const data = await response.json();
-                          toast({
-                            title: "SnapTrade Users",
-                            description: `Found ${data.users?.length || 0} users in SnapTrade`,
-                          });
-                        } catch (error: any) {
-                          console.error('List users error:', error);
-                          toast({
-                            title: "Error", 
-                            description: error.message || "Failed to list users.",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      variant="outline"
-                      className="text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
-                    >
-                      List Users
-                    </Button>
+
                   </div>
                 </div>
               )}

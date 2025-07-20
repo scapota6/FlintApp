@@ -1227,6 +1227,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin API routes for user and SnapTrade management
+  app.get('/api/admin/users', isAuthenticated, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.get('/api/admin/snaptrade-users', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!snapTradeClient) {
+        return res.status(500).json({ message: 'SnapTrade client not initialized' });
+      }
+      
+      const response = await snapTradeClient.authentication.listSnapTradeUsers();
+      res.json({ users: response });
+    } catch (error: any) {
+      console.error("Error listing SnapTrade users:", error);
+      res.status(500).json({ message: "Failed to list SnapTrade users: " + error.message });
+    }
+  });
+
+  app.delete('/api/admin/snaptrade-user/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!snapTradeClient) {
+        return res.status(500).json({ message: 'SnapTrade client not initialized' });
+      }
+      
+      const { userId } = req.params;
+      await snapTradeClient.authentication.deleteSnapTradeUser({
+        requestBody: { userId }
+      });
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting SnapTrade user:", error);
+      res.status(500).json({ message: "Failed to delete SnapTrade user: " + error.message });
+    }
+  });
+
+  app.post('/api/admin/cleanup-snaptrade', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!snapTradeClient) {
+        return res.status(500).json({ message: 'SnapTrade client not initialized' });
+      }
+      
+      // Get all SnapTrade users
+      const snaptradeUsers = await snapTradeClient.authentication.listSnapTradeUsers();
+      
+      // Get all Flint users with SnapTrade connections
+      const flintUsers = await storage.getAllSnapTradeUsers();
+      const connectedUserIds = flintUsers.map(u => u.snaptradeUserId);
+      
+      // Find orphaned SnapTrade users
+      const orphanedUsers = snaptradeUsers.filter(su => !connectedUserIds.includes(su.userId));
+      
+      // Delete orphaned users
+      let deletedCount = 0;
+      for (const orphan of orphanedUsers) {
+        try {
+          await snapTradeClient.authentication.deleteSnapTradeUser({
+            requestBody: { userId: orphan.userId }
+          });
+          deletedCount++;
+        } catch (deleteError) {
+          console.error(`Failed to delete orphaned user ${orphan.userId}:`, deleteError);
+        }
+      }
+      
+      res.json({ deletedCount, totalOrphaned: orphanedUsers.length });
+    } catch (error: any) {
+      console.error("Error cleaning up SnapTrade users:", error);
+      res.status(500).json({ message: "Failed to cleanup SnapTrade users: " + error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
