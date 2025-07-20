@@ -241,9 +241,8 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                     <Button
                       onClick={async () => {
                         try {
-                          const response = await apiRequest('/api/snaptrade/create-fresh-account', {
-                            method: 'POST',
-                          });
+                          const response = await apiRequest('POST', '/api/snaptrade/create-fresh-account');
+                          const data = await response.json();
                           toast({
                             title: "Success",
                             description: "Fresh SnapTrade account created! Try connecting again.",
@@ -265,12 +264,11 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                     <Button
                       onClick={async () => {
                         try {
-                          const response = await apiRequest('/api/snaptrade/sync-accounts', {
-                            method: 'GET',
-                          });
+                          const response = await apiRequest('GET', '/api/snaptrade/sync-accounts');
+                          const data = await response.json();
                           toast({
                             title: "Success",
-                            description: `Synced ${response.accountCount || 0} account(s) from SnapTrade`,
+                            description: `Synced ${data.accountCount || 0} account(s) from SnapTrade`,
                           });
                           setTimeout(() => window.location.reload(), 1500);
                         } catch (error) {
