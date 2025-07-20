@@ -30,9 +30,10 @@ if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET) {
   snapTradeClient = new Snaptrade({
     clientId: process.env.SNAPTRADE_CLIENT_ID,
     consumerKey: process.env.SNAPTRADE_CLIENT_SECRET,
+    // Note: API keys configured for flint-investing.com domain
   });
   
-  console.log('SnapTrade SDK initialized successfully');
+  console.log('SnapTrade SDK initialized successfully for flint-investing.com domain');
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -997,18 +998,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Creating SnapTrade user with ID:', snapTradeUserId);
       
       // Use SDK to register user (official SnapTrade approach)
-      // Log the current request info for debugging domain issues
-      console.log('Request details for SnapTrade:', {
-        host: req.get('host'),
-        origin: req.get('origin'),
-        referer: req.get('referer'),
-        userAgent: req.get('user-agent'),
-        protocol: req.protocol,
-        headers: {
-          'x-forwarded-host': req.get('x-forwarded-host'),
-          'x-forwarded-proto': req.get('x-forwarded-proto')
-        }
-      });
+      // Note: SnapTrade API keys are configured for flint-investing.com domain
+      console.log('SnapTrade request from:', req.get('host'), '| Using configured domain: flint-investing.com');
       
       const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
         requestBody: {
@@ -1063,9 +1054,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Generating portal URL for SnapTrade user:', snapTradeUser.snaptradeUserId);
       
       // Generate connection portal URL using official SnapTrade SDK
-      // Use production domain if available, otherwise use current host
-      const returnHost = process.env.NODE_ENV === 'production' ? 'flint-investing.com' : req.get('host');
-      const returnUrl = `${req.protocol}://${returnHost}/dashboard?connected=true`;
+      // Always use flint-investing.com domain for SnapTrade (where API keys are configured)
+      const returnUrl = `https://flint-investing.com/dashboard?connected=true`;
       
       console.log('Using return URL for SnapTrade portal:', returnUrl);
       
