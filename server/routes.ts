@@ -901,6 +901,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test SnapTrade API connection
+  app.get('/api/snaptrade/status', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!snapTradeClient) {
+        return res.status(500).json({ message: 'SnapTrade client not initialized' });
+      }
+      
+      console.log('Testing SnapTrade API status...');
+      const statusResponse = await snapTradeClient.apiStatus.check();
+      
+      console.log('SnapTrade API status successful:', statusResponse);
+      res.json({ 
+        success: true, 
+        message: 'SnapTrade API connection successful',
+        status: statusResponse 
+      });
+      
+    } catch (error: any) {
+      console.error("SnapTrade API status error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "SnapTrade API connection failed", 
+        error: error.toString() 
+      });
+    }
+  });
+
   // Force create fresh SnapTrade account for current user
   app.post('/api/snaptrade/create-fresh-account', isAuthenticated, async (req: any, res) => {
     try {

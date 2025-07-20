@@ -237,7 +237,30 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                       </>
                     )}
                   </Button>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-1">
+                    <Button
+                      onClick={async () => {
+                        try {
+                          const response = await apiRequest('GET', '/api/snaptrade/status');
+                          const data = await response.json();
+                          toast({
+                            title: "Success",
+                            description: `SnapTrade API working! Version: ${data.status?.version}`,
+                          });
+                        } catch (error: any) {
+                          console.error('API status error:', error);
+                          toast({
+                            title: "Error", 
+                            description: error.message || "SnapTrade API connection failed.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      variant="outline"
+                      className="text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
+                    >
+                      Test API
+                    </Button>
                     <Button
                       onClick={async () => {
                         try {
