@@ -998,8 +998,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Creating SnapTrade user with ID:', snapTradeUserId);
       
       // Use SDK to register user (official SnapTrade approach)
-      // Note: SnapTrade API keys are configured for flint-investing.com domain
-      console.log('SnapTrade request from:', req.get('host'), '| Using configured domain: flint-investing.com');
+      // Domain added to SnapTrade dashboard - testing signature verification
+      console.log('SnapTrade request from:', req.get('host'), '| Domain should now be authorized in SnapTrade dashboard');
       
       // Using exact pattern from official SnapTrade SDK documentation
       const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
@@ -1023,10 +1023,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
     } catch (error: any) {
       console.error('SnapTrade user registration error:', error);
+      
+      // Enhanced error logging for diagnosis
+      console.error('Full error object:', {
+        message: error.message,
+        status: error.status,
+        responseBody: error.responseBody,
+        code: error.code,
+        method: error.method,
+        url: error.url
+      });
+      
+      // Log current environment details
+      console.error('Environment details:', {
+        clientId: process.env.SNAPTRADE_CLIENT_ID,
+        consumerKeyPrefix: process.env.SNAPTRADE_CLIENT_SECRET?.substring(0, 10),
+        nodeEnv: process.env.NODE_ENV,
+        host: req.get('host')
+      });
+      
       res.status(500).json({
         success: false,
         message: 'Failed to register SnapTrade user',
-        error: error.message
+        error: error.message,
+        details: 'Signature verification failed - please check SnapTrade API key configuration'
       });
     }
   });

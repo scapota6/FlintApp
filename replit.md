@@ -22,9 +22,10 @@ Preferred communication style: Simple, everyday language.
 - **Solution**: Use flint-investing.com domain for SnapTrade callbacks while developing on Replit
 - **Status**: Domain configuration attempted but signature verification still failing
 - **Current Issue**: SnapTrade doesn't support domain whitelisting; likely credential or environment configuration issue
-- **Action**: Replit domain added to SnapTrade dashboard configuration
-- **URL Added**: https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev:5000
-- **Expected Result**: Should resolve signature verification issues
+- **Discovery**: SnapTrade doesn't use domain allowlisting; uses API-based redirect URI generation
+- **Issue**: Signature verification failing despite correct SDK implementation and valid credentials
+- **Likely Causes**: API key environment mismatch (sandbox vs production) or dashboard configuration issue
+- **Next Step**: Enhanced error logging to identify exact configuration problem
 
 ### July 19, 2025 - SnapTrade Integration Debugging Session (Historical)
 **Previous SnapTrade Integration Attempts**:
