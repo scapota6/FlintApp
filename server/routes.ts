@@ -911,11 +911,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Testing SnapTrade API status...');
       const statusResponse = await snapTradeClient.apiStatus.check();
       
-      console.log('SnapTrade API status successful:', statusResponse);
+      console.log('SnapTrade API status successful:', statusResponse.data);
       res.json({ 
         success: true, 
         message: 'SnapTrade API connection successful',
-        status: statusResponse 
+        status: statusResponse.data 
       });
       
     } catch (error: any) {
@@ -962,19 +962,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      if (registerResponse && registerResponse.userSecret) {
+      if (registerResponse && registerResponse.data && registerResponse.data.userSecret) {
         // Store the credentials returned by SnapTrade
-        await storage.createSnapTradeUser(userId, uniqueUserId, registerResponse.userSecret);
+        await storage.createSnapTradeUser(userId, uniqueUserId, registerResponse.data.userSecret);
         console.log('Successfully created fresh SnapTrade account with SDK');
         
         res.json({ 
           success: true, 
-          message: 'Fresh SnapTrade account created', 
+          message: 'Fresh SnapTrade account created using official SDK', 
           uniqueUserId,
-          userSecret: registerResponse.userSecret.substring(0, 10) + '...' // Partial for debugging
+          userSecret: registerResponse.data.userSecret.substring(0, 10) + '...' // Partial for debugging
         });
       } else {
-        console.log('Registration failed: No user secret returned');
+        console.log('Registration failed: No user secret returned', registerResponse);
         res.status(500).json({ success: false, message: 'Failed to create SnapTrade account - no secret returned' });
       }
       
