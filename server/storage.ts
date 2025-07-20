@@ -25,7 +25,7 @@ import {
   type InsertMarketData,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { eq, and, desc, asc, isNotNull } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -335,10 +335,10 @@ export class DatabaseStorage implements IStorage {
 
   async getAllSnapTradeUsers(): Promise<Array<{ userId: string; snaptradeUserId: string; snaptradeUserSecret: string }>> {
     return await db.select({
-      userId: snaptradeUsers.userId,
-      snaptradeUserId: snaptradeUsers.snaptradeUserId,
-      snaptradeUserSecret: snaptradeUsers.snaptradeUserSecret
-    }).from(snaptradeUsers);
+      userId: users.id,
+      snaptradeUserId: users.snaptradeUserId,
+      snaptradeUserSecret: users.snaptradeUserSecret
+    }).from(users).where(isNotNull(users.snaptradeUserSecret));
   }
 }
 

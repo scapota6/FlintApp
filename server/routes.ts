@@ -489,7 +489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/snaptrade/connect-url', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      let userId = req.user.claims.sub; // Changed to 'let' to allow reassignment
       
       if (!process.env.SNAPTRADE_CLIENT_ID || !process.env.SNAPTRADE_CLIENT_SECRET) {
         return res.status(500).json({ message: "SnapTrade not configured. Please add SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET to environment variables." });
@@ -540,7 +540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (registerResponse.ok) {
             console.log('Successfully registered new SnapTrade user');
             // Store the userSecret in our database for future use
-            await storage.createSnapTradeUser(userId, userSecret);
+            await storage.createSnapTradeUser(userId, userId, userSecret); // flintUserId, snaptradeUserId, userSecret
           } else {
             const regResponseText = await registerResponse.text();
             console.log('Register response:', regResponseText);
@@ -587,7 +587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   userSecret = uniqueUserSecret;
                   userId = uniqueUserId; // Update the userId to use the unique one
                   
-                  await storage.createSnapTradeUser(req.user.claims.sub, uniqueUserSecret); // Store with original Flint userId
+                  await storage.createSnapTradeUser(req.user.claims.sub, uniqueUserId, uniqueUserSecret); // Store with original Flint userId and unique SnapTrade userId
                   console.log('DEBUG: Stored user secret in database for user:', req.user.claims.sub);
                   
                   // Don't return here, let the main login flow continue
@@ -1121,7 +1121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         body: JSON.stringify({
           userId: snapTradeUser.snaptradeUserId,
-          userSecret: snapTradeUser.snaptradeUserSecret,
+          userSecret: snapTradeUser.userSecret,
           broker: null,
           immediateRedirect: true,
           customRedirect: returnUrl
