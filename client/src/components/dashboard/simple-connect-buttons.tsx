@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { TellerAPI } from "@/lib/teller-api";
 import { SnapTradeAPI } from "@/lib/snaptrade-api";
+import { ConnectionStoryTeller } from "@/components/ui/connection-storyteller";
+import { apiRequest } from "@/lib/queryClient";
 
 interface SimpleConnectButtonsProps {
   accounts: any[];
@@ -16,6 +18,8 @@ interface SimpleConnectButtonsProps {
 export default function SimpleConnectButtons({ accounts, userTier }: SimpleConnectButtonsProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showBankStoryTeller, setShowBankStoryTeller] = useState(false);
+  const [showBrokerageStoryTeller, setShowBrokerageStoryTeller] = useState(false);
 
   // Check account limits based on user tier
   const getAccountLimit = (tier: string) => {
@@ -39,6 +43,9 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
   // Teller Connect mutation
   const tellerConnectMutation = useMutation({
     mutationFn: async () => {
+      // Show storyteller
+      setShowBankStoryTeller(true);
+      
       // Open Teller Connect
       const { applicationId } = await TellerAPI.initiateTellerConnect();
       
@@ -77,9 +84,12 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
           description: "Failed to complete bank account connection.",
           variant: "destructive",
         });
+      } finally {
+        setShowBankStoryTeller(false);
       }
     },
     onError: (error: any) => {
+      setShowBankStoryTeller(false);
       if (error.message !== 'User cancelled connection') {
         toast({
           title: "Connection Failed",
@@ -93,7 +103,13 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
   // SnapTrade Connect mutation
   const snapTradeConnectMutation = useMutation({
     mutationFn: async () => {
+      // Show storyteller
+      setShowBrokerageStoryTeller(true);
+      
       const { url } = await SnapTradeAPI.getConnectionUrl();
+      
+      // Give some time for the storyteller to animate before redirecting
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
       // Redirect to SnapTrade OAuth in same window
       window.location.href = url;
@@ -295,6 +311,29 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
           )}
         </CardContent>
       </Card>
+
+      {/* Connection Storytellers */}
+      {showBankStoryTeller && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <ConnectionStoryTeller
+            isActive={showBankStoryTeller}
+            connectionType="bank"
+            onComplete={() => setShowBankStoryTeller(false)}
+            onError={() => setShowBankStoryTeller(false)}
+          />
+        </div>
+      )}
+
+      {showBrokerageStoryTeller && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <ConnectionStoryTeller
+            isActive={showBrokerageStoryTeller}
+            connectionType="brokerage"
+            onComplete={() => setShowBrokerageStoryTeller(false)}
+            onError={() => setShowBrokerageStoryTeller(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

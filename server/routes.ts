@@ -861,7 +861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create completely new unique credentials
       const timestamp = Math.floor(Date.now() / 1000);
-      const uniqueUserId = `${userId}_fresh_${timestamp}`;
+      const uniqueUserId = `${userId}_${timestamp}`;
       const uniqueUserSecret = `secret_${uniqueUserId}_${timestamp}`;
       
       console.log('Creating SnapTrade user with ID:', uniqueUserId);
@@ -891,10 +891,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       if (registerResponse.ok) {
-        // Store the new credentials
+        // Store the new credentials with the unique user ID as well
         await storage.createSnapTradeUser(userId, uniqueUserSecret);
-        console.log('Successfully created fresh SnapTrade account');
-        res.json({ success: true, message: 'Fresh SnapTrade account created' });
+        console.log('Successfully created fresh SnapTrade account with ID:', uniqueUserId);
+        res.json({ success: true, message: 'Fresh SnapTrade account created', uniqueUserId });
       } else {
         const errorText = await registerResponse.text();
         console.log('Registration failed:', errorText);
