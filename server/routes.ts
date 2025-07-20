@@ -1001,10 +1001,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Note: SnapTrade API keys are configured for flint-investing.com domain
       console.log('SnapTrade request from:', req.get('host'), '| Using configured domain: flint-investing.com');
       
+      // Using exact pattern from official SnapTrade SDK documentation
       const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
-        requestBody: {
-          userId: snapTradeUserId
-        }
+        userId: snapTradeUserId
       });
       
       if (registerResponse?.data?.userSecret) {

@@ -20,7 +20,9 @@ Preferred communication style: Simple, everyday language.
 - ❌ User registration failing with 401 "Unable to verify signature sent" 
 - **Issue**: API keys likely restricted to `flint-investing.com` domain, not Replit domains
 - **Solution**: Use flint-investing.com domain for SnapTrade callbacks while developing on Replit
-- **Status**: Configured to use production domain (flint-investing.com) for SnapTrade integration
+- **Status**: Domain configuration attempted but signature verification still failing
+- **Current Issue**: SnapTrade doesn't support domain whitelisting; likely credential or environment configuration issue
+- **Action**: Prepared support request for SnapTrade team (api@snaptrade.com)
 
 ### July 19, 2025 - SnapTrade Integration Debugging Session (Historical)
 **Previous SnapTrade Integration Attempts**:
