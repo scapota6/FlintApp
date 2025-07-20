@@ -10,8 +10,19 @@ Preferred communication style: Simple, everyday language.
 
 ## Development Activity Log
 
-### July 19, 2025 - SnapTrade Integration Debugging Session
-**SnapTrade Integration Attempts**:
+### July 20, 2025 - SnapTrade Domain Configuration Issue
+**Root Cause Identified**: SnapTrade API keys configured for `flint-investing.com` domain but running on Replit domain
+
+**SnapTrade Integration Progress**:
+- ✅ SnapTrade SDK properly initialized and API status working (version 151, online: true)
+- ✅ Fixed signature generation by using official SnapTrade TypeScript SDK
+- ✅ Implemented exact workflow per SnapTrade documentation
+- ❌ User registration failing with 401 "Unable to verify signature sent" 
+- **Issue**: API keys likely restricted to `flint-investing.com` domain, not Replit domains
+- **Solution**: Need to either configure API keys for Replit domain or deploy to production domain
+
+### July 19, 2025 - SnapTrade Integration Debugging Session (Historical)
+**Previous SnapTrade Integration Attempts**:
 1. **Initial Implementation**: Used direct connection URL format `https://connect.snaptrade.com/connect?user_id=${userId}&client_id=${clientId}&redirect_uri=${redirectUri}&user_secret=secret_${userId}_${timestamp}`
 2. **OAuth Flow Research**: Studied official SnapTrade documentation for proper registerUser → login → redirectURI flow
 3. **HMAC Signature Authentication**: Implemented proper signature generation with consumer key
@@ -82,7 +93,11 @@ Preferred communication style: Simple, everyday language.
 
 **External API Integrations**:
 - ✅ Teller.io: Successfully integrated for bank account connections
-- ❌ SnapTrade: Multiple integration attempts, currently failing authentication
+- ⚠️ SnapTrade: SDK working, API status confirmed, likely domain restriction issue
+  - API Status: ✅ Working (version 151, online)
+  - SDK Initialization: ✅ Working
+  - User Registration: ❌ Failing due to domain restrictions
+  - Issue: API keys configured for flint-investing.com, running on Replit domain
 - ✅ Stripe: Payment processing working
 
 **Current Application State**:

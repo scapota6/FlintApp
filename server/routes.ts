@@ -997,6 +997,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Creating SnapTrade user with ID:', snapTradeUserId);
       
       // Use SDK to register user (official SnapTrade approach)
+      // Log the current request info for debugging domain issues
+      console.log('Request details for SnapTrade:', {
+        host: req.get('host'),
+        origin: req.get('origin'),
+        referer: req.get('referer'),
+        userAgent: req.get('user-agent'),
+        protocol: req.protocol,
+        headers: {
+          'x-forwarded-host': req.get('x-forwarded-host'),
+          'x-forwarded-proto': req.get('x-forwarded-proto')
+        }
+      });
+      
       const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
         requestBody: {
           userId: snapTradeUserId
@@ -1050,11 +1063,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Generating portal URL for SnapTrade user:', snapTradeUser.snaptradeUserId);
       
       // Generate connection portal URL using official SnapTrade SDK
+      // Use production domain if available, otherwise use current host
+      const returnHost = process.env.NODE_ENV === 'production' ? 'flint-investing.com' : req.get('host');
+      const returnUrl = `${req.protocol}://${returnHost}/dashboard?connected=true`;
+      
+      console.log('Using return URL for SnapTrade portal:', returnUrl);
+      
       const portalResponse = await snapTradeClient.authentication.getConnectionPortalUrl({
         requestBody: {
           userId: snapTradeUser.snaptradeUserId,
           userSecret: snapTradeUser.snaptradeUserSecret,
-          returnUrl: `${req.protocol}://${req.get('host')}/dashboard?connected=true`
+          returnUrl: returnUrl
         }
       });
       
