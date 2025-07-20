@@ -34,8 +34,8 @@ export interface IStorage {
   updateUserStripeInfo(userId: string, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User>;
   
   // SnapTrade user management
-  getSnapTradeUser(userId: string): Promise<{ userSecret: string } | undefined>;
-  createSnapTradeUser(userId: string, userSecret: string): Promise<void>;
+  getSnapTradeUser(userId: string): Promise<{ snaptradeUserId: string | null, userSecret: string } | undefined>;
+  createSnapTradeUser(userId: string, snaptradeUserId: string, userSecret: string): Promise<void>;
   deleteSnapTradeUser(userId: string): Promise<void>;
   
   // Connected accounts
@@ -109,24 +109,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   // SnapTrade user management
-  async getSnapTradeUser(userId: string): Promise<{ userSecret: string } | undefined> {
+  async getSnapTradeUser(userId: string): Promise<{ snaptradeUserId: string | null, userSecret: string } | undefined> {
     const [user] = await db
-      .select({ userSecret: users.snaptradeUserSecret })
+      .select({ 
+        snaptradeUserId: users.snaptradeUserId,
+        userSecret: users.snaptradeUserSecret 
+      })
       .from(users)
       .where(eq(users.id, userId));
     
     if (user?.userSecret) {
-      return { userSecret: user.userSecret };
+      return { 
+        snaptradeUserId: user.snaptradeUserId, 
+        userSecret: user.userSecret 
+      };
     }
     
     return undefined;
   }
 
-  async createSnapTradeUser(userId: string, userSecret: string): Promise<void> {
+  async createSnapTradeUser(userId: string, snaptradeUserId: string, userSecret: string): Promise<void> {
     await db
       .update(users)
       .set({
-        snaptradeUserId: userId,
+        snaptradeUserId: snaptradeUserId,
         snaptradeUserSecret: userSecret,
         updatedAt: new Date(),
       })

@@ -241,9 +241,8 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                     <Button
                       onClick={async () => {
                         try {
-                          const data = await apiRequest('/api/snaptrade/create-fresh-account', {
-                            method: 'POST'
-                          });
+                          const response = await apiRequest('POST', '/api/snaptrade/create-fresh-account');
+                          const data = await response.json();
                           toast({
                             title: "Success",
                             description: `Fresh SnapTrade account created! ID: ${data.uniqueUserId || 'Created'}`,
@@ -266,7 +265,8 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                     <Button
                       onClick={async () => {
                         try {
-                          const data = await apiRequest('/api/snaptrade/sync-accounts');
+                          const response = await apiRequest('GET', '/api/snaptrade/sync-accounts');
+                          const data = await response.json();
                           toast({
                             title: "Success",
                             description: `Synced ${data.accountCount || 0} account(s) from SnapTrade`,

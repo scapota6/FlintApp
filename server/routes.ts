@@ -937,7 +937,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (registerResponse && registerResponse.userSecret) {
         // Store the credentials returned by SnapTrade
-        await storage.createSnapTradeUser(userId, registerResponse.userSecret);
+        await storage.createSnapTradeUser(userId, uniqueUserId, registerResponse.userSecret);
         console.log('Successfully created fresh SnapTrade account with SDK');
         
         res.json({ 
