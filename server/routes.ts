@@ -19,13 +19,20 @@ if (process.env.STRIPE_SECRET_KEY) {
   stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 }
 
-// Initialize SnapTrade SDK
+// Initialize SnapTrade SDK (using correct parameter names from docs)
 let snapTradeClient: Snaptrade | null = null;
 if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET) {
+  console.log('Initializing SnapTrade SDK with:', {
+    clientId: process.env.SNAPTRADE_CLIENT_ID,
+    consumerKeyPrefix: process.env.SNAPTRADE_CLIENT_SECRET.substring(0, 10)
+  });
+  
   snapTradeClient = new Snaptrade({
     clientId: process.env.SNAPTRADE_CLIENT_ID,
     consumerKey: process.env.SNAPTRADE_CLIENT_SECRET,
   });
+  
+  console.log('SnapTrade SDK initialized successfully');
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -898,7 +905,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test SnapTrade API connection
+  // Test SnapTrade SDK basic functionality (public route for testing)
+  app.get('/api/test-snaptrade-sdk', async (req: any, res) => {
+    try {
+      console.log('Testing SnapTrade SDK initialization...');
+      
+      if (!snapTradeClient) {
+        return res.status(500).json({ 
+          success: false,
+          message: 'SnapTrade client not initialized',
+          env_check: {
+            client_id: !!process.env.SNAPTRADE_CLIENT_ID,
+            client_secret: !!process.env.SNAPTRADE_CLIENT_SECRET
+          }
+        });
+      }
+      
+      console.log('SnapTrade SDK initialized, testing API status...');
+      const statusResponse = await snapTradeClient.apiStatus.check();
+      
+      console.log('SnapTrade API status response:', statusResponse.data);
+      res.json({ 
+        success: true, 
+        message: 'SnapTrade SDK working correctly',
+        status: statusResponse.data 
+      });
+      
+    } catch (error: any) {
+      console.error("SnapTrade SDK test error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "SnapTrade SDK test failed", 
+        error: error.message || error.toString(),
+        stack: error.stack
+      });
+    }
+  });
+
+  // Test SnapTrade API connection (authenticated route)
   app.get('/api/snaptrade/status', isAuthenticated, async (req: any, res) => {
     try {
       if (!snapTradeClient) {
