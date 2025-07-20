@@ -1001,14 +1001,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Domain added to SnapTrade dashboard - testing signature verification
       console.log('SnapTrade request from:', req.get('host'), '| Domain should now be authorized in SnapTrade dashboard');
       
-      // Use direct HTTP call with headers instead of SDK signature authentication
+      // Clean the consumer secret to remove any invalid Unicode characters
+      const cleanConsumerSecret = process.env.SNAPTRADE_CLIENT_SECRET!
+        .replace(/[\u2028\u2029]/g, '') // Remove line/paragraph separators
+        .replace(/[^\x00-\xFF]/g, '') // Remove any non-ASCII characters
+        .trim();
+
+      console.log('Cleaned consumer secret length:', cleanConsumerSecret.length);
+      console.log('Consumer secret char codes:', cleanConsumerSecret.split('').map((c, i) => `${i}:${c.charCodeAt(0)}`).slice(0, 10));
+
+      // Use direct HTTP call with clean headers
       const response = await fetch("https://api.snaptrade.com/api/v1/snapTrade/registerUser", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           "accept": "application/json",
+          "Content-Type": "application/json",
           "clientId": process.env.SNAPTRADE_CLIENT_ID!,
-          "consumerKey": process.env.SNAPTRADE_CLIENT_SECRET!
+          "consumerSecret": cleanConsumerSecret
         },
         body: JSON.stringify({
           userId: snapTradeUserId
@@ -1095,14 +1104,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Using return URL for SnapTrade portal:', returnUrl);
       
+      // Clean the consumer secret for login as well
+      const cleanConsumerSecret = process.env.SNAPTRADE_CLIENT_SECRET!
+        .replace(/[\u2028\u2029]/g, '')
+        .replace(/[^\x00-\xFF]/g, '')
+        .trim();
+
       // Use direct HTTP call for login to get connection portal URL
       const loginResponse = await fetch("https://api.snaptrade.com/api/v1/snapTrade/login", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           "accept": "application/json",
+          "Content-Type": "application/json",
           "clientId": process.env.SNAPTRADE_CLIENT_ID!,
-          "consumerKey": process.env.SNAPTRADE_CLIENT_SECRET!
+          "consumerSecret": cleanConsumerSecret
         },
         body: JSON.stringify({
           userId: snapTradeUser.snaptradeUserId,
