@@ -1001,14 +1001,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Domain added to SnapTrade dashboard - testing signature verification
       console.log('SnapTrade request from:', req.get('host'), '| Domain should now be authorized in SnapTrade dashboard');
       
-      // Using exact pattern from official SnapTrade SDK documentation
-      const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
-        userId: snapTradeUserId
+      // Use direct HTTP call with headers instead of SDK signature authentication
+      const response = await fetch("https://api.snaptrade.com/api/v1/snapTrade/registerUser", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "accept": "application/json",
+          "clientId": process.env.SNAPTRADE_CLIENT_ID!,
+          "consumerKey": process.env.SNAPTRADE_CLIENT_SECRET!
+        },
+        body: JSON.stringify({
+          userId: snapTradeUserId
+        })
       });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorData}`);
+      }
+
+      const registerResponse = await response.json();
       
-      if (registerResponse?.data?.userSecret) {
+      if (registerResponse?.userSecret) {
         // Store the user credentials
-        await storage.createSnapTradeUser(userId, snapTradeUserId, registerResponse.data.userSecret);
+        await storage.createSnapTradeUser(userId, snapTradeUserId, registerResponse.userSecret);
         
         console.log('Successfully registered SnapTrade user:', snapTradeUserId);
         
@@ -1079,19 +1095,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Using return URL for SnapTrade portal:', returnUrl);
       
-      const portalResponse = await snapTradeClient.authentication.getConnectionPortalUrl({
-        requestBody: {
+      // Use direct HTTP call for login to get connection portal URL
+      const loginResponse = await fetch("https://api.snaptrade.com/api/v1/snapTrade/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "accept": "application/json",
+          "clientId": process.env.SNAPTRADE_CLIENT_ID!,
+          "consumerKey": process.env.SNAPTRADE_CLIENT_SECRET!
+        },
+        body: JSON.stringify({
           userId: snapTradeUser.snaptradeUserId,
           userSecret: snapTradeUser.snaptradeUserSecret,
-          returnUrl: returnUrl
-        }
+          broker: null,
+          immediateRedirect: true,
+          customRedirect: returnUrl
+        })
       });
+
+      if (!loginResponse.ok) {
+        const errorData = await loginResponse.text();
+        throw new Error(`Login HTTP ${loginResponse.status}: ${errorData}`);
+      }
+
+      const portalResponse = await loginResponse.json();
       
-      if (portalResponse?.data?.redirectURI) {
+      if (portalResponse?.redirectURI) {
         console.log('Connection portal URL generated successfully');
         res.json({
           success: true,
-          portalUrl: portalResponse.data.redirectURI,
+          portalUrl: portalResponse.redirectURI,
           message: 'Connection portal ready'
         });
       } else {
