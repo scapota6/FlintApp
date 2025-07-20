@@ -1053,8 +1053,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Generating portal URL for SnapTrade user:', snapTradeUser.snaptradeUserId);
       
       // Generate connection portal URL using official SnapTrade SDK
-      // Always use flint-investing.com domain for SnapTrade (where API keys are configured)
-      const returnUrl = `https://flint-investing.com/dashboard?connected=true`;
+      // Use current Replit domain now that it's configured in SnapTrade dashboard
+      const currentHost = req.get('host');
+      const returnUrl = `https://${currentHost}/dashboard?connected=true`;
       
       console.log('Using return URL for SnapTrade portal:', returnUrl);
       

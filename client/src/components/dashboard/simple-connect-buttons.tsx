@@ -284,8 +284,8 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                         } catch (error: any) {
                           console.error('SnapTrade connection error:', error);
                           toast({
-                            title: "SnapTrade Integration Issue", 
-                            description: "Working with SnapTrade support to resolve signature verification. Teller.io bank connections work normally.",
+                            title: "Connection Error", 
+                            description: error.message || "Failed to start SnapTrade connection. Please try again.",
                             variant: "destructive",
                           });
                         }
