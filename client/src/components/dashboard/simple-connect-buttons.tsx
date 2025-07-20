@@ -241,17 +241,19 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                     <Button
                       onClick={async () => {
                         try {
-                          const response = await apiRequest('POST', '/api/snaptrade/create-fresh-account');
-                          const data = await response.json();
+                          const data = await apiRequest('/api/snaptrade/create-fresh-account', {
+                            method: 'POST'
+                          });
                           toast({
                             title: "Success",
-                            description: "Fresh SnapTrade account created! Try connecting again.",
+                            description: `Fresh SnapTrade account created! ID: ${data.uniqueUserId || 'Created'}`,
                           });
-                          setTimeout(() => window.location.reload(), 1500);
-                        } catch (error) {
+                          await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+                        } catch (error: any) {
+                          console.error('Fresh account error:', error);
                           toast({
                             title: "Error", 
-                            description: "Failed to create fresh account. Please try again.",
+                            description: error.message || "Failed to create fresh account. Please try again.",
                             variant: "destructive",
                           });
                         }
@@ -264,17 +266,17 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                     <Button
                       onClick={async () => {
                         try {
-                          const response = await apiRequest('GET', '/api/snaptrade/sync-accounts');
-                          const data = await response.json();
+                          const data = await apiRequest('/api/snaptrade/sync-accounts');
                           toast({
                             title: "Success",
                             description: `Synced ${data.accountCount || 0} account(s) from SnapTrade`,
                           });
-                          setTimeout(() => window.location.reload(), 1500);
-                        } catch (error) {
+                          await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+                        } catch (error: any) {
+                          console.error('Sync accounts error:', error);
                           toast({
                             title: "Error", 
-                            description: "Failed to sync accounts. Please try again.",
+                            description: error.message || "Failed to sync accounts. Please try again.",
                             variant: "destructive",
                           });
                         }

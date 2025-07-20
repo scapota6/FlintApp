@@ -852,6 +852,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // List all SnapTrade users for debugging
+  app.get('/api/snaptrade/list-users', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!snapTradeClient) {
+        return res.status(500).json({ message: 'SnapTrade client not initialized' });
+      }
+      
+      console.log('Listing all SnapTrade users for debugging...');
+      const response = await snapTradeClient.authentication.listSnapTradeUsers();
+      
+      console.log('SnapTrade users count:', response.length);
+      const userList = response.map((user: any) => ({
+        userId: user.userId,
+        createdDate: user.createdDate,
+        // Don't return the full user secret for security
+        hasSecret: !!user.userSecret
+      }));
+      
+      res.json({ users: userList, totalCount: response.length });
+      
+    } catch (error: any) {
+      console.error('Error listing SnapTrade users:', error);
+      res.status(500).json({ message: 'Failed to list users: ' + (error.message || error.toString()) });
+    }
+  });
+
+  // Delete a specific SnapTrade user
+  app.delete('/api/snaptrade/delete-user/:snaptradeUserId', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!snapTradeClient) {
+        return res.status(500).json({ message: 'SnapTrade client not initialized' });
+      }
+      
+      const { snaptradeUserId } = req.params;
+      console.log('Deleting SnapTrade user:', snaptradeUserId);
+      
+      const response = await snapTradeClient.authentication.deleteSnapTradeUser({
+        userId: snaptradeUserId
+      });
+      
+      console.log('Successfully deleted SnapTrade user:', snaptradeUserId);
+      res.json({ success: true, message: 'User deleted successfully' });
+      
+    } catch (error: any) {
+      console.error('Error deleting SnapTrade user:', error);
+      res.status(500).json({ message: 'Failed to delete user: ' + (error.message || error.toString()) });
+    }
+  });
+
   // Force create fresh SnapTrade account for current user
   app.post('/api/snaptrade/create-fresh-account', isAuthenticated, async (req: any, res) => {
     try {
@@ -866,7 +915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const existingUser = await storage.getSnapTradeUser(userId);
         if (existingUser) {
-          console.log('Deleting existing SnapTrade credentials');
+          console.log('Deleting existing SnapTrade credentials from database');
           await storage.deleteSnapTradeUser(userId);
         }
       } catch (error) {
