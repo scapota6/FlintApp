@@ -1,0 +1,68 @@
+VM186667 eruda.js:2 
+ GET https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/snaptrade/connect-url 500 (Internal Server Error)
+window.fetch	@	VM186667 eruda.js:2
+apiRequest	@	VM186716 queryClient.ts:9
+getConnectionUrl	@	VM186784 snaptrade-api.ts:8
+mutationFn	@	VM186759 simple-connect-buttons.tsx:108
+fn	@	VM186714 @tanstack_react-query.js:1189
+run	@	VM186714 @tanstack_react-query.js:494
+start	@	VM186714 @tanstack_react-query.js:536
+execute	@	VM186714 @tanstack_react-query.js:1225
+await in execute		
+mutate	@	VM186714 @tanstack_react-query.js:2630
+(anonymous)	@	VM186714 @tanstack_react-query.js:3295
+onClick	@	VM186759 simple-connect-buttons.tsx:312
+callCallback2	@	VM186706 chunk-WERSD76P.js:3674
+invokeGuardedCallbackDev	@	VM186706 chunk-WERSD76P.js:3699
+invokeGuardedCallback	@	VM186706 chunk-WERSD76P.js:3733
+invokeGuardedCallbackAndCatchFirstError	@	VM186706 chunk-WERSD76P.js:3736
+executeDispatch	@	VM186706 chunk-WERSD76P.js:7014
+processDispatchQueueItemsInOrder	@	VM186706 chunk-WERSD76P.js:7034
+processDispatchQueue	@	VM186706 chunk-WERSD76P.js:7043
+dispatchEventsForPlugins	@	VM186706 chunk-WERSD76P.js:7051
+(anonymous)	@	VM186706 chunk-WERSD76P.js:7174
+batchedUpdates$1	@	VM186706 chunk-WERSD76P.js:18913
+batchedUpdates	@	VM186706 chunk-WERSD76P.js:3579
+dispatchEventForPluginEventSystem	@	VM186706 chunk-WERSD76P.js:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay	@	VM186706 chunk-WERSD76P.js:5478
+dispatchEvent	@	VM186706 chunk-WERSD76P.js:5472
+dispatchDiscreteEvent	@	VM186706 chunk-WERSD76P.js:5449
+
+VM186667 eruda.js:2 
+ GET https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/snaptrade/connect-url 500 (Internal Server Error)
+window.fetch	@	VM186667 eruda.js:2
+apiRequest	@	VM186716 queryClient.ts:9
+getConnectionUrl	@	VM186784 snaptrade-api.ts:8
+mutationFn	@	VM186759 simple-connect-buttons.tsx:108
+fn	@	VM186714 @tanstack_react-query.js:1189
+run	@	VM186714 @tanstack_react-query.js:494
+start	@	VM186714 @tanstack_react-query.js:536
+execute	@	VM186714 @tanstack_react-query.js:1225
+await in execute		
+mutate	@	VM186714 @tanstack_react-query.js:2630
+(anonymous)	@	VM186714 @tanstack_react-query.js:3295
+onClick	@	VM186759 simple-connect-buttons.tsx:312
+callCallback2	@	VM186706 chunk-WERSD76P.js:3674
+invokeGuardedCallbackDev	@	VM186706 chunk-WERSD76P.js:3699
+invokeGuardedCallback	@	VM186706 chunk-WERSD76P.js:3733
+invokeGuardedCallbackAndCatchFirstError	@	VM186706 chunk-WERSD76P.js:3736
+executeDispatch	@	VM186706 chunk-WERSD76P.js:7014
+processDispatchQueueItemsInOrder	@	VM186706 chunk-WERSD76P.js:7034
+processDispatchQueue	@	VM186706 chunk-WERSD76P.js:7043
+dispatchEventsForPlugins	@	VM186706 chunk-WERSD76P.js:7051
+(anonymous)	@	VM186706 chunk-WERSD76P.js:7174
+batchedUpdates$1	@	VM186706 chunk-WERSD76P.js:18913
+batchedUpdates	@	VM186706 chunk-WERSD76P.js:3579
+dispatchEventForPluginEventSystem	@	VM186706 chunk-WERSD76P.js:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay	@	VM186706 chunk-WERSD76P.js:5478
+dispatchEvent	@	VM186706 chunk-WERSD76P.js:5472
+dispatchDiscreteEvent	@	VM186706 chunk-WERSD76P.js:5449
+queryClient.ts:15 
+ GET https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/snaptrade/connect-url 500 (Internal Server Error)
+apiRequest	@	queryClient.ts:15
+getConnectionUrl	@	snaptrade-api.ts:52
+mutationFn	@	simple-connect-buttons.tsx:109
+await in execute		
+onClick	@	simple-connect-buttons.tsx:226
+﻿
+

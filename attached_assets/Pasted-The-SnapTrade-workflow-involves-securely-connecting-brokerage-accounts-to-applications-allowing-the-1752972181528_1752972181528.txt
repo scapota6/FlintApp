@@ -1,0 +1,35 @@
+The SnapTrade workflow involves securely connecting brokerage accounts to applications, allowing them to access user data and perform actions on behalf of the user, while maintaining data security and user control. The workflow includes registering a user, initiating brokerage connections through a secure portal, retrieving account details, and syncing holdings. 
+Here's a more detailed breakdown:
+1. Initialization and User Registration:
+Get Credentials: Obtain a clientId and consumerKey by registering for a SnapTrade account.
+Initialize Client: Use the credentials to initialize the SnapTrade client.
+Register User: Create a unique user identifier within your application and register it with SnapTrade. 
+2. Brokerage Connection:
+Access Connection Portal:
+Utilize the SnapTrade Connection Portal to initiate the brokerage connection process. 
+Connect Account:
+The user will be guided through the brokerage's authentication flow (e.g., E*TRADE, Interactive Brokers). 
+Grant Permissions:
+The user will need to grant the application access to their brokerage account data. 
+Account Listing:
+Once connected, you can retrieve a list of the user's connected brokerage accounts. 
+3. Data Access and Management:
+Account Details:
+Retrieve detailed information about a specific account, such as account number, name, and market value. 
+Holdings/Positions:
+Access a user's stock, ETF, crypto, and mutual fund positions within an account. 
+Syncing Holdings:
+SnapTrade syncs holdings automatically upon initial connection and on a daily basis. Users can also trigger manual refreshes. 
+Order Impact:
+SnapTrade can also provide real-time impact analysis of potential trades before they are executed. 
+4. User Management:
+Deleting a User: Users can disconnect their accounts and manage their connections through the SnapTrade platform. 
+Key Features:
+Security:
+SnapTrade uses bank-level encryption and ensures user control over their data. 
+Integration:
+SnapTrade supports a wide range of brokerages, simplifying the integration process for developers. 
+Data Quality:
+SnapTrade provides robust and high-quality brokerage integrations, ensuring reliable data access. 
+Real-time Data:
+SnapTrade offers real-time or near real-time data updates, allowing for timely portfolio analysis and decision-making. 

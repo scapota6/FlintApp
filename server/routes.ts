@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import Stripe from "stripe";
 import crypto from "crypto";
+import { Snaptrade } from "snaptrade-typescript-sdk";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { 
@@ -16,6 +17,15 @@ import {
 let stripe: Stripe | null = null;
 if (process.env.STRIPE_SECRET_KEY) {
   stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+}
+
+// Initialize SnapTrade SDK
+let snapTradeClient: Snaptrade | null = null;
+if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET) {
+  snapTradeClient = new Snaptrade({
+    clientId: process.env.SNAPTRADE_CLIENT_ID,
+    consumerKey: process.env.SNAPTRADE_CLIENT_SECRET,
+  });
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -846,7 +856,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/snaptrade/create-fresh-account', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      console.log('Creating fresh SnapTrade account for current user:', userId);
+      console.log('Creating fresh SnapTrade account using SDK for user:', userId);
+      
+      if (!snapTradeClient) {
+        return res.status(500).json({ success: false, message: 'SnapTrade client not initialized' });
+      }
       
       // Delete existing credentials if any
       try {
@@ -859,51 +873,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('No existing credentials to delete');
       }
       
-      // Create completely new unique credentials
+      // Create unique user ID
       const timestamp = Math.floor(Date.now() / 1000);
-      const uniqueUserId = `${userId}_${timestamp}`;
-      const uniqueUserSecret = `secret_${uniqueUserId}_${timestamp}`;
+      const uniqueUserId = `flint_${userId}_${timestamp}`;
       
-      console.log('Creating SnapTrade user with ID:', uniqueUserId);
+      console.log('Creating SnapTrade user with SDK, ID:', uniqueUserId);
       
-      const queryParams = new URLSearchParams({
-        clientId: process.env.SNAPTRADE_CLIENT_ID,
-        timestamp: timestamp.toString()
+      // Use SnapTrade SDK to register user
+      const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
+        requestBody: {
+          userId: uniqueUserId
+        }
       });
       
-      const registerSignature = generateSnapTradeSignature(
-        'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
-        { userId: uniqueUserId, userSecret: uniqueUserSecret },
-        '/api/v1/snapTrade/registerUser',
-        queryParams.toString()
-      );
-      
-      const registerResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${queryParams}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Signature': registerSignature,
-        },
-        body: JSON.stringify({
-          userId: uniqueUserId,
-          userSecret: uniqueUserSecret
-        }),
-      });
-      
-      if (registerResponse.ok) {
-        // Store the new credentials with the unique user ID as well
-        await storage.createSnapTradeUser(userId, uniqueUserSecret);
-        console.log('Successfully created fresh SnapTrade account with ID:', uniqueUserId);
-        res.json({ success: true, message: 'Fresh SnapTrade account created', uniqueUserId });
+      if (registerResponse && registerResponse.userSecret) {
+        // Store the credentials returned by SnapTrade
+        await storage.createSnapTradeUser(userId, registerResponse.userSecret);
+        console.log('Successfully created fresh SnapTrade account with SDK');
+        
+        res.json({ 
+          success: true, 
+          message: 'Fresh SnapTrade account created', 
+          uniqueUserId,
+          userSecret: registerResponse.userSecret.substring(0, 10) + '...' // Partial for debugging
+        });
       } else {
-        const errorText = await registerResponse.text();
-        console.log('Registration failed:', errorText);
-        res.status(500).json({ success: false, message: 'Failed to create SnapTrade account', error: errorText });
+        console.log('Registration failed: No user secret returned');
+        res.status(500).json({ success: false, message: 'Failed to create SnapTrade account - no secret returned' });
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating fresh SnapTrade account:', error);
-      res.status(500).json({ success: false, message: 'Error creating account' });
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error creating account', 
+        error: error.message || error.toString()
+      });
     }
   });
 
@@ -1128,8 +1133,8 @@ function generateSnapTradeSignature(consumerKey: string, content: any, path: str
     query
   };
   
-  // Use exact JSON format as specified in SnapTrade docs
-  const sigContent = JSON.stringify(sigObject, null, 0);
+  // Use exact JSON format as specified in SnapTrade docs - no spaces, compact format
+  const sigContent = JSON.stringify(sigObject, null, 0).replace(/\s/g, '');
   
   console.log('Signature content:', sigContent);
   console.log('Consumer key (first 10 chars):', consumerKey.substring(0, 10));

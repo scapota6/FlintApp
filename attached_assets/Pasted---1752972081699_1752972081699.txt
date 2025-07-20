@@ -1,0 +1,48 @@
+ 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+ [LaunchDarkly] LaunchDarkly client initialized
+FinancialNexus:1 Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner.
+10Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.Understand this error
+ Unrecognized feature: 'ambient-light-sensor'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Unrecognized feature: 'battery'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Unrecognized feature: 'execution-while-not-rendered'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Unrecognized feature: 'execution-while-out-of-viewport'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Unrecognized feature: 'layout-animations'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Unrecognized feature: 'legacy-image-formats'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Unrecognized feature: 'navigation-override'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Unrecognized feature: 'oversized-images'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Unrecognized feature: 'publickey-credentials'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Unrecognized feature: 'speaker-selection'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Unrecognized feature: 'unoptimized-images'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Unrecognized feature: 'unsized-media'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Unrecognized feature: 'pointer-lock'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Allow attribute will take precedence over 'allowfullscreen'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
+ Allow attribute will take precedence over 'allowpaymentrequest'.
+_ @ framework-e3bbebd14e63f7a4.js:1Understand this warning
