@@ -264,18 +264,24 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                     <Button
                       onClick={async () => {
                         try {
-                          const response = await apiRequest('POST', '/api/snaptrade/create-fresh-account');
+                          const response = await apiRequest('POST', '/api/snaptrade/generate-portal-url');
                           const data = await response.json();
-                          toast({
-                            title: "Success",
-                            description: `Fresh SnapTrade account created! ID: ${data.uniqueUserId || 'Created'}`,
-                          });
-                          await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+                          
+                          if (data.success && data.portalUrl) {
+                            // Open SnapTrade connection portal in new window
+                            window.open(data.portalUrl, '_blank', 'width=800,height=600');
+                            toast({
+                              title: "Connection Portal Opened",
+                              description: "Complete the brokerage connection in the new window",
+                            });
+                          } else {
+                            throw new Error(data.message || 'Failed to generate portal URL');
+                          }
                         } catch (error: any) {
-                          console.error('Fresh account error:', error);
+                          console.error('Portal generation error:', error);
                           toast({
                             title: "Error", 
-                            description: error.message || "Failed to create fresh account. Please try again.",
+                            description: error.message || "Failed to open connection portal.",
                             variant: "destructive",
                           });
                         }
@@ -283,7 +289,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                       variant="outline"
                       className="text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
                     >
-                      Fresh Account
+                      Connect Portal
                     </Button>
                     <Button
                       onClick={async () => {

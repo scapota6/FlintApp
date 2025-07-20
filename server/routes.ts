@@ -925,95 +925,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Force create fresh SnapTrade account for current user
-  app.post('/api/snaptrade/create-fresh-account', isAuthenticated, async (req: any, res) => {
+  // Generate SnapTrade connection portal URL for widget
+  app.post('/api/snaptrade/generate-portal-url', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      console.log('Creating fresh SnapTrade account using SDK for user:', userId);
+      console.log('Generating SnapTrade connection portal URL for user:', userId);
       
       if (!snapTradeClient) {
         return res.status(500).json({ success: false, message: 'SnapTrade client not initialized' });
       }
       
-      // Delete existing credentials if any
-      try {
-        const existingUser = await storage.getSnapTradeUser(userId);
-        if (existingUser) {
-          console.log('Deleting existing SnapTrade credentials from database');
-          await storage.deleteSnapTradeUser(userId);
+      // Get or create SnapTrade user
+      let snapTradeUser = await storage.getSnapTradeUser(userId);
+      
+      if (!snapTradeUser) {
+        // Create SnapTrade user first using SDK (more reliable)
+        const timestamp = Math.floor(Date.now() / 1000);
+        const uniqueUserId = `flint_${userId}_${timestamp}`;
+        
+        try {
+          console.log('Creating SnapTrade user with SDK, ID:', uniqueUserId);
+          const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
+            requestBody: {
+              userId: uniqueUserId
+            }
+          });
+          
+          if (registerResponse?.data?.userSecret) {
+            await storage.createSnapTradeUser(userId, uniqueUserId, registerResponse.data.userSecret);
+            snapTradeUser = await storage.getSnapTradeUser(userId);
+            console.log('Successfully created SnapTrade user via SDK');
+          } else {
+            throw new Error('SDK registration failed - no userSecret returned');
+          }
+        } catch (sdkError: any) {
+          console.log('SDK registration failed, trying manual approach:', sdkError.message);
+          
+          // Fallback to manual registration with corrected signature
+          const userSecret = `secret_${uniqueUserId}_${timestamp}`;
+          
+          const queryParams = new URLSearchParams({
+            clientId: process.env.SNAPTRADE_CLIENT_ID!,
+            timestamp: timestamp.toString()
+          });
+          
+          const signature = generateSnapTradeSignature(
+            process.env.SNAPTRADE_CLIENT_SECRET!,
+            { userId: uniqueUserId, userSecret: userSecret },
+            '/api/v1/snapTrade/registerUser',
+            queryParams.toString()
+          );
+          
+          const response = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${queryParams}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Signature': signature,
+            },
+            body: JSON.stringify({
+              userId: uniqueUserId,
+              userSecret: userSecret
+            }),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            await storage.createSnapTradeUser(userId, uniqueUserId, data.userSecret || userSecret);
+            snapTradeUser = await storage.getSnapTradeUser(userId);
+            console.log('Successfully created SnapTrade user via manual registration');
+          } else {
+            const errorData = await response.text();
+            throw new Error(`Manual registration failed: ${response.status} ${errorData}`);
+          }
         }
-      } catch (error) {
-        console.log('No existing credentials to delete');
       }
       
-      // Create unique user ID
-      const timestamp = Math.floor(Date.now() / 1000);
-      const uniqueUserId = `flint_${userId}_${timestamp}`;
+      if (!snapTradeUser) {
+        throw new Error('Failed to create or retrieve SnapTrade user');
+      }
       
-      console.log('Creating SnapTrade user with SDK, ID:', uniqueUserId);
-      
-      // Use exact same working approach as automatic account creation
-      try {
-        const userSecret = `secret_${uniqueUserId}_${timestamp}`;
-        
-        const queryParams = new URLSearchParams({
-          clientId: process.env.SNAPTRADE_CLIENT_ID,
-          timestamp: timestamp.toString()
-        });
-        
-        const signature = generateSnapTradeSignature(
-          process.env.SNAPTRADE_CLIENT_SECRET!,
-          { userId: uniqueUserId, userSecret: userSecret },
-          '/api/v1/snapTrade/registerUser',
-          queryParams.toString()
-        );
-        
-        const response = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${queryParams}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Signature': signature,
-          },
-          body: JSON.stringify({
-            userId: uniqueUserId,
-            userSecret: userSecret
-          }),
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          await storage.createSnapTradeUser(userId, uniqueUserId, data.userSecret || userSecret);
-          console.log('Successfully created fresh SnapTrade account');
-          
-          res.json({ 
-            success: true, 
-            message: 'Fresh SnapTrade account created successfully', 
-            uniqueUserId,
-            userSecret: (data.userSecret || userSecret).substring(0, 10) + '...'
-          });
-        } else {
-          const errorData = await response.text();
-          console.error('Registration failed:', errorData);
-          res.status(500).json({ 
-            success: false, 
-            message: `Registration failed: ${response.status} ${errorData}`
-          });
+      // Generate connection portal URL using SDK
+      const portalResponse = await snapTradeClient.authentication.getConnectionPortalUrl({
+        requestBody: {
+          userId: snapTradeUser.snaptradeUserId,
+          userSecret: snapTradeUser.snaptradeUserSecret,
+          returnUrl: `${req.protocol}://${req.get('host')}/dashboard`
         }
-      } catch (error: any) {
-        console.error('Error in fresh account creation:', error);
-        res.status(500).json({ 
-          success: false, 
-          message: 'Error creating fresh account', 
-          error: error.message
+      });
+      
+      if (portalResponse?.data?.redirectURI) {
+        res.json({ 
+          success: true, 
+          portalUrl: portalResponse.data.redirectURI,
+          message: 'Connection portal URL generated successfully'
         });
+      } else {
+        throw new Error('Failed to generate portal URL');
       }
       
     } catch (error: any) {
-      console.error('Error creating fresh SnapTrade account:', error);
+      console.error("Error generating portal URL:", error);
       res.status(500).json({ 
         success: false, 
-        message: 'Error creating account', 
-        error: error.message || error.toString()
+        message: "Error generating connection portal URL",
+        error: error.message 
       });
     }
   });
@@ -1318,14 +1333,17 @@ function generateSnapTradeSignature(consumerKey: string, content: any, path: str
     query
   };
   
-  // Use exact JSON format as specified in SnapTrade docs - no spaces, compact format
-  const sigContent = JSON.stringify(sigObject, null, 0).replace(/\s/g, '');
+  // Use exact JSON format as specified in SnapTrade docs - no extra spaces
+  const sigContent = JSON.stringify(sigObject);
   
   console.log('Signature content:', sigContent);
   console.log('Consumer key (first 10 chars):', consumerKey.substring(0, 10));
   
+  // URI encode the consumer key as specified in SnapTrade docs
+  const encodedConsumerKey = encodeURI(consumerKey);
+  
   const signature = crypto
-    .createHmac('sha256', consumerKey)
+    .createHmac('sha256', encodedConsumerKey)
     .update(sigContent)
     .digest('base64');
     
