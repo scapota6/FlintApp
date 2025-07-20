@@ -1,0 +1,24 @@
+Console.js:61 SnapTrade connection error: Error: 500: {"success":false,"message":"Failed to register SnapTrade user","error":"Request failed with status code 401\nRESPONSE HEADERS:\n{\n  \"date\": \"Sun, 20 Jul 2025 01:29:28 GMT\",\n  \"content-type\": \"application/json\",\n  \"content-length\": \"76\",\n  \"connection\": \"keep-alive\",\n  \"server\": \"gunicorn\",\n  \"allow\": \"POST, OPTIONS\",\n  \"x-frame-options\": \"DENY\",\n  \"x-request-id\": \"b0a3ca1e106c8053cc6c176023564df8\",\n  \"x-ratelimit-limit\": \"250\",\n  \"x-ratelimit-remaining\": \"250\",\n  \"vary\": \"origin\",\n  \"strict-transport-security\": \"max-age=31536000; includeSubDomains; preload\",\n  \"x-content-type-options\": \"nosniff\",\n  \"referrer-policy\": \"same-origin\",\n  \"cross-origin-opener-policy\": \"same-origin\"\n}"}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:22:3)
+    at async onClick (simple-connect-buttons.tsx:268:27)
+Mt.forEach.n.<computed>	@	Console.js:61
+onClick	@	simple-connect-buttons.tsx:285
+await in onClick		
+callCallback2	@	chunk-WERSD76P.js?v=23dc3e6b:3674
+invokeGuardedCallbackDev	@	chunk-WERSD76P.js?v=23dc3e6b:3699
+invokeGuardedCallback	@	chunk-WERSD76P.js?v=23dc3e6b:3733
+invokeGuardedCallbackAndCatchFirstError	@	chunk-WERSD76P.js?v=23dc3e6b:3736
+executeDispatch	@	chunk-WERSD76P.js?v=23dc3e6b:7014
+processDispatchQueueItemsInOrder	@	chunk-WERSD76P.js?v=23dc3e6b:7034
+processDispatchQueue	@	chunk-WERSD76P.js?v=23dc3e6b:7043
+dispatchEventsForPlugins	@	chunk-WERSD76P.js?v=23dc3e6b:7051
+(anonymous)	@	chunk-WERSD76P.js?v=23dc3e6b:7174
+batchedUpdates$1	@	chunk-WERSD76P.js?v=23dc3e6b:18913
+batchedUpdates	@	chunk-WERSD76P.js?v=23dc3e6b:3579
+dispatchEventForPluginEventSystem	@	chunk-WERSD76P.js?v=23dc3e6b:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay	@	chunk-WERSD76P.js?v=23dc3e6b:5478
+dispatchEvent	@	chunk-WERSD76P.js?v=23dc3e6b:5472
+dispatchDiscreteEvent	@	chunk-WERSD76P.js?v=23dc3e6b:5449
+
+﻿
