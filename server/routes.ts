@@ -634,39 +634,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('DEBUG: Final userId for login:', actualUserId);
       console.log('DEBUG: Final userSecret pattern:', actualUserSecret.substring(0, 20) + '...');
       
-      const queryParams = new URLSearchParams({
-        clientId: process.env.SNAPTRADE_CLIENT_ID,
-        userId: actualUserId,
-        userSecret: actualUserSecret,
-        timestamp: timestamp.toString()
-      });
-      
-      console.log('DEBUG: Login query params:', queryParams.toString());
-      
-      const loginSignature = generateSnapTradeSignature(
-        'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
-        { 
-          broker: 'QUESTRADE',
-          immediateRedirect: true,
-          customRedirect: `${process.env.REPLIT_DOMAINS || 'http://localhost:5000'}/dashboard`
-        },
-        '/api/v1/snapTrade/login',
-        queryParams.toString()
-      );
-      
-      console.log('DEBUG: Login signature generated:', loginSignature);
-      
-      const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?${queryParams}`, {
-        method: 'POST',
+      // Clean the consumer secret for login
+      const cleanConsumerSecret = process.env.SNAPTRADE_CLIENT_SECRET!
+        .replace(/[\u2028\u2029]/g, '')
+        .replace(/[^\x00-\xFF]/g, '')
+        .trim();
+
+      // Use direct HTTP call for login with header authentication (not signature)
+      const loginResponse = await fetch("https://api.snaptrade.com/api/v1/snapTrade/login", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Signature': loginSignature,
+          "accept": "application/json",
+          "Content-Type": "application/json",
+          "clientId": process.env.SNAPTRADE_CLIENT_ID!,
+          "consumerSecret": cleanConsumerSecret
         },
         body: JSON.stringify({
-          broker: 'QUESTRADE',
+          userId: actualUserId,
+          userSecret: actualUserSecret,
+          broker: null,
           immediateRedirect: true,
-          customRedirect: `${process.env.REPLIT_DOMAINS || 'http://localhost:5000'}/dashboard`
-        }),
+          customRedirect: `${req.get('host')}/dashboard?connected=true`
+        })
       });
       
       const responseText = await loginResponse.text();
