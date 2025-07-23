@@ -22,10 +22,11 @@ Preferred communication style: Simple, everyday language.
 - **Solution**: Use flint-investing.com domain for SnapTrade callbacks while developing on Replit
 - **Status**: Domain configuration attempted but signature verification still failing
 - **Current Issue**: SnapTrade doesn't support domain whitelisting; likely credential or environment configuration issue
-- **Root Cause Found**: SnapTrade SDK using signature authentication, but API expects direct header authentication
-- **Solution**: Switch from SDK to direct HTTP calls with clientId/consumerKey headers
-- **Fix Applied**: Updated user registration and login to use proper HTTP header authentication
-- **Status**: Testing corrected implementation
+- **Root Cause Found**: SnapTrade login API expects userId/userSecret as query parameters, not request body
+- **Solution**: Fixed API call format to match official documentation exactly
+- **Authentication**: Uses clientId/consumerKey in headers, userId/userSecret as query params
+- **Fix Applied**: Updated both registration and login to use correct SnapTrade API format
+- **Status**: Ready for testing with proper API format
 
 ### July 19, 2025 - SnapTrade Integration Debugging Session (Historical)
 **Previous SnapTrade Integration Attempts**:

@@ -640,21 +640,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .replace(/[^\x00-\xFF]/g, '')
         .trim();
 
-      // Use direct HTTP call for login with header authentication (not signature)
-      const loginResponse = await fetch("https://api.snaptrade.com/api/v1/snapTrade/login", {
+      // Use correct SnapTrade API format: userId/userSecret as query params, broker options in body
+      const queryParams = new URLSearchParams({
+        userId: actualUserId,
+        userSecret: actualUserSecret
+      });
+
+      const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?${queryParams}`, {
         method: "POST",
         headers: {
           "accept": "application/json",
           "Content-Type": "application/json",
           "clientId": process.env.SNAPTRADE_CLIENT_ID!,
-          "consumerSecret": cleanConsumerSecret
+          "consumerKey": cleanConsumerSecret
         },
         body: JSON.stringify({
-          userId: actualUserId,
-          userSecret: actualUserSecret,
           broker: null,
           immediateRedirect: true,
-          customRedirect: `${req.get('host')}/dashboard?connected=true`
+          customRedirect: `https://${req.get('host')}/dashboard?connected=true`,
+          connectionType: "read"
         })
       });
       
@@ -667,7 +671,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const loginData = JSON.parse(responseText);
-      res.json({ url: loginData.redirectURI });
+      
+      if (loginData.redirectURI) {
+        console.log('SnapTrade login successful, redirectURI generated');
+        res.json({ url: loginData.redirectURI });
+      } else {
+        throw new Error('No redirectURI returned from SnapTrade login');
+      }
       
     } catch (error: any) {
       console.error("Error generating SnapTrade connection URL:", error);
@@ -1099,21 +1109,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .replace(/[^\x00-\xFF]/g, '')
         .trim();
 
-      // Use direct HTTP call for login to get connection portal URL
-      const loginResponse = await fetch("https://api.snaptrade.com/api/v1/snapTrade/login", {
+      // Use correct SnapTrade API format: userId/userSecret as query params, broker options in body
+      const queryParams = new URLSearchParams({
+        userId: snapTradeUser.snaptradeUserId,
+        userSecret: snapTradeUser.userSecret
+      });
+
+      const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?${queryParams}`, {
         method: "POST",
         headers: {
           "accept": "application/json",
           "Content-Type": "application/json",
           "clientId": process.env.SNAPTRADE_CLIENT_ID!,
-          "consumerSecret": cleanConsumerSecret
+          "consumerKey": cleanConsumerSecret
         },
         body: JSON.stringify({
-          userId: snapTradeUser.snaptradeUserId,
-          userSecret: snapTradeUser.userSecret,
           broker: null,
-          immediateRedirect: true,
-          customRedirect: returnUrl
+          immediateRedirect: false,
+          customRedirect: returnUrl,
+          connectionType: "read",
+          connectionPortalVersion: "v4"
         })
       });
 
