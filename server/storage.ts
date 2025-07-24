@@ -334,11 +334,48 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllSnapTradeUsers(): Promise<Array<{ userId: string; snaptradeUserId: string; snaptradeUserSecret: string }>> {
-    return await db.select({
+    const result = await db.select({
       userId: users.id,
       snaptradeUserId: users.snaptradeUserId,
       snaptradeUserSecret: users.snaptradeUserSecret
     }).from(users).where(isNotNull(users.snaptradeUserSecret));
+    
+    // Filter out null values at runtime
+    return result.filter(user => 
+      user.snaptradeUserId !== null && 
+      user.snaptradeUserSecret !== null
+    ) as Array<{ userId: string; snaptradeUserId: string; snaptradeUserSecret: string }>;
+  }
+  
+  // Additional methods used by routes.ts  
+  async createActivityLog(activity: InsertActivityLog): Promise<ActivityLog> {
+    return this.logActivity(activity);
+  }
+  
+  async createWatchlistItem(item: InsertWatchlistItem): Promise<WatchlistItem> {
+    return this.addToWatchlist(item);
+  }
+  
+  async deleteWatchlistItem(id: number, userId: string): Promise<void> {
+    await db
+      .delete(watchlist)
+      .where(and(eq(watchlist.id, id), eq(watchlist.userId, userId)));
+  }
+  
+  async getActivityLogs(userId: string, limit: number = 100): Promise<ActivityLog[]> {
+    return this.getActivityLog(userId, limit);
+  }
+  
+  async updateUserSubscription(userId: string, tier: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        subscriptionTier: tier,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
   }
 }
 

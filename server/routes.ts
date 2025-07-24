@@ -34,6 +34,8 @@ if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET) {
   });
   
   console.log('SnapTrade SDK initialized successfully for flint-investing.com domain');
+} else {
+  console.log('SnapTrade environment variables not found - SnapTrade functionality disabled');
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -58,83 +60,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       
       const accounts = await storage.getConnectedAccounts(userId);
-      const holdings = await storage.getHoldings(userId);
-      const watchlist = await storage.getWatchlist(userId);
-      const recentTrades = await storage.getTrades(userId, 5);
-      const recentTransfers = await storage.getTransfers(userId, 5);
-      const recentActivity = await storage.getActivityLog(userId, 10);
-
-      // Calculate totals
-      const totalBalance = accounts.reduce((sum, account) => sum + parseFloat(account.balance), 0);
-      const bankBalance = accounts
-        .filter(account => account.accountType === 'bank')
-        .reduce((sum, account) => sum + parseFloat(account.balance), 0);
-      const investmentBalance = accounts
-        .filter(account => account.accountType === 'brokerage' || account.accountType === 'crypto')
-        .reduce((sum, account) => sum + parseFloat(account.balance), 0);
-
-      res.json({
+      const user = await storage.getUser(userId);
+      
+      let totalBalance = 0;
+      let bankBalance = 0;
+      let investmentValue = 0;
+      let cryptoValue = 0;
+      
+      accounts.forEach(account => {
+        if (account.provider === 'teller') {
+          bankBalance += account.balance || 0;
+        } else if (account.provider === 'snaptrade') {
+          investmentValue += account.balance || 0;
+        } else if (account.provider === 'crypto') {
+          cryptoValue += account.balance || 0;
+        }
+        totalBalance += account.balance || 0;
+      });
+      
+      const dashboardData = {
         totalBalance,
         bankBalance,
-        investmentBalance,
-        accounts,
-        holdings,
-        watchlist,
-        recentTrades,
-        recentTransfers,
-        recentActivity,
-      });
+        investmentValue,
+        cryptoValue,
+        accounts: accounts.map(account => ({
+          id: account.id,
+          provider: account.provider,
+          accountName: account.accountName,
+          balance: account.balance,
+          lastUpdated: account.lastUpdated
+        })),
+        subscriptionTier: user?.subscriptionTier || 'free'
+      };
+      
+      res.json(dashboardData);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       res.status(500).json({ message: "Failed to fetch dashboard data" });
     }
   });
 
-  // Connected accounts
-  app.get('/api/accounts', isAuthenticated, async (req: any, res) => {
+  // Log user login activity
+  app.post('/api/log-login', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.createActivityLog({
+        userId,
+        action: 'login',
+        details: { timestamp: new Date().toISOString() }
+      });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error logging activity:", error);
+      res.status(500).json({ message: "Failed to log activity" });
+    }
+  });
+
+  // Account connection management
+  app.get('/api/connected-accounts', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const accounts = await storage.getConnectedAccounts(userId);
-      res.json(accounts);
+      res.json({ accounts });
     } catch (error) {
-      console.error("Error fetching accounts:", error);
-      res.status(500).json({ message: "Failed to fetch accounts" });
+      console.error("Error fetching connected accounts:", error);
+      res.status(500).json({ message: "Failed to fetch connected accounts" });
     }
   });
 
-  app.post('/api/accounts', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const validatedData = insertConnectedAccountSchema.parse({
-        ...req.body,
-        userId,
-      });
-      
-      const account = await storage.createConnectedAccount(validatedData);
-      
-      // Log activity
-      await storage.logActivity({
-        userId,
-        action: 'account_connected',
-        description: `Connected ${account.institutionName} account`,
-        metadata: { accountId: account.id },
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent') || '',
-      });
-      
-      res.json(account);
-    } catch (error) {
-      console.error("Error creating account:", error);
-      res.status(500).json({ message: "Failed to create account" });
-    }
-  });
-
-  // Watchlist
+  // Watchlist management
   app.get('/api/watchlist', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const watchlist = await storage.getWatchlist(userId);
-      res.json(watchlist);
+      res.json({ watchlist });
     } catch (error) {
       console.error("Error fetching watchlist:", error);
       res.status(500).json({ message: "Failed to fetch watchlist" });
@@ -144,60 +143,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/watchlist', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      
       const validatedData = insertWatchlistItemSchema.parse({
         ...req.body,
-        userId,
+        userId
       });
       
-      const item = await storage.addToWatchlist(validatedData);
-      
-      // Log activity
-      await storage.logActivity({
-        userId,
-        action: 'watchlist_add',
-        description: `Added ${item.symbol} to watchlist`,
-        metadata: { symbol: item.symbol },
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent') || '',
-      });
-      
-      res.json(item);
-    } catch (error) {
+      const item = await storage.createWatchlistItem(validatedData);
+      res.json({ item });
+    } catch (error: any) {
       console.error("Error adding to watchlist:", error);
-      res.status(500).json({ message: "Failed to add to watchlist" });
+      res.status(500).json({ message: "Failed to add to watchlist: " + error.message });
     }
   });
 
-  app.delete('/api/watchlist/:symbol', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/watchlist/:id', isAuthenticated, async (req: any, res) => {
     try {
+      const { id } = req.params;
       const userId = req.user.claims.sub;
-      const { symbol } = req.params;
       
-      await storage.removeFromWatchlist(userId, symbol);
-      
-      // Log activity
-      await storage.logActivity({
-        userId,
-        action: 'watchlist_remove',
-        description: `Removed ${symbol} from watchlist`,
-        metadata: { symbol },
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent') || '',
-      });
-      
+      await storage.deleteWatchlistItem(parseInt(id), userId);
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error removing from watchlist:", error);
-      res.status(500).json({ message: "Failed to remove from watchlist" });
+      res.status(500).json({ message: "Failed to remove from watchlist: " + error.message });
     }
   });
 
-  // Trades
+  // Trade management  
   app.get('/api/trades', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const trades = await storage.getTrades(userId);
-      res.json(trades);
+      res.json({ trades });
     } catch (error) {
       console.error("Error fetching trades:", error);
       res.status(500).json({ message: "Failed to fetch trades" });
@@ -207,42 +185,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/trades', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      
       const validatedData = insertTradeSchema.parse({
         ...req.body,
-        userId,
-        status: 'pending',
+        userId
       });
       
       const trade = await storage.createTrade(validatedData);
       
-      // Simulate trade execution (in real app, this would be async)
-      setTimeout(async () => {
-        await storage.updateTradeStatus(trade.id, 'filled', new Date());
-        
-        // Log activity
-        await storage.logActivity({
-          userId,
-          action: 'trade_executed',
-          description: `${trade.side.toUpperCase()} ${trade.quantity} ${trade.symbol} at $${trade.price}`,
-          metadata: { tradeId: trade.id, symbol: trade.symbol, side: trade.side },
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent') || '',
-        });
-      }, 1000);
+      // Log the trade activity
+      await storage.createActivityLog({
+        userId,
+        action: 'trade',
+        details: {
+          symbol: validatedData.symbol,
+          type: validatedData.type,
+          quantity: validatedData.quantity,
+          price: validatedData.price
+        }
+      });
       
-      res.json(trade);
-    } catch (error) {
+      res.json({ trade });
+    } catch (error: any) {
       console.error("Error creating trade:", error);
-      res.status(500).json({ message: "Failed to create trade" });
+      res.status(500).json({ message: "Failed to create trade: " + error.message });
     }
   });
 
-  // Transfers
+  // Transfer management
   app.get('/api/transfers', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const transfers = await storage.getTransfers(userId);
-      res.json(transfers);
+      res.json({ transfers });
     } catch (error) {
       console.error("Error fetching transfers:", error);
       res.status(500).json({ message: "Failed to fetch transfers" });
@@ -252,442 +227,310 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/transfers', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      
       const validatedData = insertTransferSchema.parse({
         ...req.body,
-        userId,
-        status: 'pending',
+        userId
       });
       
       const transfer = await storage.createTransfer(validatedData);
       
-      // Simulate transfer execution
-      setTimeout(async () => {
-        await storage.updateTransferStatus(transfer.id, 'completed', new Date());
-        
-        // Log activity
-        await storage.logActivity({
-          userId,
-          action: 'transfer_completed',
-          description: `Transferred $${transfer.amount} between accounts`,
-          metadata: { transferId: transfer.id, amount: transfer.amount },
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent') || '',
-        });
-      }, 2000);
+      // Log the transfer activity
+      await storage.createActivityLog({
+        userId,
+        action: 'transfer',
+        details: {
+          fromAccount: validatedData.fromAccountId,
+          toAccount: validatedData.toAccountId,
+          amount: validatedData.amount
+        }
+      });
       
-      res.json(transfer);
-    } catch (error) {
+      res.json({ transfer });
+    } catch (error: any) {
       console.error("Error creating transfer:", error);
-      res.status(500).json({ message: "Failed to create transfer" });
+      res.status(500).json({ message: "Failed to create transfer: " + error.message });
     }
   });
 
-  // Activity log
+  // Activity logs
   app.get('/api/activity', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const activities = await storage.getActivityLog(userId);
-      res.json(activities);
+      const activities = await storage.getActivityLogs(userId);
+      res.json({ activities });
     } catch (error) {
-      console.error("Error fetching activity log:", error);
-      res.status(500).json({ message: "Failed to fetch activity log" });
+      console.error("Error fetching activity logs:", error);
+      res.status(500).json({ message: "Failed to fetch activity logs" });
     }
   });
 
-  // Market data (mock API)
-  app.get('/api/market/:symbol', async (req, res) => {
-    try {
-      const { symbol } = req.params;
-      
-      // Mock market data - in real app, this would fetch from financial data provider
-      const mockData = {
-        symbol: symbol.toUpperCase(),
-        name: getCompanyName(symbol),
-        price: Math.random() * 1000 + 50,
-        changePercent: (Math.random() - 0.5) * 10,
-        volume: Math.random() * 10000000,
-        marketCap: Math.random() * 1000000000000,
-      };
-      
-      res.json(mockData);
-    } catch (error) {
-      console.error("Error fetching market data:", error);
-      res.status(500).json({ message: "Failed to fetch market data" });
-    }
-  });
-
-  // Stripe subscription routes
-  app.post('/api/create-subscription', isAuthenticated, async (req: any, res) => {
+  // Payment routes (Stripe integration)
+  app.post('/api/create-payment-intent', isAuthenticated, async (req: any, res) => {
     try {
       if (!stripe) {
-        return res.status(503).json({ message: "Stripe is not configured. Please contact administrator." });
+        return res.status(500).json({ message: "Payment processing not configured" });
       }
+      
+      const { amount, tier } = req.body;
+      
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100), // Convert to cents
+        currency: 'usd',
+        metadata: {
+          tier,
+          userId: req.user.claims.sub
+        }
+      });
+      
+      res.json({ clientSecret: paymentIntent.client_secret });
+    } catch (error: any) {
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ message: "Failed to create payment intent: " + error.message });
+    }
+  });
 
-      const userId = req.user.claims.sub;
+  app.post('/api/confirm-subscription', isAuthenticated, async (req: any, res) => {
+    try {
       const { tier } = req.body;
-      
-      let user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      // Get price ID based on tier
-      const priceIds = {
-        basic: process.env.STRIPE_PRICE_ID_BASIC,
-        pro: process.env.STRIPE_PRICE_ID_PRO,
-        premium: process.env.STRIPE_PRICE_ID_PREMIUM,
-      };
-
-      const priceId = priceIds[tier as keyof typeof priceIds];
-      if (!priceId) {
-        return res.status(400).json({ message: "Invalid subscription tier" });
-      }
-
-      // Create or retrieve customer
-      let customerId = user.stripeCustomerId;
-      if (!customerId) {
-        const customer = await stripe.customers.create({
-          email: user.email || '',
-          name: `${user.firstName} ${user.lastName}`,
-        });
-        customerId = customer.id;
-        user = await storage.updateUserStripeInfo(userId, customerId, '');
-      }
-
-      // Create subscription
-      const subscription = await stripe.subscriptions.create({
-        customer: customerId,
-        items: [{ price: priceId }],
-        payment_behavior: 'default_incomplete',
-        expand: ['latest_invoice.payment_intent'],
-      });
-
-      await storage.updateUserStripeInfo(userId, customerId, subscription.id);
-
-      res.json({
-        subscriptionId: subscription.id,
-        clientSecret: (subscription.latest_invoice as any)?.payment_intent?.client_secret,
-      });
-    } catch (error) {
-      console.error("Error creating subscription:", error);
-      res.status(500).json({ message: "Failed to create subscription" });
-    }
-  });
-
-  // Teller.io API routes
-  app.post('/api/teller/connect-init', isAuthenticated, async (req: any, res) => {
-    try {
-      if (!process.env.TELLER_APPLICATION_ID) {
-        return res.status(500).json({ message: "Teller not configured. Please add TELLER_APPLICATION_ID to environment variables." });
-      }
-      
-      // Return Teller application ID for frontend integration
-      res.json({ 
-        applicationId: process.env.TELLER_APPLICATION_ID,
-        environment: process.env.TELLER_ENVIRONMENT || 'sandbox'
-      });
-    } catch (error) {
-      console.error("Error initiating Teller connect:", error);
-      res.status(500).json({ message: "Failed to initiate Teller connection" });
-    }
-  });
-
-  app.post('/api/teller/exchange-token', isAuthenticated, async (req: any, res) => {
-    try {
-      const { token } = req.body;
       const userId = req.user.claims.sub;
+      
+      // Update user subscription tier
+      await storage.updateUserSubscription(userId, tier);
+      
+      // Log the subscription activity
+      await storage.createActivityLog({
+        userId,
+        action: 'subscription_upgrade',
+        details: { tier }
+      });
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error confirming subscription:", error);
+      res.status(500).json({ message: "Failed to confirm subscription: " + error.message });
+    }
+  });
+
+  // Teller.io integration routes
+  app.post('/api/teller/connect', isAuthenticated, async (req: any, res) => {
+    try {
+      const { connectUrl } = req.body;
+      console.log('Received Teller connect URL:', connectUrl);
+      
+      if (!connectUrl) {
+        return res.status(400).json({ message: "Connect URL is required" });
+      }
+      
+      // Extract token from the connect URL
+      const url = new URL(connectUrl);
+      const token = url.searchParams.get('token');
       
       if (!token) {
-        return res.status(400).json({ message: "Access token is required" });
-      }
-
-      // Check user account limits
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        return res.status(400).json({ message: "No token found in URL" });
       }
       
-      const existingAccounts = await storage.getConnectedAccounts(userId);
-      const accountLimit = getAccountLimit(user.subscriptionTier || 'free');
+      console.log('Extracted token:', token.substring(0, 20) + '...');
       
-      if (existingAccounts.length >= accountLimit) {
-        return res.status(403).json({ 
-          message: "Account limit reached. Upgrade your plan to connect more accounts.",
-          limit: accountLimit,
-          current: existingAccounts.length
-        });
-      }
-      
-      // Validate with Teller API
-      const tellerResponse = await fetch('https://api.teller.io/accounts', {
+      // Exchange token for account information
+      const response = await fetch('https://api.teller.io/token', {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
-        },
+          'Authorization': `Basic ${Buffer.from(token + ':').toString('base64')}`
+        }
       });
       
-      if (!tellerResponse.ok) {
-        throw new Error('Invalid Teller token');
+      console.log('Teller API response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Teller API error:', errorText);
+        throw new Error(`Teller API error: ${response.status} - ${errorText}`);
       }
       
-      const accounts = await tellerResponse.json();
+      const tokenData = await response.json();
+      console.log('Token exchange successful, access_token length:', tokenData.access_token?.length);
       
-      // Create account records for each connected account
+      // Fetch account details
+      const accountsResponse = await fetch('https://api.teller.io/accounts', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!accountsResponse.ok) {
+        const errorText = await accountsResponse.text();
+        console.error('Teller accounts API error:', errorText);
+        throw new Error(`Failed to fetch accounts: ${accountsResponse.status} - ${errorText}`);
+      }
+      
+      const accounts = await accountsResponse.json();
+      console.log('Retrieved accounts:', accounts.length);
+      
+      // Store connected accounts
+      const userId = req.user.claims.sub;
+      const connectedAccounts = [];
+      
       for (const account of accounts) {
         const accountData = {
           userId,
-          accountType: 'bank',
           provider: 'teller',
-          institutionName: account.institution?.name || 'Connected Bank',
-          accountName: account.name || 'Bank Account',
-          balance: account.balance?.available || "0.00",
-          currency: account.currency || 'USD',
-          accessToken: token,
           externalAccountId: account.id,
-          isActive: true,
+          accountName: account.name,
+          accountType: account.type,
+          balance: parseFloat(account.balances.available) || 0,
+          accessToken: tokenData.access_token,
+          lastUpdated: new Date()
         };
         
-        await storage.createConnectedAccount(accountData);
+        const validatedData = insertConnectedAccountSchema.parse(accountData);
+        const connectedAccount = await storage.createConnectedAccount(validatedData);
+        connectedAccounts.push(connectedAccount);
+        
+        console.log('Stored account:', account.name, 'Balance:', accountData.balance);
       }
       
-      // Log the connection
-      await storage.logActivity({
+      // Log the connection activity
+      await storage.createActivityLog({
         userId,
         action: 'account_connected',
-        description: `Connected ${accounts.length} bank account(s) via Teller`,
-        metadata: { provider: 'teller', accountType: 'bank', count: accounts.length },
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent') || '',
+        details: {
+          provider: 'teller',
+          accountCount: accounts.length
+        }
       });
       
-      res.json({ success: true, accountsConnected: accounts.length });
+      res.json({ 
+        success: true, 
+        accounts: connectedAccounts,
+        message: `Successfully connected ${accounts.length} account(s)`
+      });
+      
     } catch (error: any) {
-      console.error("Error exchanging Teller token:", error);
-      res.status(500).json({ message: "Failed to exchange token: " + error.message });
+      console.error("Error connecting Teller account:", error);
+      res.status(500).json({ message: "Failed to connect account: " + error.message });
     }
   });
 
-  // SnapTrade API routes
+  // SnapTrade user registration
   app.post('/api/snaptrade/register', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const flintUserId = req.user.claims.sub;
       
-      if (!process.env.SNAPTRADE_CLIENT_ID) {
-        return res.status(500).json({ message: "SnapTrade not configured. Please add SNAPTRADE_CLIENT_ID to environment variables." });
+      if (!process.env.SNAPTRADE_CLIENT_ID || !process.env.SNAPTRADE_CLIENT_SECRET) {
+        return res.status(500).json({ message: "SnapTrade not configured." });
       }
       
-      // For now, just return success - registration is handled in the connect flow
-      res.json({ 
-        userId: userId,
-        userSecret: 'secret_' + Date.now()
+      // Check if user already exists
+      const existingUser = await storage.getSnapTradeUser(flintUserId);
+      if (existingUser) {
+        return res.json({ success: true, message: 'User already registered', userId: existingUser.snaptradeUserId });
+      }
+      
+      // Create unique userId for SnapTrade
+      const snapTradeUserId = `flint_user_${flintUserId}_${Date.now()}`;
+      
+      const clientId = process.env.SNAPTRADE_CLIENT_ID.trim();
+      const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET.trim();
+
+      const registerResponse = await fetch('https://api.snaptrade.com/api/v1/snapTrade/registerUser', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'clientId': clientId,
+          'consumerKey': consumerKey
+        },
+        body: JSON.stringify({ userId: snapTradeUserId })
       });
+
+      const responseText = await registerResponse.text();
+      console.log('SnapTrade register response:', registerResponse.status, responseText);
+
+      if (!registerResponse.ok) {
+        throw new Error(`Registration failed: ${registerResponse.status} - ${responseText}`);
+      }
+
+      const registerData = JSON.parse(responseText);
+      
+      if (registerData?.userId && registerData?.userSecret) {
+        await storage.createSnapTradeUser(flintUserId, registerData.userId, registerData.userSecret);
+        res.json({ success: true, message: 'SnapTrade user registered successfully', userId: registerData.userId });
+      } else {
+        throw new Error('Registration failed - invalid response format');
+      }
+
     } catch (error: any) {
-      console.error("Error registering SnapTrade user:", error);
-      res.status(500).json({ message: "Failed to register SnapTrade user: " + error.message });
+      console.error('SnapTrade registration error:', error);
+      res.status(500).json({ success: false, message: 'Failed to register SnapTrade user', error: error.message });
     }
   });
 
+  // SnapTrade connection URL generator  
   app.get('/api/snaptrade/connect-url', isAuthenticated, async (req: any, res) => {
     try {
-      let userId = req.user.claims.sub; // Changed to 'let' to allow reassignment
+      const flintUserId = req.user.claims.sub;
       
       if (!process.env.SNAPTRADE_CLIENT_ID || !process.env.SNAPTRADE_CLIENT_SECRET) {
-        return res.status(500).json({ message: "SnapTrade not configured. Please add SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET to environment variables." });
+        return res.status(500).json({ message: "SnapTrade not configured." });
       }
       
-      console.log('SnapTrade Client ID:', process.env.SNAPTRADE_CLIENT_ID);
-      console.log('SnapTrade Consumer Key present:', !!process.env.SNAPTRADE_CLIENT_SECRET);
-      
-      // Check if we have stored the userSecret for this user
-      let userSecret = null;
-      
-      // Check our database for existing SnapTrade user data
-      const existingSnapTradeUser = await storage.getSnapTradeUser(userId);
-      
-      if (existingSnapTradeUser) {
-        userSecret = existingSnapTradeUser.userSecret;
-        console.log('Found stored SnapTrade user secret');
-      } else {
-        // Create new user in SnapTrade
-        userSecret = `secret_${userId}_${Math.floor(Date.now() / 1000)}`;
-        
-        try {
-          const regTimestamp = Math.floor(Date.now() / 1000);
-          const regQueryParams = new URLSearchParams({
-            clientId: process.env.SNAPTRADE_CLIENT_ID,
-            timestamp: regTimestamp.toString()
-          });
-          
-          const registerSignature = generateSnapTradeSignature(
-            'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
-            { userId, userSecret },
-            '/api/v1/snapTrade/registerUser',
-            regQueryParams.toString()
-          );
-          
-          const registerResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${regQueryParams}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Signature': registerSignature,
-            },
-            body: JSON.stringify({
-              userId,
-              userSecret
-            }),
-          });
-          
-          if (registerResponse.ok) {
-            console.log('Successfully registered new SnapTrade user');
-            // Store the userSecret in our database for future use
-            await storage.createSnapTradeUser(userId, userId, userSecret); // flintUserId, snaptradeUserId, userSecret
-          } else {
-            const regResponseText = await registerResponse.text();
-            console.log('Register response:', regResponseText);
-            
-            // If user already exists, use a modified user ID to create a fresh account
-            if (registerResponse.status === 400 && regResponseText.includes('already exist')) {
-              console.log('User already exists in SnapTrade - creating with modified ID...');
-              
-              // Use a unique user ID by appending timestamp
-              const uniqueUserId = `${userId}_${Math.floor(Date.now() / 1000)}`;
-              const uniqueUserSecret = `secret_${uniqueUserId}_${Math.floor(Date.now() / 1000)}`;
-              
-              try {
-                const newTimestamp = Math.floor(Date.now() / 1000);
-                const newQueryParams = new URLSearchParams({
-                  clientId: process.env.SNAPTRADE_CLIENT_ID,
-                  timestamp: newTimestamp.toString()
-                });
-                
-                const newSignature = generateSnapTradeSignature(
-                  'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
-                  { userId: uniqueUserId, userSecret: uniqueUserSecret },
-                  '/api/v1/snapTrade/registerUser',
-                  newQueryParams.toString()
-                );
-                
-                const retryResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${newQueryParams}`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Signature': newSignature,
-                  },
-                  body: JSON.stringify({
-                    userId: uniqueUserId,
-                    userSecret: uniqueUserSecret
-                  }),
-                });
-                
-                if (retryResponse.ok) {
-                  console.log('Successfully registered SnapTrade user with unique ID');
-                  console.log('DEBUG: Registered user ID:', uniqueUserId);
-                  console.log('DEBUG: Registered user secret pattern:', uniqueUserSecret.substring(0, 30) + '...');
-                  
-                  userSecret = uniqueUserSecret;
-                  userId = uniqueUserId; // Update the userId to use the unique one
-                  
-                  await storage.createSnapTradeUser(req.user.claims.sub, uniqueUserId, uniqueUserSecret); // Store with original Flint userId and unique SnapTrade userId
-                  console.log('DEBUG: Stored user secret in database for user:', req.user.claims.sub);
-                  
-                  // Don't return here, let the main login flow continue
-                } else {
-                  const retryError = await retryResponse.text();
-                  console.log('Retry registration failed:', retryError);
-                  throw new Error('Failed to register user with unique ID');
-                }
-              } catch (uniqueError) {
-                console.error('Error in unique user flow:', uniqueError);
-                throw new Error('Failed to create unique user');
-              }
-            } else {
-              throw new Error('User registration failed');
-            }
-          }
-        } catch (error) {
-          console.error('Failed to register SnapTrade user:', error);
-          throw error;
-        }
+      const snapTradeUser = await storage.getSnapTradeUser(flintUserId);
+      if (!snapTradeUser) {
+        return res.status(400).json({
+          message: "SnapTrade user not registered. Please register first.",
+          requiresRegistration: true
+        });
       }
       
-      // Generate login link with query parameters (UNIX timestamp in seconds)
-      const timestamp = Math.floor(Date.now() / 1000);
+      const clientId = process.env.SNAPTRADE_CLIENT_ID.trim();
+      const consumerSecret = process.env.SNAPTRADE_CLIENT_SECRET.trim();
+      const redirectURI = `https://${req.get('host')}/dashboard?connected=true`;
       
-      // Get the actual stored user data to use correct SnapTrade user ID
-      const storedUser = await storage.getSnapTradeUser(req.user.claims.sub);
-      let actualUserId = userId;
-      let actualUserSecret = userSecret;
-      
-      if (storedUser) {
-        console.log('DEBUG: Found stored SnapTrade user data');
-        actualUserSecret = storedUser.userSecret;
-        // Try to extract the unique user ID from the stored secret pattern: secret_{uniqueUserId}_{timestamp}
-        const secretMatch = storedUser.userSecret.match(/secret_(.+)_\d+$/);
-        if (secretMatch) {
-          actualUserId = secretMatch[1]; // This captures the full unique user ID including the timestamp suffix
-          console.log('DEBUG: Extracted unique user ID from stored secret:', actualUserId);
-        }
-      } else {
-        console.log('DEBUG: No stored SnapTrade user found, registration should have been completed above');
-      }
-      
-      console.log('DEBUG: Final userId for login:', actualUserId);
-      console.log('DEBUG: Final userSecret pattern:', actualUserSecret.substring(0, 20) + '...');
-      
-      // Clean the consumer secret for login
-      const cleanConsumerSecret = process.env.SNAPTRADE_CLIENT_SECRET!
-        .replace(/[\u2028\u2029]/g, '')
-        .replace(/[^\x00-\xFF]/g, '')
-        .trim();
-
-      // Use correct SnapTrade API format: userId/userSecret as query params, broker options in body
       const queryParams = new URLSearchParams({
-        userId: actualUserId,
-        userSecret: actualUserSecret
+        userId: snapTradeUser.snaptradeUserId,
+        userSecret: snapTradeUser.userSecret
       });
 
       const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?${queryParams}`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "accept": "application/json",
-          "Content-Type": "application/json",
-          "clientId": process.env.SNAPTRADE_CLIENT_ID!.trim(),
-          "consumerKey": process.env.SNAPTRADE_CLIENT_SECRET!
-            .replace(/[\u2028\u2029]/g, '')
-            .replace(/[^\x00-\xFF]/g, '')
-            .trim()
+          'clientId': clientId,
+          'consumerSecret': consumerSecret,
+          'Content-Type': 'application/json',
+          'accept': 'application/json'
         },
         body: JSON.stringify({
           broker: null,
-          immediateRedirect: true,
-          customRedirect: `https://${req.get('host')}/dashboard?connected=true`,
-          connectionType: "read"
+          immediateRedirect: false,
+          customRedirect: redirectURI,
+          connectionType: 'read'
         })
       });
-      
+
       const responseText = await loginResponse.text();
-      console.log('SnapTrade login response status:', loginResponse.status);
-      console.log('SnapTrade login response:', responseText);
-      
+      console.log('SnapTrade login response:', loginResponse.status, responseText);
+
       if (!loginResponse.ok) {
-        throw new Error(`Failed to generate login link: ${loginResponse.status} - ${responseText}`);
+        throw new Error(`SnapTrade login failed: ${loginResponse.status} - ${responseText}`);
       }
-      
+
       const loginData = JSON.parse(responseText);
-      
       if (loginData.redirectURI) {
-        console.log('SnapTrade login successful, redirectURI generated');
         res.json({ url: loginData.redirectURI });
       } else {
-        throw new Error('No redirectURI returned from SnapTrade login');
+        throw new Error('No redirectURI in SnapTrade response');
       }
       
     } catch (error: any) {
-      console.error("Error generating SnapTrade connection URL:", error);
+      console.error("SnapTrade connection error:", error);
       res.status(500).json({ message: "Failed to generate connection URL: " + error.message });
     }
   });
 
+  // SnapTrade search endpoint
   app.get('/api/snaptrade/search', isAuthenticated, async (req: any, res) => {
     try {
       const { q } = req.query;
@@ -696,7 +539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Search query is required" });
       }
 
-      // Use mock data for search results for now
+      // Mock data for now - should be replaced with real SnapTrade search
       const mockResults = [
         { symbol: 'AAPL', name: 'Apple Inc.', price: 173.50, changePercent: 1.2, volume: 89000000 },
         { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 2435.20, changePercent: -0.8, volume: 2100000 },
@@ -720,840 +563,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/account-details/:accountId', isAuthenticated, async (req: any, res) => {
-    try {
-      const { accountId } = req.params;
-      const userId = req.user.claims.sub;
-      
-      // Get the account to verify ownership
-      const account = await storage.getConnectedAccount(parseInt(accountId));
-      if (!account || account.userId !== userId) {
-        return res.status(404).json({ message: "Account not found" });
-      }
-      
-      let details = [];
-      
-      if (account.provider === 'teller' && account.accessToken) {
-        try {
-          // Fetch transactions from Teller API
-          const transactionsResponse = await fetch(`https://api.teller.io/accounts/${account.externalAccountId}/transactions`, {
-            headers: {
-              'Authorization': `Bearer ${account.accessToken}`,
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          if (transactionsResponse.ok) {
-            details = await transactionsResponse.json();
-          }
-        } catch (error) {
-          console.error('Error fetching Teller transactions:', error);
-        }
-      } else if (account.provider === 'snaptrade' && account.accessToken) {
-        try {
-          // Fetch holdings from SnapTrade API
-          const holdingsResponse = await fetch(`https://api.snaptrade.com/api/v1/accounts/${account.externalAccountId}/holdings`, {
-            headers: {
-              'Authorization': `Bearer ${account.accessToken}`,
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          if (holdingsResponse.ok) {
-            details = await holdingsResponse.json();
-          }
-        } catch (error) {
-          console.error('Error fetching SnapTrade holdings:', error);
-        }
-      }
-      
-      res.json(details);
-    } catch (error: any) {
-      console.error("Error fetching account details:", error);
-      res.status(500).json({ message: "Failed to fetch account details: " + error.message });
-    }
-  });
-
-  app.get('/api/snaptrade/quote/:symbol', isAuthenticated, async (req: any, res) => {
-    try {
-      const { symbol } = req.params;
-      
-      // Use mock data for quote data
-      const mockQuote = {
-        symbol: symbol.toUpperCase(),
-        name: getCompanyName(symbol),
-        price: Math.random() * 1000 + 50,
-        changePercent: (Math.random() - 0.5) * 10,
-        volume: Math.random() * 10000000,
-        marketCap: Math.random() * 1000000000000,
-      };
-      
-      res.json(mockQuote);
-    } catch (error: any) {
-      console.error("Error fetching quote:", error);
-      res.status(500).json({ message: "Failed to fetch quote: " + error.message });
-    }
-  });
-
-  // Log user login
-  app.post('/api/log-login', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      
-      // Ensure every Flint user has a SnapTrade account
-      try {
-        const existingSnapTradeUser = await storage.getSnapTradeUser(userId);
-        if (!existingSnapTradeUser) {
-          console.log('No SnapTrade account found for user:', userId, '- use Fresh Account to create one');
-          // Disabled automatic creation to avoid conflicts with manual fresh account creation
-          
-          const timestamp = Math.floor(Date.now() / 1000);
-          const uniqueUserId = `${userId}_${timestamp}`;
-          const uniqueUserSecret = `secret_${uniqueUserId}_${timestamp}`;
-          
-          const queryParams = new URLSearchParams({
-            clientId: process.env.SNAPTRADE_CLIENT_ID,
-            timestamp: timestamp.toString()
-          });
-          
-          const registerSignature = generateSnapTradeSignature(
-            process.env.SNAPTRADE_CLIENT_SECRET!,
-            { userId: uniqueUserId, userSecret: uniqueUserSecret },
-            '/api/v1/snapTrade/registerUser',
-            queryParams.toString()
-          );
-          
-          const registerResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?${queryParams}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Signature': registerSignature,
-            },
-            body: JSON.stringify({
-              userId: uniqueUserId,
-              userSecret: uniqueUserSecret
-            }),
-          });
-          
-          // Automatic account creation disabled to prevent conflicts
-          console.log('Automatic account creation disabled - use Fresh Account button instead');
-        }
-      } catch (snaptradeError) {
-        console.log('Error creating automatic SnapTrade account:', snaptradeError);
-        // Don't fail the login process if SnapTrade account creation fails
-      }
-      
-      await storage.logActivity({
-        userId,
-        action: 'login',
-        description: 'User logged in',
-        metadata: {},
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent') || '',
-      });
-      
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error logging login:", error);
-      res.status(500).json({ message: "Failed to log login" });
-    }
-  });
-
-  // List all SnapTrade users for debugging
-  app.get('/api/snaptrade/list-users', isAuthenticated, async (req: any, res) => {
-    try {
-      if (!snapTradeClient) {
-        return res.status(500).json({ message: 'SnapTrade client not initialized' });
-      }
-      
-      console.log('Listing all SnapTrade users for debugging...');
-      const response = await snapTradeClient.authentication.listSnapTradeUsers();
-      
-      console.log('SnapTrade users count:', response.length);
-      const userList = response.map((user: any) => ({
-        userId: user.userId,
-        createdDate: user.createdDate,
-        // Don't return the full user secret for security
-        hasSecret: !!user.userSecret
-      }));
-      
-      res.json({ users: userList, totalCount: response.length });
-      
-    } catch (error: any) {
-      console.error('Error listing SnapTrade users:', error);
-      res.status(500).json({ message: 'Failed to list users: ' + (error.message || error.toString()) });
-    }
-  });
-
-  // Delete a specific SnapTrade user
-  app.delete('/api/snaptrade/delete-user/:snaptradeUserId', isAuthenticated, async (req: any, res) => {
-    try {
-      if (!snapTradeClient) {
-        return res.status(500).json({ message: 'SnapTrade client not initialized' });
-      }
-      
-      const { snaptradeUserId } = req.params;
-      console.log('Deleting SnapTrade user:', snaptradeUserId);
-      
-      const response = await snapTradeClient.authentication.deleteSnapTradeUser({
-        userId: snaptradeUserId
-      });
-      
-      console.log('Successfully deleted SnapTrade user:', snaptradeUserId);
-      res.json({ success: true, message: 'User deleted successfully' });
-      
-    } catch (error: any) {
-      console.error('Error deleting SnapTrade user:', error);
-      res.status(500).json({ message: 'Failed to delete user: ' + (error.message || error.toString()) });
-    }
-  });
-
-  // Test SnapTrade SDK basic functionality (public route for testing)
-  app.get('/api/test-snaptrade-sdk', async (req: any, res) => {
-    try {
-      console.log('Testing SnapTrade SDK initialization...');
-      
-      if (!snapTradeClient) {
-        return res.status(500).json({ 
-          success: false,
-          message: 'SnapTrade client not initialized',
-          env_check: {
-            client_id: !!process.env.SNAPTRADE_CLIENT_ID,
-            client_secret: !!process.env.SNAPTRADE_CLIENT_SECRET
-          }
-        });
-      }
-      
-      console.log('SnapTrade SDK initialized, testing API status...');
-      const statusResponse = await snapTradeClient.apiStatus.check();
-      
-      console.log('SnapTrade API status response:', statusResponse.data);
-      res.json({ 
-        success: true, 
-        message: 'SnapTrade SDK working correctly',
-        status: statusResponse.data 
-      });
-      
-    } catch (error: any) {
-      console.error("SnapTrade SDK test error:", error);
-      res.status(500).json({ 
-        success: false, 
-        message: "SnapTrade SDK test failed", 
-        error: error.message || error.toString(),
-        stack: error.stack
-      });
-    }
-  });
-
-  // Test SnapTrade API connection (authenticated route)
-  app.get('/api/snaptrade/status', isAuthenticated, async (req: any, res) => {
-    try {
-      if (!snapTradeClient) {
-        return res.status(500).json({ message: 'SnapTrade client not initialized' });
-      }
-      
-      console.log('Testing SnapTrade API status...');
-      const statusResponse = await snapTradeClient.apiStatus.check();
-      
-      console.log('SnapTrade API status successful:', statusResponse.data);
-      res.json({ 
-        success: true, 
-        message: 'SnapTrade API connection successful',
-        status: statusResponse.data 
-      });
-      
-    } catch (error: any) {
-      console.error("SnapTrade API status error:", error);
-      res.status(500).json({ 
-        success: false, 
-        message: "SnapTrade API connection failed", 
-        error: error.toString() 
-      });
-    }
-  });
-
-  // SnapTrade Integration - Follow official docs exactly
-  // Step 1: Register SnapTrade user (official SnapTrade workflow)
-  app.post('/api/snaptrade/register-user', isAuthenticated, async (req: any, res) => {
-    try {
-      const flintUserId = req.user.claims.sub;
-      console.log('SnapTrade: Registering user for Flint user:', flintUserId);
-      
-      if (!process.env.SNAPTRADE_CLIENT_ID || !process.env.SNAPTRADE_CLIENT_SECRET) {
-        return res.status(500).json({ 
-          success: false, 
-          message: 'SnapTrade not configured. Missing API credentials.' 
-        });
-      }
-      
-      // Check if user already exists - one SnapTrade user per Flint user
-      const existingUser = await storage.getSnapTradeUser(flintUserId);
-      if (existingUser) {
-        console.log('SnapTrade user already exists for Flint user:', flintUserId);
-        return res.json({
-          success: true,
-          message: 'SnapTrade user already exists',
-          userId: existingUser.snaptradeUserId
-        });
-      }
-      
-      // Create unique userId as recommended by SnapTrade (immutable, not email)
-      const snapTradeUserId = `flint_user_${flintUserId}_${Date.now()}`;
-      
-      console.log('Creating SnapTrade user with ID:', snapTradeUserId);
-      
-      // Clean environment variables to remove any Unicode characters
-      const clientId = process.env.SNAPTRADE_CLIENT_ID.trim();
-      const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET
-        .replace(/[\u2028\u2029]/g, '')
-        .replace(/[^\x00-\xFF]/g, '')
-        .trim();
-
-
-      // Use direct API call with proper authentication headers per SnapTrade docs
-      const registerResponse = await fetch('https://api.snaptrade.com/api/v1/snapTrade/registerUser', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-          'clientId': clientId,
-          'consumerKey': consumerKey
-        },
-        body: JSON.stringify({
-          userId: snapTradeUserId
-        })
-      });
-
-      const responseText = await registerResponse.text();
-      console.log('SnapTrade register response:', responseText);
-
-      if (!registerResponse.ok) {
-        throw new Error(`Registration failed: ${registerResponse.status} - ${responseText}`);
-      }
-
-      const registerData = JSON.parse(responseText);
-      
-      if (registerData?.userId && registerData?.userSecret) {
-        // Store the user credentials
-        await storage.createSnapTradeUser(flintUserId, registerData.userId, registerData.userSecret);
-        
-        console.log('Successfully registered SnapTrade user:', registerData.userId);
-        
-        res.json({
-          success: true,
-          message: 'SnapTrade user registered successfully',
-          userId: registerData.userId
-        });
-      } else {
-        throw new Error('Registration failed - invalid response format');
-      }
-      
-    } catch (error: any) {
-      console.error('SnapTrade user registration error:', error);
-      
-      // Enhanced error logging for diagnosis
-      console.error('Full error object:', {
-        message: error.message,
-        status: error.status,
-        responseBody: error.responseBody,
-        code: error.code,
-        method: error.method,
-        url: error.url
-      });
-      
-      // Log current environment details
-      console.error('Environment details:', {
-        clientId: process.env.SNAPTRADE_CLIENT_ID,
-        consumerKeyPrefix: process.env.SNAPTRADE_CLIENT_SECRET?.substring(0, 10),
-        nodeEnv: process.env.NODE_ENV,
-        host: req.get('host')
-      });
-      
-      res.status(500).json({
-        success: false,
-        message: 'Failed to register SnapTrade user',
-        error: error.message,
-        details: 'Signature verification failed - please check SnapTrade API key configuration'
-      });
-    }
-  });
-
-  // Step 2: Generate connection portal URL (official SnapTrade flow)
-  app.post('/api/snaptrade/connection-portal', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      console.log('SnapTrade: Generating connection portal for Flint user:', userId);
-      
-      if (!snapTradeClient) {
-        return res.status(500).json({ success: false, message: 'SnapTrade client not initialized' });
-      }
-      
-      // Get SnapTrade user (must exist)
-      const snapTradeUser = await storage.getSnapTradeUser(userId);
-      if (!snapTradeUser) {
-        return res.status(400).json({
-          success: false,
-          message: 'SnapTrade user not found. Please register first.'
-        });
-      }
-      
-      console.log('Generating portal URL for SnapTrade user:', snapTradeUser.snaptradeUserId);
-      
-      // Generate connection portal URL using official SnapTrade SDK
-      // Use current Replit domain now that it's configured in SnapTrade dashboard
-      const currentHost = req.get('host');
-      const returnUrl = `https://${currentHost}/dashboard?connected=true`;
-      
-      console.log('Using return URL for SnapTrade portal:', returnUrl);
-      
-      // Clean the consumer secret for login as well
-      const cleanConsumerSecret = process.env.SNAPTRADE_CLIENT_SECRET!
-        .replace(/[\u2028\u2029]/g, '')
-        .replace(/[^\x00-\xFF]/g, '')
-        .trim();
-
-      // Use correct SnapTrade API format: userId/userSecret as query params, broker options in body
-      const queryParams = new URLSearchParams({
-        userId: snapTradeUser.snaptradeUserId,
-        userSecret: snapTradeUser.userSecret
-      });
-
-      const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?${queryParams}`, {
-        method: "POST",
-        headers: {
-          "accept": "application/json",
-          "Content-Type": "application/json",
-          "clientId": process.env.SNAPTRADE_CLIENT_ID!.trim(),
-          "consumerKey": process.env.SNAPTRADE_CLIENT_SECRET!
-            .replace(/[\u2028\u2029]/g, '')
-            .replace(/[^\x00-\xFF]/g, '')
-            .trim()
-        },
-        body: JSON.stringify({
-          broker: null,
-          immediateRedirect: false,
-          customRedirect: returnUrl,
-          connectionType: "read",
-          connectionPortalVersion: "v4"
-        })
-      });
-
-      if (!loginResponse.ok) {
-        const errorData = await loginResponse.text();
-        throw new Error(`Login HTTP ${loginResponse.status}: ${errorData}`);
-      }
-
-      const portalResponse = await loginResponse.json();
-      
-      if (portalResponse?.redirectURI) {
-        console.log('Connection portal URL generated successfully');
-        res.json({
-          success: true,
-          portalUrl: portalResponse.redirectURI,
-          message: 'Connection portal ready'
-        });
-      } else {
-        throw new Error('No portal URL returned from SnapTrade');
-      }
-      
-    } catch (error: any) {
-      console.error('SnapTrade portal generation error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to generate connection portal',
-        error: error.message
-      });
-    }
-  });
-
-  // Step 3: List SnapTrade accounts (after successful connection)
-  app.get('/api/snaptrade/accounts', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      console.log('SnapTrade: Fetching accounts for Flint user:', userId);
-      
-      if (!snapTradeClient) {
-        return res.status(500).json({ success: false, message: 'SnapTrade client not initialized' });
-      }
-      
-      // Get SnapTrade user
-      const snapTradeUser = await storage.getSnapTradeUser(userId);
-      if (!snapTradeUser) {
-        return res.status(400).json({
-          success: false,
-          message: 'SnapTrade user not found. Please register first.'
-        });
-      }
-      
-      // Fetch accounts using SnapTrade SDK
-      const accountsResponse = await snapTradeClient.accountInformation.listUserAccounts({
-        userId: snapTradeUser.snaptradeUserId,
-        userSecret: snapTradeUser.snaptradeUserSecret
-      });
-      
-      const accounts = accountsResponse?.data || [];
-      console.log(`Found ${accounts.length} SnapTrade accounts`);
-      
-      res.json({
-        success: true,
-        accounts: accounts,
-        message: `Found ${accounts.length} account(s)`
-      });
-      
-    } catch (error: any) {
-      console.error('SnapTrade accounts fetch error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch SnapTrade accounts',
-        error: error.message
-      });
-    }
-  });
-
-  // SnapTrade callback handler
-  app.get('/api/snaptrade/callback', isAuthenticated, async (req: any, res) => {
-    try {
-      const { code, state } = req.query;
-      const userId = req.user.claims.sub;
-      
-      if (code) {
-        console.log('SnapTrade connection successful, fetching real account data...');
-        
-        // Get the user's SnapTrade credentials
-        const storedUser = await storage.getSnapTradeUser(userId);
-        if (!storedUser) {
-          console.log('No SnapTrade user found for callback');
-          res.redirect('/dashboard?error=no_user_found');
-          return;
-        }
-        
-        // Extract the unique user ID from stored secret
-        const secretMatch = storedUser.userSecret.match(/secret_(.+)_\d+$/);
-        const snapTradeUserId = secretMatch ? secretMatch[1] : userId;
-        
-        // Fetch real SnapTrade accounts
-        try {
-          const timestamp = Math.floor(Date.now() / 1000);
-          const queryParams = new URLSearchParams({
-            clientId: process.env.SNAPTRADE_CLIENT_ID,
-            userId: snapTradeUserId,
-            userSecret: storedUser.userSecret,
-            timestamp: timestamp.toString()
-          });
-          
-          const accountsSignature = generateSnapTradeSignature(
-            'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
-            {},
-            '/api/v1/accounts',
-            queryParams.toString()
-          );
-          
-          const accountsResponse = await fetch(`https://api.snaptrade.com/api/v1/accounts?${queryParams}`, {
-            method: 'GET',
-            headers: {
-              'Signature': accountsSignature,
-            }
-          });
-          
-          if (accountsResponse.ok) {
-            const snapTradeAccounts = await accountsResponse.json();
-            console.log('Retrieved SnapTrade accounts:', snapTradeAccounts.length);
-            
-            // Create connected accounts from SnapTrade data
-            for (const account of snapTradeAccounts) {
-              const accountData = {
-                userId,
-                accountType: 'brokerage',
-                provider: 'snaptrade',
-                institutionName: account.institution_name || 'SnapTrade Brokerage',
-                accountName: account.name || account.number,
-                balance: account.total_value?.toString() || "0.00",
-                currency: account.currency || 'USD',
-                accessToken: code,
-                externalAccountId: account.id,
-                isActive: true,
-              };
-              
-              await storage.createConnectedAccount(accountData);
-            }
-            
-            // Log the connection
-            await storage.logActivity({
-              userId,
-              action: 'account_connected',
-              description: `Connected ${snapTradeAccounts.length} brokerage account(s) via SnapTrade`,
-              metadata: { provider: 'snaptrade', accountCount: snapTradeAccounts.length },
-              ipAddress: req.ip,
-              userAgent: req.get('User-Agent') || '',
-            });
-            
-            console.log('Successfully created connected accounts from SnapTrade');
-            res.redirect('/dashboard?connected=snaptrade');
-          } else {
-            console.log('Failed to fetch SnapTrade accounts, creating placeholder');
-            // Create a placeholder account if API call fails
-            const accountData = {
-              userId,
-              accountType: 'brokerage',
-              provider: 'snaptrade',
-              institutionName: 'Connected Brokerage',
-              accountName: 'Investment Account',
-              balance: "0.00",
-              currency: 'USD',
-              accessToken: code,
-              externalAccountId: 'snaptrade_pending_' + Date.now(),
-              isActive: true,
-            };
-            
-            await storage.createConnectedAccount(accountData);
-            res.redirect('/dashboard?connected=snaptrade&status=pending');
-          }
-        } catch (error) {
-          console.error('Error fetching SnapTrade accounts:', error);
-          res.redirect('/dashboard?error=account_fetch_failed');
-        }
-      } else {
-        res.redirect('/dashboard?error=connection_failed');
-      }
-    } catch (error: any) {
-      console.error("Error handling SnapTrade callback:", error);
-      res.redirect('/dashboard?error=connection_failed');
-    }
-  });
-
-  // Fetch existing SnapTrade connections and accounts
-  app.get('/api/snaptrade/sync-accounts', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      
-      // Get the user's SnapTrade credentials
-      const storedUser = await storage.getSnapTradeUser(userId);
-      if (!storedUser) {
-        return res.status(404).json({ message: 'No SnapTrade user found. Please create a fresh account first.' });
-      }
-      
-      // Extract the unique user ID from stored secret
-      const secretMatch = storedUser.userSecret.match(/secret_(.+)_\d+$/);
-      const snapTradeUserId = secretMatch ? secretMatch[1] : userId;
-      
-      console.log('Syncing SnapTrade accounts for user:', snapTradeUserId);
-      
-      const timestamp = Math.floor(Date.now() / 1000);
-      const queryParams = new URLSearchParams({
-        clientId: process.env.SNAPTRADE_CLIENT_ID,
-        userId: snapTradeUserId,
-        userSecret: storedUser.userSecret,
-        timestamp: timestamp.toString()
-      });
-      
-      const accountsSignature = generateSnapTradeSignature(
-        'eJunnhdd52XTHCdrmzMItkKthmh7OwclxO32uvG89pEstYPXeM',
-        {},
-        '/api/v1/accounts',
-        queryParams.toString()
-      );
-      
-      const accountsResponse = await fetch(`https://api.snaptrade.com/api/v1/accounts?${queryParams}`, {
-        method: 'GET',
-        headers: {
-          'Signature': accountsSignature,
-        }
-      });
-      
-      if (accountsResponse.ok) {
-        const snapTradeAccounts = await accountsResponse.json();
-        console.log('Retrieved SnapTrade accounts:', snapTradeAccounts.length);
-        
-        // Create/update connected accounts from SnapTrade data
-        let syncedCount = 0;
-        for (const account of snapTradeAccounts) {
-          const accountData = {
-            userId,
-            accountType: 'brokerage' as const,
-            provider: 'snaptrade',
-            institutionName: account.institution_name || 'SnapTrade Brokerage',
-            accountName: account.name || account.number,
-            balance: account.total_value?.toString() || "0.00",
-            currency: account.currency || 'USD',
-            accessToken: 'snaptrade_connected',
-            externalAccountId: account.id,
-            isActive: true,
-          };
-          
-          await storage.createConnectedAccount(accountData);
-          syncedCount++;
-        }
-        
-        // Log the sync
-        await storage.logActivity({
-          userId,
-          action: 'accounts_synced',
-          description: `Synced ${syncedCount} SnapTrade account(s)`,
-          metadata: { provider: 'snaptrade', syncedCount },
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent') || '',
-        });
-        
-        res.json({ 
-          success: true, 
-          message: `Successfully synced ${syncedCount} account(s)`,
-          accountCount: syncedCount 
-        });
-      } else {
-        const errorText = await accountsResponse.text();
-        console.log('Failed to fetch SnapTrade accounts:', errorText);
-        res.status(500).json({ 
-          success: false, 
-          message: 'Failed to fetch SnapTrade accounts',
-          error: errorText 
-        });
-      }
-      
-    } catch (error: any) {
-      console.error("Error syncing SnapTrade accounts:", error);
-      res.status(500).json({ 
-        success: false, 
-        message: "Error syncing accounts",
-        error: error.message 
-      });
-    }
-  });
-
-  // Admin API routes for user and SnapTrade management
-  app.get('/api/admin/users', isAuthenticated, async (req: any, res) => {
-    try {
-      const users = await storage.getAllUsers();
-      res.json(users);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      res.status(500).json({ message: "Failed to fetch users" });
-    }
-  });
-
-  app.get('/api/admin/snaptrade-users', isAuthenticated, async (req: any, res) => {
-    try {
-      if (!snapTradeClient) {
-        return res.status(500).json({ message: 'SnapTrade client not initialized' });
-      }
-      
-      const response = await snapTradeClient.authentication.listSnapTradeUsers();
-      res.json({ users: response });
-    } catch (error: any) {
-      console.error("Error listing SnapTrade users:", error);
-      res.status(500).json({ message: "Failed to list SnapTrade users: " + error.message });
-    }
-  });
-
-  app.delete('/api/admin/snaptrade-user/:userId', isAuthenticated, async (req: any, res) => {
-    try {
-      if (!snapTradeClient) {
-        return res.status(500).json({ message: 'SnapTrade client not initialized' });
-      }
-      
-      const { userId } = req.params;
-      await snapTradeClient.authentication.deleteSnapTradeUser({
-        requestBody: { userId }
-      });
-      
-      res.json({ success: true });
-    } catch (error: any) {
-      console.error("Error deleting SnapTrade user:", error);
-      res.status(500).json({ message: "Failed to delete SnapTrade user: " + error.message });
-    }
-  });
-
-  app.post('/api/admin/cleanup-snaptrade', isAuthenticated, async (req: any, res) => {
-    try {
-      if (!snapTradeClient) {
-        return res.status(500).json({ message: 'SnapTrade client not initialized' });
-      }
-      
-      // Get all SnapTrade users
-      const snaptradeUsers = await snapTradeClient.authentication.listSnapTradeUsers();
-      
-      // Get all Flint users with SnapTrade connections
-      const flintUsers = await storage.getAllSnapTradeUsers();
-      const connectedUserIds = flintUsers.map(u => u.snaptradeUserId);
-      
-      // Find orphaned SnapTrade users
-      const orphanedUsers = snaptradeUsers.filter(su => !connectedUserIds.includes(su.userId));
-      
-      // Delete orphaned users
-      let deletedCount = 0;
-      for (const orphan of orphanedUsers) {
-        try {
-          await snapTradeClient.authentication.deleteSnapTradeUser({
-            requestBody: { userId: orphan.userId }
-          });
-          deletedCount++;
-        } catch (deleteError) {
-          console.error(`Failed to delete orphaned user ${orphan.userId}:`, deleteError);
-        }
-      }
-      
-      res.json({ deletedCount, totalOrphaned: orphanedUsers.length });
-    } catch (error: any) {
-      console.error("Error cleaning up SnapTrade users:", error);
-      res.status(500).json({ message: "Failed to cleanup SnapTrade users: " + error.message });
-    }
-  });
-
   const httpServer = createServer(app);
   return httpServer;
-}
-
-// Helper function to generate SnapTrade HMAC signature
-function generateSnapTradeSignature(consumerKey: string, content: any, path: string, query: string): string {
-  const sigObject = {
-    content,
-    path,
-    query
-  };
-  
-  // Use exact JSON format as specified in SnapTrade docs - no extra spaces
-  const sigContent = JSON.stringify(sigObject);
-  
-  console.log('Signature content:', sigContent);
-  console.log('Consumer key (first 10 chars):', consumerKey.substring(0, 10));
-  
-  // URI encode the consumer key as specified in SnapTrade docs
-  const encodedConsumerKey = encodeURI(consumerKey);
-  
-  const signature = crypto
-    .createHmac('sha256', encodedConsumerKey)
-    .update(sigContent)
-    .digest('base64');
-    
-  console.log('Generated signature:', signature);
-  return signature;
-}
-
-// Helper function to get account limits based on subscription tier
-function getAccountLimit(tier: string): number {
-  switch (tier) {
-    case 'free': return 2;
-    case 'basic': return 3;
-    case 'pro': return 10;
-    case 'premium': return Infinity;
-    default: return 2;
-  }
-}
-
-function getCompanyName(symbol: string): string {
-  const companies: { [key: string]: string } = {
-    'AAPL': 'Apple Inc.',
-    'GOOGL': 'Alphabet Inc.',
-    'MSFT': 'Microsoft Corporation',
-    'AMZN': 'Amazon.com Inc.',
-    'TSLA': 'Tesla Inc.',
-    'META': 'Meta Platforms Inc.',
-    'NFLX': 'Netflix Inc.',
-    'NVDA': 'NVIDIA Corporation',
-    'BTC': 'Bitcoin',
-    'ETH': 'Ethereum',
-    'ADA': 'Cardano',
-    'DOT': 'Polkadot',
-  };
-  
-  return companies[symbol.toUpperCase()] || `${symbol.toUpperCase()} Corp.`;
 }
