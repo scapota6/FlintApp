@@ -651,8 +651,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         headers: {
           "accept": "application/json",
           "Content-Type": "application/json",
-          "clientId": process.env.SNAPTRADE_CLIENT_ID!,
-          "consumerKey": cleanConsumerSecret
+          "clientId": process.env.SNAPTRADE_CLIENT_ID!.trim(),
+          "consumerKey": process.env.SNAPTRADE_CLIENT_SECRET!
+            .replace(/[\u2028\u2029]/g, '')
+            .replace(/[^\x00-\xFF]/g, '')
+            .trim()
         },
         body: JSON.stringify({
           broker: null,
@@ -970,20 +973,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // SnapTrade Integration - Follow official docs exactly
-  // Step 1: Register SnapTrade user (one per Flint user)
+  // Step 1: Register SnapTrade user (official SnapTrade workflow)
   app.post('/api/snaptrade/register-user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      console.log('SnapTrade: Registering user for Flint user:', userId);
+      const flintUserId = req.user.claims.sub;
+      console.log('SnapTrade: Registering user for Flint user:', flintUserId);
       
-      if (!snapTradeClient) {
-        return res.status(500).json({ success: false, message: 'SnapTrade client not initialized' });
+      if (!process.env.SNAPTRADE_CLIENT_ID || !process.env.SNAPTRADE_CLIENT_SECRET) {
+        return res.status(500).json({ 
+          success: false, 
+          message: 'SnapTrade not configured. Missing API credentials.' 
+        });
       }
       
       // Check if user already exists - one SnapTrade user per Flint user
-      const existingUser = await storage.getSnapTradeUser(userId);
+      const existingUser = await storage.getSnapTradeUser(flintUserId);
       if (existingUser) {
-        console.log('SnapTrade user already exists for Flint user:', userId);
+        console.log('SnapTrade user already exists for Flint user:', flintUserId);
         return res.json({
           success: true,
           message: 'SnapTrade user already exists',
@@ -992,57 +998,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Create unique userId as recommended by SnapTrade (immutable, not email)
-      const snapTradeUserId = `flint_user_${userId}`;
+      const snapTradeUserId = `flint_user_${flintUserId}_${Date.now()}`;
       
       console.log('Creating SnapTrade user with ID:', snapTradeUserId);
       
-      // Use SDK to register user (official SnapTrade approach)
-      // Domain added to SnapTrade dashboard - testing signature verification
-      console.log('SnapTrade request from:', req.get('host'), '| Domain should now be authorized in SnapTrade dashboard');
-      
-      // Clean the consumer secret to remove any invalid Unicode characters
-      const cleanConsumerSecret = process.env.SNAPTRADE_CLIENT_SECRET!
-        .replace(/[\u2028\u2029]/g, '') // Remove line/paragraph separators
-        .replace(/[^\x00-\xFF]/g, '') // Remove any non-ASCII characters
+      // Clean environment variables to remove any Unicode characters
+      const clientId = process.env.SNAPTRADE_CLIENT_ID.trim();
+      const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET
+        .replace(/[\u2028\u2029]/g, '')
+        .replace(/[^\x00-\xFF]/g, '')
         .trim();
 
-      console.log('Cleaned consumer secret length:', cleanConsumerSecret.length);
-      console.log('Consumer secret char codes:', cleanConsumerSecret.split('').map((c, i) => `${i}:${c.charCodeAt(0)}`).slice(0, 10));
 
-      // Use direct HTTP call with clean headers
-      const response = await fetch("https://api.snaptrade.com/api/v1/snapTrade/registerUser", {
-        method: "POST",
+      // Use direct API call with proper authentication headers per SnapTrade docs
+      const registerResponse = await fetch('https://api.snaptrade.com/api/v1/snapTrade/registerUser', {
+        method: 'POST',
         headers: {
-          "accept": "application/json",
-          "Content-Type": "application/json",
-          "clientId": process.env.SNAPTRADE_CLIENT_ID!,
-          "consumerSecret": cleanConsumerSecret
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'clientId': clientId,
+          'consumerKey': consumerKey
         },
         body: JSON.stringify({
           userId: snapTradeUserId
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorData}`);
+      const responseText = await registerResponse.text();
+      console.log('SnapTrade register response:', responseText);
+
+      if (!registerResponse.ok) {
+        throw new Error(`Registration failed: ${registerResponse.status} - ${responseText}`);
       }
 
-      const registerResponse = await response.json();
+      const registerData = JSON.parse(responseText);
       
-      if (registerResponse?.userSecret) {
+      if (registerData?.userId && registerData?.userSecret) {
         // Store the user credentials
-        await storage.createSnapTradeUser(userId, snapTradeUserId, registerResponse.userSecret);
+        await storage.createSnapTradeUser(flintUserId, registerData.userId, registerData.userSecret);
         
-        console.log('Successfully registered SnapTrade user:', snapTradeUserId);
+        console.log('Successfully registered SnapTrade user:', registerData.userId);
         
         res.json({
           success: true,
           message: 'SnapTrade user registered successfully',
-          userId: snapTradeUserId
+          userId: registerData.userId
         });
       } else {
-        throw new Error('Registration failed - no userSecret returned');
+        throw new Error('Registration failed - invalid response format');
       }
       
     } catch (error: any) {
@@ -1120,8 +1123,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         headers: {
           "accept": "application/json",
           "Content-Type": "application/json",
-          "clientId": process.env.SNAPTRADE_CLIENT_ID!,
-          "consumerKey": cleanConsumerSecret
+          "clientId": process.env.SNAPTRADE_CLIENT_ID!.trim(),
+          "consumerKey": process.env.SNAPTRADE_CLIENT_SECRET!
+            .replace(/[\u2028\u2029]/g, '')
+            .replace(/[^\x00-\xFF]/g, '')
+            .trim()
         },
         body: JSON.stringify({
           broker: null,
