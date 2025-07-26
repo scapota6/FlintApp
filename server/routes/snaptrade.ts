@@ -290,17 +290,34 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
         });
         
         // Handle USER_EXISTS and 1010 as "already registered"
-        const errData = err.response?.data || actualResponseData;
+        const errData = err.response?.data || err.responseBody || actualResponseData;
         if (
           errData?.code === "USER_EXISTS" ||
           errData?.code === "1010" ||
           /already exist/i.test(errData?.detail || errData?.message || "")
         ) {
-          user = await getUserByEmail(email);
-          if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
+          console.log('SnapTrade Register: User already exists, attempting to delete and re-register...');
+          
+          // Delete the existing user and re-register
+          try {
+            await snaptrade.authentication.deleteSnapTradeUser({ userId: email });
+            console.log('SnapTrade Register: Successfully deleted existing user');
+            
+            // Now re-register the user
+            const { data: newRegData } = await snaptrade.authentication.registerSnapTradeUser({ userId: email });
+            console.log('SnapTrade Register: Re-registration successful:', {
+              userId: newRegData.userId,
+              hasUserSecret: !!newRegData.userSecret
+            });
+            
+            await saveSnaptradeCredentials(email, newRegData.userId!, newRegData.userSecret!);
+            user = await getUserByEmail(email);
+          } catch (deleteErr: any) {
+            console.error('SnapTrade Register: Failed to delete and re-register:', deleteErr);
             return res.status(409).json({
               error: "User already registered",
-              details: "User exists in SnapTrade but credentials not found in database"
+              details: "User exists in SnapTrade but could not be re-registered. Please contact support.",
+              deleteError: deleteErr.message
             });
           }
         } else {
