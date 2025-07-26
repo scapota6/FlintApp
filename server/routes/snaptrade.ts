@@ -3,6 +3,20 @@ import { Snaptrade } from "snaptrade-typescript-sdk";
 import { storage } from "../storage";
 import { isAuthenticated } from "../replitAuth";
 
+// Import required functions
+async function getUserByEmail(email: string) {
+  // Implementation to get user by email from storage
+  return await storage.getUserByEmail(email);
+}
+
+async function saveSnaptradeCredentials(email: string, userId: string, userSecret: string) {
+  // Implementation to save SnapTrade credentials
+  const user = await storage.getUserByEmail(email);
+  if (user) {
+    await storage.updateSnapTradeUser(user.id, userId, userSecret);
+  }
+}
+
 const router = Router();
 
 // Initialize SnapTrade SDK
@@ -25,11 +39,11 @@ if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CONSUMER_KEY) {
 
 router.post("/register", async (req, res, next) => {
   const email = (req.user as any).email.toLowerCase();
-  const user = await getUserByEmail(email);
+  const existing = await getUserByEmail(email);
 
-  // If we already have creds in DB, skip registration
-  if (user.snaptradeUserId && user.snaptradeUserSecret) {
-    return res.json({ registered: true, userId: user.snaptradeUserId });
+  // If credentials already in our DB, skip calling SnapTrade
+  if (existing.snaptradeUserId && existing.snaptradeUserSecret) {
+    return res.json({ registered: true, userId: existing.snaptradeUserId });
   }
 
   try {
@@ -42,13 +56,12 @@ router.post("/register", async (req, res, next) => {
     return res.json({ registered: true, userId: data.userId });
   } catch (err: any) {
     const errData = err.response?.data;
-    // If the user already exists in SnapTrade, treat as success
+    // If SnapTrade says user exists, load from DB and return success
     if (errData?.code === "USER_EXISTS" || /already registered/i.test(errData?.message || "")) {
-      // Reload credentials from DB (they should now exist)
-      const existing = await getUserByEmail(email);
-      return res.json({ registered: true, userId: existing.snaptradeUserId });
+      const loaded = await getUserByEmail(email);
+      return res.json({ registered: true, userId: loaded.snaptradeUserId });
     }
-    // Otherwise, propagate the error
+    // Otherwise, forward the error
     return next(err);
   }
 });
