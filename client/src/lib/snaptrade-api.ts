@@ -57,8 +57,13 @@ export class SnapTradeAPI {
   }
 
   static async getHoldings(accountId?: string): Promise<SnapTradeHolding[]> {
-    const url = accountId ? `/api/snaptrade/holdings/${accountId}` : "/api/snaptrade/holdings";
+    const url = accountId ? `/api/snaptrade/holdings?accountId=${accountId}` : "/api/snaptrade/holdings";
     const response = await apiRequest("GET", url);
+    return response.json();
+  }
+
+  static async getAllHoldings(): Promise<SnapTradeHolding[]> {
+    const response = await apiRequest("GET", "/api/snaptrade/holdings");
     return response.json();
   }
 

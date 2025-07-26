@@ -1,191 +1,258 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
-import { FinancialAPI } from "@/lib/financial-api";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, TrendingUp, TrendingDown } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 interface TradeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  asset: any;
+  symbol?: string;
+  currentPrice?: number;
+  onTradeComplete?: () => void;
 }
 
-export default function TradeModal({ isOpen, onClose, asset }: TradeModalProps) {
-  const [side, setSide] = useState('buy');
-  const [quantity, setQuantity] = useState('');
-  const [orderType, setOrderType] = useState('market');
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+interface Account {
+  id: string;
+  name: string;
+  balance: { total: { amount: number; currency: string } };
+}
 
-  const tradeMutation = useMutation({
-    mutationFn: async (tradeData: any) => {
-      return FinancialAPI.executeTrade(tradeData);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Trade Executed",
-        description: `${side === 'buy' ? 'Bought' : 'Sold'} ${quantity} ${asset?.symbol}`,
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/trades'] });
-      onClose();
-      setQuantity('');
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error as Error)) {
-        toast({
-          title: "Session Expired",
-          description: "Please log in again to continue",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 1000);
-        return;
+export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onTradeComplete }: TradeModalProps) {
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState("");
+  const [action, setAction] = useState<"BUY" | "SELL">("BUY");
+  const [orderType, setOrderType] = useState<"MARKET" | "LIMIT">("MARKET");
+  const [quantity, setQuantity] = useState("");
+  const [limitPrice, setLimitPrice] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  // Load accounts when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadAccounts();
+      // Reset form
+      setQuantity("");
+      setLimitPrice("");
+      setError("");
+      setSuccess("");
+    }
+  }, [isOpen]);
+
+  const loadAccounts = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/snaptrade/accounts");
+      const accountsData = await response.json();
+      setAccounts(accountsData);
+      if (accountsData.length > 0) {
+        setSelectedAccount(accountsData[0].id);
       }
-      toast({
-        title: "Trade Failed",
-        description: "Unable to execute trade. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
+    } catch (err) {
+      setError("Failed to load accounts");
+    }
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const calculateEstimatedTotal = () => {
+    const qty = parseFloat(quantity) || 0;
+    const price = orderType === "LIMIT" ? parseFloat(limitPrice) || 0 : currentPrice;
+    return qty * price;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!quantity || parseFloat(quantity) <= 0) {
-      toast({
-        title: "Invalid Quantity",
-        description: "Please enter a valid quantity",
-        variant: "destructive",
-      });
+    if (!selectedAccount || !quantity || !symbol) {
+      setError("Please fill in all required fields");
       return;
     }
 
-    tradeMutation.mutate({
-      accountId: 1, // Default account - in real app, user would select
-      symbol: asset.symbol,
-      assetType: asset.symbol.length <= 4 ? 'stock' : 'crypto',
-      side,
-      quantity: parseFloat(quantity),
-      price: asset.price,
-      totalAmount: parseFloat(quantity) * asset.price,
-      orderType,
-    });
+    if (orderType === "LIMIT" && !limitPrice) {
+      setError("Limit price is required for limit orders");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const orderData = {
+        accountId: selectedAccount,
+        symbol: symbol.toUpperCase(),
+        action,
+        quantity: parseInt(quantity),
+        orderType,
+        ...(orderType === "LIMIT" && { price: parseFloat(limitPrice) })
+      };
+
+      const response = await apiRequest("POST", "/api/orders", orderData);
+      const result = await response.json();
+
+      if (result.success) {
+        setSuccess(`${action} order for ${quantity} shares of ${symbol} placed successfully!`);
+        onTradeComplete?.();
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      } else {
+        throw new Error(result.message || "Order failed");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to place order");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const estimatedCost = quantity ? parseFloat(quantity) * (asset?.price || 0) : 0;
-
-  if (!asset) return null;
+  const selectedAccountData = accounts.find(acc => acc.id === selectedAccount);
+  const availableBalance = selectedAccountData?.balance?.total?.amount || 0;
+  const estimatedTotal = calculateEstimatedTotal();
+  const canAfford = action === "BUY" ? estimatedTotal <= availableBalance : true;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-gray-900 border-gray-700 text-white">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">
-            Trade {asset.symbol}
+          <DialogTitle className="flex items-center gap-2">
+            {action === "BUY" ? (
+              <TrendingUp className="h-5 w-5 text-green-600" />
+            ) : (
+              <TrendingDown className="h-5 w-5 text-red-600" />
+            )}
+            {action} {symbol.toUpperCase()}
           </DialogTitle>
+          <DialogDescription>
+            Current Price: ${currentPrice.toFixed(2)}
+          </DialogDescription>
         </DialogHeader>
-        
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {success && (
+          <Alert>
+            <AlertDescription className="text-green-600">{success}</AlertDescription>
+          </Alert>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className={`w-12 h-12 ${asset.color} rounded-full flex items-center justify-center`}>
-              <span className="text-white text-lg font-bold">{asset.letter}</span>
-            </div>
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-white font-medium text-lg">{asset.symbol}</p>
-              <p className="text-gray-400">{asset.name}</p>
-              <p className="text-white font-semibold">
-                ${asset.price.toFixed(2)}{' '}
-                <span className={`text-sm ${asset.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {asset.change >= 0 ? '+' : ''}{asset.change}%
-                </span>
-              </p>
+              <Label htmlFor="action">Action</Label>
+              <Select value={action} onValueChange={(value: "BUY" | "SELL") => setAction(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BUY">Buy</SelectItem>
+                  <SelectItem value="SELL">Sell</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="orderType">Order Type</Label>
+              <Select value={orderType} onValueChange={(value: "MARKET" | "LIMIT") => setOrderType(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MARKET">Market</SelectItem>
+                  <SelectItem value="LIMIT">Limit</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          
-          <div className="flex bg-gray-800 rounded-lg p-1">
-            <button
-              type="button"
-              onClick={() => setSide('buy')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                side === 'buy' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Buy
-            </button>
-            <button
-              type="button"
-              onClick={() => setSide('sell')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                side === 'sell' 
-                  ? 'bg-red-600 text-white' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Sell
-            </button>
-          </div>
-          
+
           <div>
-            <Label htmlFor="quantity" className="text-gray-300 text-sm font-medium">
-              Quantity
-            </Label>
-            <Input
-              id="quantity"
-              type="number"
-              placeholder="Number of shares"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              className="mt-1 bg-gray-800 border-gray-600 text-white placeholder-gray-400"
-              required
-            />
-          </div>
-          
-          <div>
-            <Label htmlFor="orderType" className="text-gray-300 text-sm font-medium">
-              Order Type
-            </Label>
-            <Select value={orderType} onValueChange={setOrderType}>
-              <SelectTrigger className="mt-1 bg-gray-800 border-gray-600 text-white">
-                <SelectValue />
+            <Label htmlFor="account">Account</Label>
+            <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select account" />
               </SelectTrigger>
-              <SelectContent className="bg-gray-800 border-gray-600">
-                <SelectItem value="market">Market Order</SelectItem>
-                <SelectItem value="limit">Limit Order</SelectItem>
-                <SelectItem value="stop">Stop Loss</SelectItem>
+              <SelectContent>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.name} - ${account.balance?.total?.amount?.toFixed(2) || '0.00'}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-          
-          <div className="bg-gray-800 rounded-lg p-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-gray-400 text-sm">Estimated Cost</span>
-              <span className="text-white font-medium">
-                ${estimatedCost.toFixed(2)}
-              </span>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="quantity">Quantity</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min="1"
+                step="1"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                placeholder="Number of shares"
+                required
+              />
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-400 text-sm">Available Cash</span>
-              <span className="text-white font-medium">$12,847.32</span>
-            </div>
+
+            {orderType === "LIMIT" && (
+              <div>
+                <Label htmlFor="limitPrice">Limit Price</Label>
+                <Input
+                  id="limitPrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={limitPrice}
+                  onChange={(e) => setLimitPrice(e.target.value)}
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+            )}
           </div>
-          
-          <Button
-            type="submit"
-            disabled={tradeMutation.isPending}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
-          >
-            {tradeMutation.isPending ? 'Processing...' : `Place ${side === 'buy' ? 'Buy' : 'Sell'} Order`}
-          </Button>
+
+          {quantity && (
+            <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
+              <div className="flex justify-between text-sm">
+                <span>Estimated Total:</span>
+                <span className="font-medium">${estimatedTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Available Balance:</span>
+                <span>${availableBalance.toFixed(2)}</span>
+              </div>
+              {!canAfford && action === "BUY" && (
+                <Badge variant="destructive" className="w-full justify-center">
+                  Insufficient funds
+                </Badge>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={isLoading || !canAfford || success !== ""}
+              className={action === "BUY" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+            >
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {action} {quantity ? `${quantity} shares` : 'Stock'}
+            </Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

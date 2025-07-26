@@ -2,12 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import Navigation from "@/components/layout/navigation";
 import MobileNav from "@/components/layout/mobile-nav";
-import BalanceCards from "@/components/dashboard/balance-cards";
-import QuickTrade from "@/components/dashboard/quick-trade";
-import WatchlistCard from "@/components/dashboard/watchlist-card";
+import { BalanceCards } from "@/components/dashboard/balance-cards";
+import { WatchlistCard } from "@/components/dashboard/watchlist-card";
+import { QuickTrade } from "@/components/dashboard/quick-trade";
+import { SimpleConnectButtons } from "@/components/dashboard/simple-connect-buttons";
+import { ActivityFeed } from "@/components/dashboard/activity-feed";
+import { HoldingsCard } from "@/components/dashboard/holdings-card";
 import QuickTransfer from "@/components/dashboard/quick-transfer";
-import ActivityFeed from "@/components/dashboard/activity-feed";
-import SimpleConnectButtons from "@/components/dashboard/simple-connect-buttons";
 import AccountDetailModal from "@/components/dashboard/account-detail-modal";
 import AccountCard from "@/components/dashboard/account-card";
 import SmartSearchBar from "@/components/search/SmartSearchBar";
@@ -111,7 +112,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-black text-white">
       <Navigation />
-      
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
         {/* Dashboard Header */}
         <div className="mb-8">
@@ -162,23 +163,34 @@ export default function Dashboard() {
         />
 
         {/* Trading and Watchlist */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <QuickTrade />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="md:col-span-2">
+            <BalanceCards data={dashboardData} />
+          </div>
+          <div>
+            <SimpleConnectButtons 
+              accounts={dashboardData?.accounts || []} 
+              userTier="basic"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <HoldingsCard data={dashboardData?.holdings || []}/>
           <WatchlistCard 
             data={dashboardData?.watchlist || []} 
             onAccountDetail={handleAccountDetail}
           />
         </div>
 
-        {/* Transfers and Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <QuickTransfer accounts={dashboardData?.accounts || []} />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <QuickTrade />
           <ActivityFeed activities={dashboardData?.recentActivity || []} />
         </div>
       </main>
 
       <MobileNav />
-      
+
       {/* Account Detail Modal */}
       <AccountDetailModal
         isOpen={isAccountModalOpen}

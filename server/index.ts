@@ -2,6 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import snaptradeRouter from "./routes/snaptrade";
+import ordersRouter from "./routes/orders";
+import watchlistRouter from "./routes/watchlist";
 
 const app = express();
 app.use(express.json());
@@ -42,6 +44,12 @@ app.use((req, res, next) => {
 
   // Mount SnapTrade API router (unified routes only)
   app.use("/api/snaptrade", snaptradeRouter);
+  
+  // Mount Orders API router
+  app.use("/api/orders", ordersRouter);
+  
+  // Mount Watchlist API router
+  app.use("/api/watchlist", watchlistRouter);
 
   // Debug routers disabled - using unified flow only
   // app.use("/api/snaptrade-debug", snaptradeDebugRouter);

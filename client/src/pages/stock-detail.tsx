@@ -1,30 +1,14 @@
-import React, { useState } from 'react';
-import { useRoute } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Star, 
-  Plus, 
-  Minus, 
-  BarChart3, 
-  Newspaper, 
-  Activity,
-  ArrowLeft,
-  DollarSign,
-  Volume2
-} from 'lucide-react';
-import MobileNav from '@/components/layout/mobile-nav';
-import TradeModal from '@/components/modals/trade-modal';
-import TradingViewChart from '@/components/charts/TradingViewChart';
-import SmartBuyButton from '@/components/trading/SmartBuyButton';
-import { BrokerageCompatibilityEngine, type Asset } from '@shared/brokerage-compatibility';
-import { Link } from 'wouter';
-import { useRealTimeQuote } from '@/lib/real-time-sync';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ArrowLeft, TrendingUp, TrendingDown, Star, StarOff, Plus, Minus } from "lucide-react";
+import { TradingViewChart } from "@/components/charts/TradingViewChart";
+import { TradeModal } from "@/components/modals/trade-modal";
+import { SnapTradeAPI } from "@/lib/snaptrade-api";
+import { apiRequest } from "@/lib/queryClient";
 
 interface StockData {
   symbol: string;
@@ -32,331 +16,268 @@ interface StockData {
   price: number;
   change: number;
   changePercent: number;
-  volume: number;
-  marketCap: number;
-  pe: number;
-  dividend: number;
-  high52w: number;
-  low52w: number;
-  about: string;
+  volume?: number;
+  marketCap?: number;
 }
 
-interface NewsItem {
-  id: string;
-  title: string;
-  summary: string;
-  source: string;
-  publishedAt: string;
-  url: string;
-}
+export function StockDetailPage() {
+  const { symbol } = useParams<{ symbol: string }>();
+  const navigate = useNavigate();
 
-export default function StockDetail() {
-  const [match, params] = useRoute('/stock/:symbol');
-  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
-  const [selectedAction, setSelectedAction] = useState<'buy' | 'sell'>('buy');
-  const symbol = params?.symbol?.toUpperCase() || '';
+  const [stockData, setStockData] = useState<StockData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [tradeModalOpen, setTradeModalOpen] = useState(false);
+  const [tradeAction, setTradeAction] = useState<"BUY" | "SELL">("BUY");
+  const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const [watchlistLoading, setWatchlistLoading] = useState(false);
 
-  // Use real-time synchronized data that matches TradingView exactly
-  const { quote: realTimeQuote, isConnected } = useRealTimeQuote(symbol);
-  
-  // Convert to display format with real-time data
-  const stockData: StockData | null = realTimeQuote ? {
-    symbol: realTimeQuote.symbol,
-    name: symbol === 'AAPL' ? 'Apple Inc.' : 
-          symbol === 'GOOGL' ? 'Alphabet Inc.' :
-          symbol === 'MSFT' ? 'Microsoft Corporation' :
-          symbol === 'TSLA' ? 'Tesla, Inc.' :
-          symbol === 'META' ? 'Meta Platforms, Inc.' :
-          symbol === 'AMZN' ? 'Amazon.com, Inc.' :
-          `${symbol} Corporation`,
-    price: realTimeQuote.price,
-    change: realTimeQuote.change,
-    changePercent: realTimeQuote.changePercent,
-    volume: realTimeQuote.volume,
-    marketCap: realTimeQuote.price * 1000000000, // Simplified calculation
-    pe: 15 + Math.random() * 20, // Mock P/E ratio
-    dividend: 0,
-    high52w: realTimeQuote.high * 1.3, // Estimate 52w high
-    low52w: realTimeQuote.low * 0.7,   // Estimate 52w low
-    about: `${symbol} is a leading technology company known for innovation and market leadership.`
-  } : null;
-
-  // Mock news data
-  const newsData: NewsItem[] = [
-    {
-      id: '1',
-      title: `${symbol} Reports Strong Q4 Earnings`,
-      summary: `${symbol} exceeded analyst expectations with strong revenue growth and positive outlook.`,
-      source: 'Financial News',
-      publishedAt: '2 hours ago',
-      url: '#'
-    },
-    {
-      id: '2', 
-      title: `Analysts Upgrade ${symbol} Rating`,
-      summary: `Multiple analysts have upgraded their price targets following recent developments.`,
-      source: 'Market Watch',
-      publishedAt: '4 hours ago',
-      url: '#'
-    },
-    {
-      id: '3',
-      title: `${symbol} Announces New Product Launch`,
-      summary: `The company unveiled innovative products that could drive future growth.`,
-      source: 'Tech Today',
-      publishedAt: '6 hours ago',
-      url: '#'
+  useEffect(() => {
+    if (symbol) {
+      loadStockData();
+      checkWatchlistStatus();
     }
-  ];
+  }, [symbol]);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(value);
+  const loadStockData = async () => {
+    if (!symbol) return;
+
+    setIsLoading(true);
+    setError("");
+
+    try {
+      // Try to get real-time data from SnapTrade search first
+      const searchResults = await SnapTradeAPI.searchSymbols(symbol);
+      const stockResult = searchResults.find(s => s.symbol.toUpperCase() === symbol.toUpperCase());
+
+      if (stockResult) {
+        setStockData({
+          symbol: stockResult.symbol,
+          name: stockResult.name,
+          price: stockResult.price,
+          change: stockResult.change || 0,
+          changePercent: stockResult.changePercent,
+          volume: stockResult.volume,
+          marketCap: stockResult.marketCap
+        });
+      } else {
+        // Fallback to mock data if not found
+        setStockData({
+          symbol: symbol.toUpperCase(),
+          name: `${symbol.toUpperCase()} Inc.`,
+          price: 100 + Math.random() * 400,
+          change: (Math.random() - 0.5) * 10,
+          changePercent: (Math.random() - 0.5) * 5,
+          volume: Math.floor(Math.random() * 10000000),
+          marketCap: Math.floor(Math.random() * 1000000000000)
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load stock data:', err);
+      setError("Failed to load stock data");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const formatNumber = (value: number) => {
-    if (value >= 1e12) return `$${(value / 1e12).toFixed(1)}T`;
-    if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
-    if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
-    if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
-    return value.toLocaleString();
+  const checkWatchlistStatus = async () => {
+    if (!symbol) return;
+
+    try {
+      const response = await apiRequest("GET", "/api/watchlist");
+      const watchlist = await response.json();
+      setIsInWatchlist(watchlist.some((item: any) => item.symbol.toUpperCase() === symbol.toUpperCase()));
+    } catch (err) {
+      console.error('Failed to check watchlist status:', err);
+    }
   };
 
-  const openTradeModal = (action: 'buy' | 'sell') => {
-    setSelectedAction(action);
-    setIsTradeModalOpen(true);
+  const toggleWatchlist = async () => {
+    if (!symbol || !stockData) return;
+
+    setWatchlistLoading(true);
+
+    try {
+      if (isInWatchlist) {
+        await apiRequest("DELETE", `/api/watchlist/${symbol.toUpperCase()}`);
+        setIsInWatchlist(false);
+      } else {
+        await apiRequest("POST", "/api/watchlist", {
+          symbol: symbol.toUpperCase(),
+          name: stockData.name
+        });
+        setIsInWatchlist(true);
+      }
+    } catch (err) {
+      console.error('Failed to update watchlist:', err);
+    } finally {
+      setWatchlistLoading(false);
+    }
   };
 
-  // Loading state - show connecting message
-  if (!isConnected || !realTimeQuote) {
+  const handleTradeClick = (action: "BUY" | "SELL") => {
+    setTradeAction(action);
+    setTradeModalOpen(true);
+  };
+
+  const handleTradeComplete = () => {
+    // Refresh stock data and close modal
+    loadStockData();
+  };
+
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-pulse flex items-center justify-center mb-4">
-            <div className="h-2 w-2 bg-blue-500 rounded-full mr-1 animate-bounce"></div>
-            <div className="h-2 w-2 bg-blue-500 rounded-full mr-1 animate-bounce" style={{animationDelay: '0.1s'}}></div>
-            <div className="h-2 w-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-          </div>
-          <p className="text-gray-400">Connecting to real-time data...</p>
+      <div className="container mx-auto px-4 py-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+          <div className="h-96 bg-gray-200 rounded"></div>
         </div>
       </div>
     );
   }
 
-  // Error state
-  if (!stockData) {
+  if (error || !stockData) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Stock Not Found</h1>
-          <p className="text-gray-400 mb-6">The stock symbol "{symbol}" was not found.</p>
-          <Link href="/trading">
-            <Button>← Back to Trading</Button>
-          </Link>
-        </div>
+      <div className="container mx-auto px-4 py-8">
+        <Alert variant="destructive">
+          <AlertDescription>{error || "Stock not found"}</AlertDescription>
+        </Alert>
       </div>
     );
   }
+
+  const isPositive = stockData.changePercent >= 0;
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <main className="max-w-6xl mx-auto p-4 pb-20">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Link href="/trading">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            </Link>
+    <div className="container mx-auto px-4 py-8">
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+      </div>
+
+      {/* Stock Info Card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                {stockData.symbol}
-                {/* Real-time sync indicator */}
-                <div className="flex items-center gap-1">
-                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-xs text-green-500 font-medium">LIVE</span>
-                </div>
-                <Button variant="ghost" size="sm">
-                  <Star className="h-4 w-4" />
-                </Button>
-              </h1>
-              <p className="text-gray-400">{stockData.name}</p>
+              <CardTitle className="text-2xl font-bold">
+                {stockData.symbol} - {stockData.name}
+              </CardTitle>
+              <CardDescription>Real-time stock data</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleWatchlist}
+                disabled={watchlistLoading}
+                className="flex items-center gap-2"
+              >
+                {isInWatchlist ? (
+                  <>
+                    <StarOff className="h-4 w-4" />
+                    Remove from Watchlist
+                  </>
+                ) : (
+                  <>
+                    <Star className="h-4 w-4" />
+                    Add to Watchlist
+                  </>
+                )}
+              </Button>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              onClick={() => openTradeModal('buy')}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Buy
-            </Button>
-            <Button 
-              onClick={() => openTradeModal('sell')}
-              variant="outline"
-              className="border-red-600 text-red-600 hover:bg-red-600 hover:text-white"
-            >
-              <Minus className="h-4 w-4 mr-2" />
-              Sell
-            </Button>
-          </div>
-        </div>
-
-        {/* Price & Stats */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <Card className="lg:col-span-2 bg-gray-900 border-gray-800">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <div className="text-3xl font-bold mb-2">
-                    {formatCurrency(stockData.price)}
-                  </div>
-                  <div className={`flex items-center gap-2 ${stockData.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {stockData.change >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                    <span className="font-medium">
-                      {stockData.change >= 0 ? '+' : ''}{stockData.change.toFixed(2)} 
-                      ({stockData.changePercent >= 0 ? '+' : ''}{stockData.changePercent.toFixed(2)}%)
-                    </span>
-                  </div>
-                </div>
-                <Badge variant={stockData.change >= 0 ? 'default' : 'destructive'}>
-                  {stockData.change >= 0 ? 'Up' : 'Down'}
-                </Badge>
-              </div>
-              
-              {/* TradingView Chart */}
-              <TradingViewChart 
-                symbol={BrokerageCompatibilityEngine.getTradingViewSymbol({
-                  symbol: symbol || '',
-                  name: stockData.name,
-                  type: 'stock'
-                })}
-                height={400}
-                className="rounded-lg overflow-hidden"
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-900 border-gray-800">
-            <CardHeader>
-              <CardTitle>Key Statistics</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Market Cap</span>
-                <span>{formatNumber(stockData.marketCap)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Volume</span>
-                <span>{stockData.volume.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">P/E Ratio</span>
-                <span>{stockData.pe.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Dividend</span>
-                <span>{stockData.dividend.toFixed(2)}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">52W High</span>
-                <span>{formatCurrency(stockData.high52w)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">52W Low</span>
-                <span>{formatCurrency(stockData.low52w)}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Tabs for News and About */}
-        <Tabs defaultValue="news" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-800">
-            <TabsTrigger value="news" className="flex items-center gap-2">
-              <Newspaper className="h-4 w-4" />
-              News
-            </TabsTrigger>
-            <TabsTrigger value="about" className="flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              About
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="news" className="mt-6">
-            <div className="space-y-4">
-              {newsData.map((news) => (
-                <Card key={news.id} className="bg-gray-900 border-gray-800 hover:bg-gray-800 transition-colors cursor-pointer">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-white">{news.title}</h3>
-                      <span className="text-sm text-gray-400">{news.publishedAt}</span>
-                    </div>
-                    <p className="text-gray-300 mb-2">{news.summary}</p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-blue-400">{news.source}</span>
-                      <Button variant="ghost" size="sm">
-                        Read more
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Current Price</p>
+              <p className="text-3xl font-bold">${stockData.price.toFixed(2)}</p>
             </div>
-          </TabsContent>
-          
-          <TabsContent value="about" className="mt-6">
-            <Card className="bg-gray-900 border-gray-800">
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-4">About {stockData.name}</h3>
-                <p className="text-gray-300 leading-relaxed">
-                  {stockData.about}
+            <div>
+              <p className="text-sm text-gray-500">Change</p>
+              <div className="flex items-center gap-2">
+                {isPositive ? (
+                  <TrendingUp className="h-4 w-4 text-green-600" />
+                ) : (
+                  <TrendingDown className="h-4 w-4 text-red-600" />
+                )}
+                <span className={`text-lg font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                  {isPositive ? '+' : ''}{stockData.change.toFixed(2)} ({stockData.changePercent.toFixed(2)}%)
+                </span>
+              </div>
+            </div>
+            {stockData.volume && (
+              <div>
+                <p className="text-sm text-gray-500">Volume</p>
+                <p className="text-lg font-semibold">{stockData.volume.toLocaleString()}</p>
+              </div>
+            )}
+            {stockData.marketCap && (
+              <div>
+                <p className="text-sm text-gray-500">Market Cap</p>
+                <p className="text-lg font-semibold">
+                  ${(stockData.marketCap / 1000000000).toFixed(2)}B
                 </p>
-                <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-4 bg-gray-800 rounded-lg">
-                    <DollarSign className="h-6 w-6 mx-auto mb-2 text-green-500" />
-                    <div className="text-xl font-bold">{formatNumber(stockData.marketCap)}</div>
-                    <div className="text-sm text-gray-400">Market Cap</div>
-                  </div>
-                  <div className="text-center p-4 bg-gray-800 rounded-lg">
-                    <Volume2 className="h-6 w-6 mx-auto mb-2 text-blue-500" />
-                    <div className="text-xl font-bold">{formatNumber(stockData.volume)}</div>
-                    <div className="text-sm text-gray-400">Volume</div>
-                  </div>
-                  <div className="text-center p-4 bg-gray-800 rounded-lg">
-                    <TrendingUp className="h-6 w-6 mx-auto mb-2 text-purple-500" />
-                    <div className="text-xl font-bold">{stockData.pe.toFixed(1)}</div>
-                    <div className="text-sm text-gray-400">P/E Ratio</div>
-                  </div>
-                  <div className="text-center p-4 bg-gray-800 rounded-lg">
-                    <Star className="h-6 w-6 mx-auto mb-2 text-yellow-500" />
-                    <div className="text-xl font-bold">{stockData.dividend.toFixed(1)}%</div>
-                    <div className="text-sm text-gray-400">Dividend</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </main>
+              </div>
+            )}
+          </div>
 
-      <MobileNav />
-      
+          {/* Trading Buttons */}
+          <div className="flex gap-3 mt-6">
+            <Button
+              onClick={() => handleTradeClick("BUY")}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+            >
+              <Plus className="h-4 w-4" />
+              Buy {stockData.symbol}
+            </Button>
+            <Button
+              onClick={() => handleTradeClick("SELL")}
+              variant="outline"
+              className="flex items-center gap-2 border-red-600 text-red-600 hover:bg-red-50"
+            >
+              <Minus className="h-4 w-4" />
+              Sell {stockData.symbol}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Price Chart</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TradingViewChart
+            symbol={stockData.symbol}
+            height={600}
+            onBuyClick={() => handleTradeClick("BUY")}
+            onSellClick={() => handleTradeClick("SELL")}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Trade Modal */}
       <TradeModal
-        isOpen={isTradeModalOpen}
-        onClose={() => setIsTradeModalOpen(false)}
-        asset={{
-          symbol: stockData.symbol,
-          name: stockData.name,
-          price: stockData.price,
-          type: 'stock'
-        }}
-
+        isOpen={tradeModalOpen}
+        onClose={() => setTradeModalOpen(false)}
+        symbol={stockData.symbol}
+        currentPrice={stockData.price}
+        onTradeComplete={handleTradeComplete}
       />
     </div>
   );
 }
+
+export default StockDetailPage;
