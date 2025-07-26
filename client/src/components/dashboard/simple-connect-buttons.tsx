@@ -310,16 +310,13 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                     <Button
                       onClick={async () => {
                         try {
-                          // Step 1: Ensure SnapTrade user exists (one per Flint user)
-                          await apiRequest('POST', '/api/snaptrade/register-user');
-                          
-                          // Step 2: Generate connection portal URL
-                          const response = await apiRequest('POST', '/api/snaptrade/connection-portal');
+                          // Use unified POST /api/snaptrade/register endpoint
+                          const response = await apiRequest('POST', '/api/snaptrade/register');
                           const data = await response.json();
                           
-                          if (data.success && data.portalUrl) {
-                            // Open SnapTrade connection portal (official approach)
-                            window.open(data.portalUrl, '_blank', 'width=800,height=600');
+                          if (data.url) {
+                            // Open SnapTrade connection portal
+                            window.open(data.url, '_blank', 'width=800,height=600');
                             toast({
                               title: "SnapTrade Connection Portal",
                               description: "Complete the brokerage connection in the new window",
@@ -346,9 +343,12 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                         try {
                           const response = await apiRequest('GET', '/api/snaptrade/accounts');
                           const data = await response.json();
+                          if (data.error) {
+                            throw new Error(data.error);
+                          }
                           toast({
                             title: "Success",
-                            description: `Found ${data.accounts?.length || 0} SnapTrade account(s)`,
+                            description: `Found ${data.length || 0} SnapTrade account(s)`,
                           });
                           await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
                         } catch (error: any) {

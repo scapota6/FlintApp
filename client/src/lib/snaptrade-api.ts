@@ -43,14 +43,9 @@ export interface SnapTradeOrder {
 }
 
 export class SnapTradeAPI {
-  static async registerUser(): Promise<{ userId: string; userSecret: string }> {
-    const response = await apiRequest("POST", "/api/snaptrade/register");
-    return response.json();
-  }
-
   static async getConnectionUrl(): Promise<{ url: string }> {
-    console.log('SnapTrade: Requesting connection URL from backend...');
-    const response = await apiRequest("GET", "/api/snaptrade/connect-url");
+    console.log('SnapTrade: Requesting connection URL from unified register endpoint...');
+    const response = await apiRequest("POST", "/api/snaptrade/register");
     const data = await response.json();
     console.log('SnapTrade: Received connection URL response:', data);
     return data;
