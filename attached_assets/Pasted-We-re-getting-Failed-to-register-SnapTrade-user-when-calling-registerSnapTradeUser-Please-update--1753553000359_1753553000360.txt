@@ -1,0 +1,40 @@
+We’re getting “Failed to register SnapTrade user” when calling registerSnapTradeUser. Please update our Express+TypeScript backend to:
+
+1. **One-Time Registration**  
+   - In our POST `/api/snaptrade/register` handler (or inside getConnectionUrl), first check the logged-in user’s row in PostgreSQL for `snapTradeUserId` and `snapTradeUserSecret`.  
+   - If either is missing or invalid, call:  
+     ```ts
+     const reg = await snaptrade.registerSnapTradeUser({
+       userId: currentUser.email.toLowerCase(),
+       firstName: currentUser.name,           // optional metadata
+       lastName: currentUser.lastName,
+     });
+     ```  
+   - Save `reg.data.userId` and `reg.data.userSecret` back into the DB in the same row.
+
+2. **Use the Saved Credentials**  
+   - Immediately after registration (or if credentials already exist), call:
+     ```ts
+     const { data } = await snaptrade.authentication.getConnectUrl({
+       userId: savedUserId,
+       userSecret: savedUserSecret,
+       redirectURI: `${FRONTEND_URL}/snaptrade/callback`,
+       immediateRedirect: true
+     });
+     ```
+   - Return `data.url` to the frontend rather than redirecting from the server.
+
+3. **Error Handling**  
+   - Wrap both calls in `try/catch`.  
+   - On registration failure, log the full SnapTrade error and return a 502 with JSON `{ error: 'SnapTrade registration failed', details: err.message }`.  
+   - On URL generation failure, return a 502 `{ error: 'SnapTrade URL generation failed', details: err.message }`.
+
+4. **Avoid Duplicates**  
+   - Do not call `registerSnapTradeUser` more than once per user.  
+   - Use the DB check above to gate the registration call.
+
+5. **Environment**  
+   - Verify `SNAPTRADE_CLIENT_ID` and `SNAPTRADE_CONSUMER_KEY` are loaded at startup and passed into the SnapTrade SDK ctor.  
+   - If missing, the SDK will throw – handle that with a clear log.
+
+Produce the updated Express route code (TypeScript), including imports, middleware to extract `currentUser.email`, the DB lookup/update, the SnapTrade SDK calls, and proper JSON responses. Make it robust and ready to drop into our Replit project.

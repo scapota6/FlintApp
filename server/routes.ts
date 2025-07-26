@@ -25,23 +25,22 @@ if (process.env.STRIPE_SECRET_KEY) {
   stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 }
 
-// Initialize SnapTrade SDK (using correct parameter names from docs)
+// Initialize SnapTrade SDK with proper environment variables
 let snapTradeClient: Snaptrade | null = null;
 if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET) {
-  console.log('Initializing SnapTrade SDK with:', {
-    clientId: process.env.SNAPTRADE_CLIENT_ID,
-    consumerKeyPrefix: process.env.SNAPTRADE_CLIENT_SECRET.substring(0, 10)
-  });
+  console.log('Initializing SnapTrade SDK with clientId:', process.env.SNAPTRADE_CLIENT_ID);
   
-  snapTradeClient = new Snaptrade({
-    clientId: process.env.SNAPTRADE_CLIENT_ID,
-    consumerKey: process.env.SNAPTRADE_CLIENT_SECRET,
-    // Note: API keys configured for flint-investing.com domain
-  });
-  
-  console.log('SnapTrade SDK initialized successfully for flint-investing.com domain');
+  try {
+    snapTradeClient = new Snaptrade({
+      clientId: process.env.SNAPTRADE_CLIENT_ID,
+      consumerKey: process.env.SNAPTRADE_CLIENT_SECRET,
+    });
+    console.log('SnapTrade SDK initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize SnapTrade SDK:', error);
+  }
 } else {
-  console.log('SnapTrade environment variables not found - SnapTrade functionality disabled');
+  console.log('SnapTrade environment variables missing - SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET required');
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -107,59 +106,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Helper function to ensure SnapTrade user registration
-  async function ensureSnapTradeUser(flintUserId: string) {
-    if (!snapTradeClient) return null;
-    
-    try {
-      let snapTradeUser = await storage.getSnapTradeUser(flintUserId);
-      
-      // Check if credentials are old format or missing
-      if (!snapTradeUser || snapTradeUser.userSecret.startsWith('secret_')) {
-        if (snapTradeUser && snapTradeUser.userSecret.startsWith('secret_')) {
-          console.log('Cleaning up old SnapTrade credentials for user:', flintUserId);
-          await storage.deleteSnapTradeUser(flintUserId);
-        }
-        
-        // Register new user with SnapTrade SDK
-        const snapTradeUserId = `flint_user_${flintUserId}_${Date.now()}`;
-        console.log('Auto-registering SnapTrade user:', snapTradeUserId);
-        
-        const registrationResponse = await snapTradeClient.authentication.registerSnapTradeUser({
-          userId: snapTradeUserId
-        });
-        
-        const registrationData = registrationResponse.data;
-        
-        if (registrationData.userId && registrationData.userSecret) {
-          await storage.createSnapTradeUser(
-            flintUserId,
-            registrationData.userId,
-            registrationData.userSecret
-          );
-          
-          console.log('SnapTrade user auto-registered:', registrationData.userId);
-          return {
-            snaptradeUserId: registrationData.userId,
-            userSecret: registrationData.userSecret
-          };
-        }
-      }
-      
-      return snapTradeUser;
-    } catch (error) {
-      console.error('Error ensuring SnapTrade user:', error);
-      return null;
-    }
-  }
+
 
   // Log user login activity with SnapTrade registration check
   app.post('/api/log-login', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       
-      // Ensure SnapTrade user is registered on login
-      await ensureSnapTradeUser(userId);
+      // SnapTrade registration is now handled on-demand during connection
       
       await storage.createActivityLog({
         userId,
@@ -547,19 +501,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // SnapTrade user registration - using official SDK
+  // SnapTrade user registration - one-time registration with proper flow
   app.post('/api/snaptrade/register', isAuthenticated, async (req: any, res) => {
     try {
-      const flintUserId = req.user.claims.sub;
+      const currentUser = req.user.claims;
+      const flintUserId = currentUser.sub;
+      const userEmail = currentUser.email?.toLowerCase() || `user_${flintUserId}`;
       
       if (!snapTradeClient) {
-        return res.status(500).json({ message: "SnapTrade not configured." });
+        return res.status(502).json({ 
+          error: "SnapTrade not configured", 
+          details: "SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET environment variables required" 
+        });
       }
       
-      // Check if user already exists - prevent duplicate registrations
+      // Check if user already has valid SnapTrade credentials
       const existingUser = await storage.getSnapTradeUser(flintUserId);
-      if (existingUser) {
-        console.log('SnapTrade user already exists for Flint user:', flintUserId);
+      if (existingUser && existingUser.snaptradeUserId && existingUser.userSecret && !existingUser.userSecret.startsWith('secret_')) {
+        console.log('SnapTrade user already registered:', existingUser.snaptradeUserId);
         return res.json({ 
           success: true, 
           message: 'User already registered', 
@@ -567,119 +526,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Create unique userId for SnapTrade (immutable, not email)
-      const snapTradeUserId = `flint_user_${flintUserId}_${Date.now()}`;
-      
-      console.log('Registering new SnapTrade user:', snapTradeUserId);
+      // Register new user with SnapTrade using email as userId
+      console.log('Registering SnapTrade user with email:', userEmail);
 
-      // Use official SnapTrade SDK for registration
-      const registrationResponse = await snapTradeClient.authentication.registerSnapTradeUser({
-        userId: snapTradeUserId
-      });
+      try {
+        const registrationResponse = await snapTradeClient.authentication.registerSnapTradeUser({
+          userId: userEmail,
+          firstName: currentUser.name || 'User',
+          lastName: currentUser.family_name || ''
+        });
 
-      const registrationData = registrationResponse.data;
-      console.log('SnapTrade registration successful:', {
-        userId: registrationData.userId,
-        hasSecret: !!registrationData.userSecret
-      });
-      
-      // Store SnapTrade credentials in database
-      await storage.createSnapTradeUser(
-        flintUserId,
-        registrationData.userId || snapTradeUserId,
-        registrationData.userSecret || ''
-      );
-      
-      res.json({
-        success: true,
-        message: "Successfully registered with SnapTrade",
-        userId: registrationData.userId
-      });
+        const registrationData = registrationResponse.data;
+        console.log('SnapTrade registration successful:', {
+          userId: registrationData.userId,
+          hasSecret: !!registrationData.userSecret
+        });
+        
+        // Store SnapTrade credentials in database
+        if (registrationData.userId && registrationData.userSecret) {
+          await storage.createSnapTradeUser(
+            flintUserId,
+            registrationData.userId,
+            registrationData.userSecret
+          );
+          
+          res.json({
+            success: true,
+            message: "Successfully registered with SnapTrade",
+            userId: registrationData.userId
+          });
+        } else {
+          throw new Error('Invalid registration response from SnapTrade');
+        }
+        
+      } catch (regError: any) {
+        console.error('SnapTrade registration failed:', regError);
+        return res.status(502).json({ 
+          error: 'SnapTrade registration failed', 
+          details: regError.message || 'Unknown registration error'
+        });
+      }
       
     } catch (error: any) {
       console.error("SnapTrade registration error:", error);
       res.status(500).json({ 
-        success: false, 
-        message: "Failed to register with SnapTrade: " + error.message 
+        error: "Internal server error",
+        details: error.message 
       });
     }
   });
 
-  // SnapTrade connection URL generator - using official SDK
+  // SnapTrade connection URL generator - with proper registration flow  
   app.get('/api/snaptrade/connect-url', isAuthenticated, async (req: any, res) => {
     try {
-      const flintUserId = req.user.claims.sub;
+      const currentUser = req.user.claims;
+      const flintUserId = currentUser.sub;
+      const userEmail = currentUser.email?.toLowerCase() || `user_${flintUserId}`;
       
       if (!snapTradeClient) {
-        return res.status(500).json({ message: "SnapTrade not configured." });
+        return res.status(502).json({ 
+          error: "SnapTrade not configured", 
+          details: "SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET environment variables required" 
+        });
       }
       
-      // Check if user credentials exist and are valid format
+      // Check if user has valid SnapTrade credentials in DB
       let snapTradeUser = await storage.getSnapTradeUser(flintUserId);
+      let savedUserId = snapTradeUser?.snaptradeUserId;
+      let savedUserSecret = snapTradeUser?.userSecret;
       
-      // Delete old credentials and re-register if they're from the manual API era
-      if (snapTradeUser && snapTradeUser.userSecret.startsWith('secret_')) {
-        console.log('Found old SnapTrade credentials (manual pattern), deleting and re-registering...');
+      // If missing or invalid credentials, register the user
+      if (!savedUserId || !savedUserSecret || savedUserSecret.startsWith('secret_')) {
+        console.log('SnapTrade credentials missing or invalid, registering user:', userEmail);
         
-        // Delete old SnapTrade user if it exists
+        // Clean up old credentials
+        if (snapTradeUser) {
+          await storage.deleteSnapTradeUser(flintUserId);
+        }
+        
         try {
-          await snapTradeClient.authentication.deleteSnapTradeUser({
-            userId: snapTradeUser.snaptradeUserId || '',
-            userSecret: snapTradeUser.userSecret
+          const registrationResponse = await snapTradeClient.authentication.registerSnapTradeUser({
+            userId: userEmail,
+            firstName: currentUser.name || 'User',
+            lastName: currentUser.family_name || ''
           });
-          console.log('Successfully deleted old SnapTrade user');
-        } catch (deleteError) {
-          console.log('Old SnapTrade user deletion failed (may not exist on SnapTrade):', deleteError);
+
+          const registrationData = registrationResponse.data;
+          
+          if (!registrationData.userId || !registrationData.userSecret) {
+            throw new Error('Invalid registration response from SnapTrade');
+          }
+          
+          // Save credentials to database
+          await storage.createSnapTradeUser(
+            flintUserId,
+            registrationData.userId,
+            registrationData.userSecret
+          );
+          
+          savedUserId = registrationData.userId;
+          savedUserSecret = registrationData.userSecret;
+          
+          console.log('SnapTrade user registered successfully:', savedUserId);
+          
+        } catch (regError: any) {
+          console.error('SnapTrade registration failed:', regError);
+          return res.status(502).json({ 
+            error: 'SnapTrade registration failed', 
+            details: regError.message || 'Registration error'
+          });
         }
-        
-        // Remove from database
-        await storage.deleteSnapTradeUser(flintUserId);
-        snapTradeUser = null;
       }
       
-      if (!snapTradeUser) {
-        // Use helper function to ensure user registration
-        snapTradeUser = await ensureSnapTradeUser(flintUserId);
-        
-        if (!snapTradeUser) {
-          throw new Error('Failed to register SnapTrade user');
-        }
-      }
+      // Generate connection URL using saved credentials
+      const FRONTEND_URL = `https://${req.get('host')}`;
+      const redirectURI = `${FRONTEND_URL}/dashboard?connected=true`;
       
-      // Create redirect URI for post-connection
-      const redirectURI = `https://${req.get('host')}/dashboard?connected=true`;
-      
-      console.log('Generating SnapTrade connection URL for user:', snapTradeUser.snaptradeUserId);
+      console.log('Generating SnapTrade connection URL for user:', savedUserId);
 
-      // Use official SnapTrade SDK to get brokerage connection URL
-      console.log('Calling getConnectBrokerageURL with:', {
-        userId: snapTradeUser.snaptradeUserId,
-        userSecretPrefix: snapTradeUser.userSecret.substring(0, 10) + '...',
-        redirectURI
-      });
-
-      const connectionResponse = await snapTradeClient.connections.getConnectBrokerageURL({
-        userId: snapTradeUser.snaptradeUserId || '',
-        userSecret: snapTradeUser.userSecret || '',
-        requestBody: {
+      try {
+        const { data } = await snapTradeClient.authentication.getConnectUrl({
+          userId: savedUserId,
+          userSecret: savedUserSecret,
           redirectURI: redirectURI,
-          connectionType: 'read'
-        }
-      });
+          immediateRedirect: true
+        });
 
-      const connectionData = connectionResponse.data;
-      console.log('SnapTrade connection URL generated successfully');
-      
-      // The response should contain redirectURI 
-      if (connectionData && typeof connectionData === 'object' && 'redirectURI' in connectionData) {
-        res.json({ url: (connectionData as any).redirectURI });
-      } else {
-        throw new Error('No redirectURI in SnapTrade response');
+        console.log('SnapTrade connection URL generated successfully');
+        res.json({ url: data.url });
+        
+      } catch (urlError: any) {
+        console.error('SnapTrade URL generation failed:', urlError);
+        return res.status(502).json({ 
+          error: 'SnapTrade URL generation failed', 
+          details: urlError.message || 'URL generation error'
+        });
       }
       
     } catch (error: any) {
       console.error("SnapTrade connection error:", error);
-      res.status(500).json({ message: "Failed to generate connection URL: " + error.message });
+      res.status(500).json({ 
+        error: "Internal server error",
+        details: error.message 
+      });
     }
   });
 
