@@ -574,7 +574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const queryParams = new URLSearchParams({
         userId: snapTradeUser.snaptradeUserId || '',
-        userSecret: snapTradeUser.userSecret
+        userSecret: snapTradeUser.userSecret || ''
       });
 
       console.log('SnapTrade Login attempt with:', {
@@ -584,13 +584,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userSecret: snapTradeUser.userSecret.substring(0, 10) + '...'
       });
 
-      const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?${queryParams}`, {
+      const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?userId=${encodeURIComponent(snapTradeUser.snaptradeUserId)}&userSecret=${encodeURIComponent(snapTradeUser.userSecret)}`, {
         method: 'POST',
         headers: {
-          'clientId': clientId,
-          'consumerSecret': consumerSecret,
           'Content-Type': 'application/json',
-          'accept': 'application/json'
+          'accept': 'application/json',
+          'clientId': clientId,
+          'consumerSecret': consumerSecret
         },
         body: JSON.stringify({
           broker: null,
