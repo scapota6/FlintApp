@@ -518,13 +518,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientId = process.env.SNAPTRADE_CLIENT_ID.trim();
       const consumerSecret = process.env.SNAPTRADE_CLIENT_SECRET.trim();
 
-      const registerResponse = await fetch('https://api.snaptrade.com/api/v1/snapTrade/registerUser', {
+      const registerResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/registerUser?clientId=${encodeURIComponent(clientId)}&consumerSecret=${encodeURIComponent(consumerSecret)}`, {
         method: 'POST',
         headers: {
           'accept': 'application/json',
-          'Content-Type': 'application/json',
-          'clientId': clientId,
-          'consumerSecret': consumerSecret
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ userId: snapTradeUserId })
       });
@@ -584,13 +582,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userSecret: snapTradeUser.userSecret.substring(0, 10) + '...'
       });
 
-      const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?userId=${encodeURIComponent(snapTradeUser.snaptradeUserId)}&userSecret=${encodeURIComponent(snapTradeUser.userSecret)}`, {
+      const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?userId=${encodeURIComponent(snapTradeUser.snaptradeUserId)}&userSecret=${encodeURIComponent(snapTradeUser.userSecret)}&clientId=${encodeURIComponent(clientId)}&consumerSecret=${encodeURIComponent(consumerSecret)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'accept': 'application/json',
-          'clientId': clientId,
-          'consumerSecret': consumerSecret
+          'accept': 'application/json'
         },
         body: JSON.stringify({
           broker: null,
