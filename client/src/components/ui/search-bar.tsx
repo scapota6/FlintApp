@@ -23,7 +23,7 @@ export default function SearchBar({ onAddToWatchlist, onTrade, className }: Sear
 
   useEffect(() => {
     const searchSymbols = async () => {
-      if (query.length < 2) {
+      if (query.length < 1) {
         setResults([]);
         setShowResults(false);
         return;
