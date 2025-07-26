@@ -10,7 +10,32 @@ Preferred communication style: Simple, everyday language.
 
 ## Development Activity Log
 
-### July 26, 2025 - Stock Detail Pages & Navigation Complete
+### July 26, 2025 - Security & Architecture Enhancement Complete
+**Major Security & Architecture Improvements**:
+- ✅ **Credential Encryption**: Implemented AES-256-GCM encryption for SnapTrade user secrets in database
+- ✅ **Rate Limiting**: Added comprehensive rate limiting for auth (5/15min), trading (30/min), data (100/min), external APIs (10/min)
+- ✅ **Wallet Service**: Created secure internal funds management with hold/release capabilities
+- ✅ **Trading Aggregator**: Built intelligent trade routing system with multi-brokerage position aggregation
+- ✅ **ACH Transfer Integration**: Implemented Teller-based ACH transfers between user accounts
+- ✅ **Modular Architecture**: Created reusable services for encryption, rate limiting, wallet management
+- ✅ **Enhanced Logging**: Added comprehensive activity logging with hashed sensitive data
+- ✅ **Database Schema Fixes**: Resolved account ID type mismatches causing validation errors
+
+**Security Enhancements**:
+- Credentials encrypted before database storage using industry-standard encryption
+- Rate limiting prevents API abuse and DoS attacks
+- Sensitive data hashed in logs for security while maintaining debugging capability
+- Secure fund holding system prevents unauthorized access to user funds
+- Multi-layer authentication with proper session management
+
+**Architecture Improvements**:
+- Clean separation of concerns with dedicated service layers
+- Intelligent trade routing based on brokerage compatibility and fees
+- Reusable trading logic abstracted into TradingAggregator service
+- Modular rate limiting system easily configurable per endpoint type
+- Scalable wallet service supporting multiple account types
+
+### July 26, 2025 - Stock Detail Pages & Navigation Complete (Previous)
 **Major Features Completed**:
 - ✅ Individual stock detail pages (/stock/SYMBOL) with complete trading interface
 - ✅ Made all search results clickable - Dashboard and Trading pages now navigate to stock details
@@ -187,6 +212,32 @@ Preferred communication style: Simple, everyday language.
 3. **Data Aggregation**: Financial data is aggregated from connected accounts
 4. **Real-time Updates**: Dashboard updates every 30 seconds, trades every 10 seconds
 5. **User Actions**: All user actions (trades, transfers, logins) are logged to activity table
+
+## Security & Architecture Enhancements (Latest)
+
+### Security Framework
+- **Credential Encryption**: AES-256-GCM encryption for all sensitive API credentials stored in database
+- **Rate Limiting**: Multi-tier rate limiting system (auth: 5/15min, trading: 30/min, data: 100/min, external: 10/min)
+- **Activity Logging**: Comprehensive logging with sensitive data hashing for security compliance
+- **Session Security**: PostgreSQL-backed sessions with proper expiration and cleanup
+
+### Wallet Service Architecture
+- **Internal Fund Management**: Secure wallet system for fund holding without acting as a broker
+- **Instant Allocation**: Pre-authorization system for instant brokerage fund allocation
+- **ACH Integration**: Teller-based ACH transfers between user's connected accounts
+- **Hold/Release System**: Secure fund holds for pending transactions with automatic release
+
+### Trading Aggregation Engine
+- **Intelligent Routing**: Multi-factor trade routing based on fees, compatibility, and account balances
+- **Position Aggregation**: Real-time position consolidation across multiple brokerage accounts
+- **Brokerage Scoring**: Dynamic scoring system for optimal trade execution
+- **Risk Management**: Pre-trade validation and fund availability checking
+
+### Modular Architecture
+- **Service Layer**: Clean separation with dedicated services for encryption, wallet, trading
+- **Reusable Components**: Abstracted trading logic for easy extension and maintenance
+- **Scalable Design**: Microservice-ready architecture with clear API boundaries
+- **Error Handling**: Comprehensive error handling with detailed logging and user feedback
 
 ## External Dependencies
 

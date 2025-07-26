@@ -136,7 +136,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           details={true}
           hotlist={true}
           calendar={true}
-          news={["headlines"]}
+
           range="6M"
         />
       </div>

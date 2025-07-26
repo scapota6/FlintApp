@@ -136,7 +136,7 @@ export default function Dashboard() {
         {/* Simple Connect Buttons */}
         <SimpleConnectButtons 
           accounts={dashboardData?.accounts || []} 
-          userTier={user?.subscriptionTier || 'free'}
+          userTier="basic"
         />
 
         {/* Trading and Watchlist */}

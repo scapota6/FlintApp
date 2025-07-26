@@ -26,6 +26,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, isNotNull } from "drizzle-orm";
+import { CredentialEncryption } from "./security/encryption";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -129,11 +130,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSnapTradeUser(userId: string, snaptradeUserId: string, userSecret: string): Promise<void> {
+    const encryptedSecret = CredentialEncryption.encrypt(userSecret);
     await db
       .update(users)
       .set({
         snaptradeUserId: snaptradeUserId,
-        snaptradeUserSecret: userSecret,
+        snaptradeUserSecret: encryptedSecret,
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));

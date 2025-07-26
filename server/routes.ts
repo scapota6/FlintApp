@@ -5,6 +5,9 @@ import crypto from "crypto";
 import { Snaptrade } from "snaptrade-typescript-sdk";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { rateLimits } from "./middleware/rateLimiter";
+import { WalletService } from "./services/WalletService";
+import { TradingAggregator } from "./services/TradingAggregator";
 import { 
   insertConnectedAccountSchema,
   insertWatchlistItemSchema,
@@ -45,8 +48,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  // Auth routes (with rate limiting)
+  app.get('/api/auth/user', rateLimits.auth, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -57,8 +60,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Dashboard data
-  app.get('/api/dashboard', isAuthenticated, async (req: any, res) => {
+  // Dashboard data (with data rate limiting)
+  app.get('/api/dashboard', rateLimits.data, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       
@@ -175,8 +178,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Wallet Service Routes
+  app.get('/api/wallet/balance', rateLimits.data, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const balance = await WalletService.getWalletBalance(userId);
+      res.json(balance);
+    } catch (error) {
+      console.error("Error fetching wallet balance:", error);
+      res.status(500).json({ message: "Failed to fetch wallet balance" });
+    }
+  });
+
+  app.post('/api/wallet/hold', rateLimits.trading, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { amount, purpose } = req.body;
+      const result = await WalletService.holdFunds(userId, amount, purpose);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error holding funds:", error);
+      res.status(500).json({ message: error.message || "Failed to hold funds" });
+    }
+  });
+
+  app.post('/api/wallet/allocate', rateLimits.trading, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { amount, brokerageId, purpose } = req.body;
+      const result = await WalletService.allocateToBrokerage({ userId, amount, brokerageId, purpose });
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error allocating funds:", error);
+      res.status(500).json({ message: error.message || "Failed to allocate funds" });
+    }
+  });
+
+  app.post('/api/transfers/ach', rateLimits.external, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { fromAccountId, toAccountId, amount } = req.body;
+      const result = await WalletService.initiateACHTransfer(userId, fromAccountId, toAccountId, amount);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error initiating ACH transfer:", error);
+      res.status(500).json({ message: error.message || "Failed to initiate transfer" });
+    }
+  });
+
+  // Trading Aggregation Routes
+  app.get('/api/trading/positions', rateLimits.data, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const positions = await TradingAggregator.getAggregatedPositions(userId);
+      res.json({ positions });
+    } catch (error) {
+      console.error("Error fetching aggregated positions:", error);
+      res.status(500).json({ message: "Failed to fetch positions" });
+    }
+  });
+
+  app.post('/api/trading/route', rateLimits.trading, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const tradingRequest = { ...req.body, userId };
+      const routing = await TradingAggregator.routeTrade(tradingRequest);
+      res.json(routing);
+    } catch (error: any) {
+      console.error("Error routing trade:", error);
+      res.status(500).json({ message: error.message || "Failed to route trade" });
+    }
+  });
+
+  app.post('/api/trading/execute', rateLimits.trading, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const tradingRequest = { ...req.body, userId };
+      const result = await TradingAggregator.executeTrade(tradingRequest);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error executing trade:", error);
+      res.status(500).json({ message: error.message || "Failed to execute trade" });
+    }
+  });
+
   // Trade management  
-  app.get('/api/trades', isAuthenticated, async (req: any, res) => {
+  app.get('/api/trades', rateLimits.data, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const trades = await storage.getTrades(userId);
