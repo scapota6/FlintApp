@@ -421,8 +421,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin API routes for user and SnapTrade management
-  app.get('/api/admin/users', isAuthenticated, async (req: any, res) => {
+  // Admin middleware - restrict to platform owner only
+  const isAdmin = (req: any, res: any, next: any) => {
+    const userEmail = req.user?.claims?.email;
+    const adminEmails = ['scapota@flint-investing.com']; // Platform owner email
+    
+    if (!adminEmails.includes(userEmail)) {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+    next();
+  };
+
+  // Admin API routes for user and SnapTrade management (restricted to admin only)
+  app.get('/api/admin/users', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const users = await storage.getAllUsers();
       res.json(users);
@@ -432,7 +443,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/snaptrade-users', isAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/snaptrade-users', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const { data } = await snaptrade.authentication.listSnapTradeUsers();
       res.json({ users: data });
@@ -442,7 +453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/admin/snaptrade-user/:userId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/admin/snaptrade-user/:userId', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const { userId } = req.params;
       await snaptrade.authentication.deleteSnapTradeUser({

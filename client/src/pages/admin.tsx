@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Trash2, Users, DollarSign, Database, RefreshCw, Bug } from 'lucide-react';
+import { Trash2, Users, DollarSign, Database, RefreshCw, Bug, Shield } from 'lucide-react';
 import FunctionTester from '@/components/debug/function-tester';
 import { useToast } from '@/hooks/use-toast';
+import { useAdmin } from '@/hooks/useAdmin';
 import { apiRequest } from '@/lib/queryClient';
 
 interface User {
@@ -25,8 +26,22 @@ interface SnapTradeUser {
 
 export default function AdminPage() {
   const { toast } = useToast();
+  const { isAdmin } = useAdmin();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Restrict access to admin users only
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <Shield className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
+          <p className="text-gray-400">You don't have permission to access this page.</p>
+        </div>
+      </div>
+    );
+  }
 
   const { data: users, isLoading: usersLoading, refetch: refetchUsers } = useQuery({
     queryKey: ['/api/admin/users'],
