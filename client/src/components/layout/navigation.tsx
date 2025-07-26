@@ -19,6 +19,7 @@ export default function Navigation() {
     { path: "/watchlist", label: "Watchlist", active: location === "/watchlist" },
     { path: "/news", label: "News", active: location === "/news" },
     { path: "/activity", label: "Activity", active: location === "/activity" },
+    { path: "/admin", label: "Admin", active: location === "/admin" },
   ];
 
   return (

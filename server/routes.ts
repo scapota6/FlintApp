@@ -421,6 +421,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin API routes for user and SnapTrade management
+  app.get('/api/admin/users', isAuthenticated, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.get('/api/admin/snaptrade-users', isAuthenticated, async (req: any, res) => {
+    try {
+      const { data } = await snaptrade.authentication.listSnapTradeUsers();
+      res.json({ users: data });
+    } catch (error: any) {
+      console.error("Error listing SnapTrade users:", error);
+      res.status(500).json({ message: "Failed to list SnapTrade users: " + error.message });
+    }
+  });
+
+  app.delete('/api/admin/snaptrade-user/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      await snaptrade.authentication.deleteSnapTradeUser({
+        userId
+      });
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting SnapTrade user:", error);
+      res.status(500).json({ message: "Failed to delete SnapTrade user: " + error.message });
+    }
+  });
+
   // Teller.io API routes (simplified working version)
   app.post('/api/teller/connect-init', isAuthenticated, async (req: any, res) => {
     try {
