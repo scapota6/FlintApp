@@ -35,6 +35,40 @@ async function saveSnaptradeCredentials(
 
 const router = Router();
 
+// Status endpoint for API health check
+router.get("/status", async (req: any, res) => {
+  try {
+    const { data } = await snaptrade.apiStatus.check();
+    return res.json(data);
+  } catch (err: any) {
+    const status = err.response?.status || 500;
+    const body = err.response?.data || { message: err.message };
+    return res.status(status).json(body);
+  }
+});
+
+// Legacy compatibility routes - redirect to unified register
+router.get("/connect-url", isAuthenticated, async (req: any, res) => {
+  return res.status(301).json({ 
+    error: "Deprecated endpoint", 
+    message: "Please use POST /api/snaptrade/register instead" 
+  });
+});
+
+router.post("/register-user", isAuthenticated, async (req: any, res) => {
+  return res.status(301).json({ 
+    error: "Deprecated endpoint", 
+    message: "Please use POST /api/snaptrade/register instead" 
+  });
+});
+
+router.post("/connection-portal", isAuthenticated, async (req: any, res) => {
+  return res.status(301).json({ 
+    error: "Deprecated endpoint", 
+    message: "Please use POST /api/snaptrade/register instead" 
+  });
+});
+
 // Single POST /api/snaptrade/register (protected by isAuthenticated)
 router.post("/register", isAuthenticated, async (req: any, res, next) => {
   try {

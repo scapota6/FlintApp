@@ -10,21 +10,26 @@ Preferred communication style: Simple, everyday language.
 
 ## Development Activity Log
 
-### July 26, 2025 - SnapTrade SDK Integration & Modular Architecture Complete
-**Major SnapTrade Integration Breakthrough**:
-- ✅ **SDK Method Location Issue Resolved**: Found registerSnapTradeUser on authentication API (not account API)
-- ✅ **Modular Router Architecture**: Created separate snaptrade.ts and snaptrade-debug.ts router modules
-- ✅ **Clean Codebase**: Removed all duplicate SnapTrade routes from main routes.ts file
-- ✅ **Fixed Parameter Structure**: Corrected SDK method calls to use proper TypeScript interfaces
-- ✅ **LSP Error Resolution**: All TypeScript compilation errors resolved
-- ✅ **Working Environment**: Both SnapTrade SDK instances initialized successfully with proper credentials
+### July 26, 2025 - SnapTrade Unified Architecture Complete & Production Ready
+**Major SnapTrade Integration Success**:
+- ✅ **Unified Route Architecture**: Consolidated all SnapTrade functionality into single POST /api/snaptrade/register endpoint
+- ✅ **Official SDK Implementation**: Using snaptrade-typescript-sdk@9.0.118 with exact parameter structure per documentation
+- ✅ **Clean Route Structure**: Removed all standalone register-user, connection-portal, connect-url endpoints
+- ✅ **Proper Error Handling**: Express error middleware with raw SnapTrade error forwarding
+- ✅ **Database Integration**: Credential persistence with getUserByEmail() lookup by req.user.claims.email
+- ✅ **Account Management**: GET /api/snaptrade/accounts returns "Please connect your brokerage first" when no userSecret
 
-**Technical Implementation Details**:
-- **Correct SDK Usage**: snapTradeClient.authentication.registerSnapTradeUser({ userId: email })
-- **Router Structure**: Separate /api/snaptrade/* and /api/snaptrade-debug/* endpoint groups
-- **Environment Variables**: SNAPTRADE_CLIENT_ID (11 chars) and SNAPTRADE_CLIENT_SECRET (51 chars) properly loaded
-- **Server Status**: Both routers mounted and responding, API version 151 online
-- **Frontend Integration**: SnapTradeAPI class ready for getConnectionUrl() and registration flow
+**Production-Ready Workflow**:
+1. **POST /api/snaptrade/register** → registers user + generates connection portal URL
+2. **User completes brokerage connection via portal**
+3. **GET /api/snaptrade/accounts** → lists connected brokerage accounts
+4. **All endpoints protected by isAuthenticated middleware**
+
+**Technical Implementation**:
+- **SDK Calls**: registerSnapTradeUser({ userId: email }) → loginSnapTradeUser({ userId, userSecret })
+- **Response Format**: { url: portal.redirectURI } for frontend consumption
+- **Error Handling**: HTTP status codes and JSON bodies forwarded directly from SnapTrade API
+- **Server Status**: API version 151 online, all endpoints responding correctly
 
 ### July 26, 2025 - Security & Architecture Enhancement Complete (Previous)
 **Major Security & Architecture Improvements**:
