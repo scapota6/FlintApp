@@ -119,24 +119,18 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           enable_publishing={false}
           allow_symbol_change={true}
           hide_top_toolbar={false}
-          hide_legend={false}
+          hide_legend={true}
           save_image={false}
           container_id={`tradingview_${symbol.replace(':', '_')}`}
           autosize={true}
-          studies={[
-            // Popular technical indicators
-            'MASimple@tv-basicstudies', // Moving Average
-            'RSI@tv-basicstudies',      // RSI
-            'MACD@tv-basicstudies'      // MACD
-          ]}
+          studies={[]}
           show_popup_button={false}
           popup_width="1000"
           popup_height="650"
           hide_side_toolbar={false}
-          details={true}
-          hotlist={true}
-          calendar={true}
-
+          details={false}
+          hotlist={false}
+          calendar={false}
           range="6M"
         />
       </div>

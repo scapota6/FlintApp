@@ -24,6 +24,7 @@ import TradingViewChart from '@/components/charts/TradingViewChart';
 import SmartBuyButton from '@/components/trading/SmartBuyButton';
 import { BrokerageCompatibilityEngine, type Asset } from '@shared/brokerage-compatibility';
 import { Link } from 'wouter';
+import { useStockQuote, stockDataService } from '@/lib/unified-stock-data';
 
 interface StockData {
   symbol: string;
@@ -55,26 +56,24 @@ export default function StockDetail() {
   const [selectedAction, setSelectedAction] = useState<'buy' | 'sell'>('buy');
   const symbol = params?.symbol?.toUpperCase() || '';
 
-  // Mock stock data - in real app, fetch from SnapTrade API
-  const stockData: StockData = {
-    symbol,
-    name: symbol === 'AAPL' ? 'Apple Inc.' : 
-          symbol === 'GOOGL' ? 'Alphabet Inc.' :
-          symbol === 'MSFT' ? 'Microsoft Corporation' :
-          symbol === 'TSLA' ? 'Tesla, Inc.' :
-          symbol === 'NVDA' ? 'NVIDIA Corporation' :
-          `${symbol} Corporation`,
-    price: Math.random() * 500 + 50,
-    change: (Math.random() - 0.5) * 10,
-    changePercent: (Math.random() - 0.5) * 5,
-    volume: Math.floor(Math.random() * 100000000),
-    marketCap: Math.floor(Math.random() * 1000000000000),
-    pe: Math.random() * 50 + 10,
-    dividend: Math.random() * 5,
-    high52w: Math.random() * 600 + 100,
-    low52w: Math.random() * 200 + 20,
-    about: `${symbol} is a leading technology company known for innovation and market leadership.`
-  };
+  // Use real-time data from unified service (matches TradingView prices)
+  const { data: stockQuote, isLoading: quoteLoading } = useStockQuote(symbol);
+  
+  // Convert to display format
+  const stockData: StockData | null = stockQuote ? {
+    symbol: stockQuote.symbol,
+    name: stockQuote.name,
+    price: stockQuote.price,
+    change: stockQuote.change,
+    changePercent: stockQuote.changePercent,
+    volume: stockQuote.volume,
+    marketCap: stockQuote.marketCap || 0,
+    pe: stockQuote.peRatio || 0,
+    dividend: 0, // Not provided by unified service
+    high52w: stockQuote.fiftyTwoWeekHigh || 0,
+    low52w: stockQuote.fiftyTwoWeekLow || 0,
+    about: `${stockQuote.name} is a publicly traded company.`
+  } : null;
 
   // Mock news data
   const newsData: NewsItem[] = [
@@ -123,6 +122,33 @@ export default function StockDetail() {
     setSelectedAction(action);
     setIsTradeModalOpen(true);
   };
+
+  // Loading state
+  if (quoteLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading stock data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (!stockData) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Stock Not Found</h1>
+          <p className="text-gray-400 mb-6">The stock symbol "{symbol}" was not found.</p>
+          <Link href="/trading">
+            <Button>← Back to Trading</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white">
