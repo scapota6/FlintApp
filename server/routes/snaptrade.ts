@@ -52,7 +52,7 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
       });
     }
 
-    const email = req.user.email?.toLowerCase();
+    const email = req.user.claims.email?.toLowerCase();
     if (!email) {
       return res.status(400).json({
         error: "User email required",
