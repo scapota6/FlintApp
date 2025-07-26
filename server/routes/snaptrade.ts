@@ -23,66 +23,33 @@ if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CONSUMER_KEY) {
   console.log('SnapTrade environment variables missing - SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY required');
 }
 
-// SnapTrade user registration with proper error handling
-router.post("/register", isAuthenticated, async (req: any, res, next) => {
+router.post("/register", async (req, res, next) => {
+  const email = (req.user as any).email.toLowerCase();
+  const user = await getUserByEmail(email);
+
+  // If we already have creds in DB, skip registration
+  if (user.snaptradeUserId && user.snaptradeUserSecret) {
+    return res.json({ registered: true, userId: user.snaptradeUserId });
+  }
+
   try {
-    const email = req.user.claims.email?.toLowerCase();
-    const flintUserId = req.user.claims.sub;
-    
-    if (!email) {
-      return res.status(400).json({ error: "User email required" });
-    }
-
-    // Check if already registered
-    const existingUser = await storage.getSnapTradeUser(flintUserId);
-    if (existingUser && existingUser.snaptradeUserId && existingUser.userSecret) {
-      return res.json({ registered: true, userId: existingUser.snaptradeUserId });
-    }
-
-    // SnapTrade call with error handling
-    const { data } = await snapTradeClient!.authentication.registerSnapTradeUser({
-      userId: email
+    // Attempt fresh registration
+    const { data } = await snaptrade.authentication.registerSnapTradeUser({
+      snapTradeRegisterUserRequestBody: { userId: email },
     });
-
-    // Save plaintext secret
-    await storage.createSnapTradeUser(flintUserId, data.userId!, data.userSecret!);
-
-    // Return success
+    // Save the new plaintext secret
+    await saveSnaptradeCredentials(email, data.userId, data.userSecret);
     return res.json({ registered: true, userId: data.userId });
-  } catch (error: any) {
-    console.error("SnapTrade registration error:", error);
-    
-    // Handle the case where user already exists
-    if (error.responseBody && error.responseBody.detail && error.responseBody.detail.includes("already exist")) {
-      console.log("User already exists in SnapTrade, fetching existing user...");
-      
-      try {
-        // Try to find existing user in our storage first
-        const flintUserId = req.user.claims.sub;
-        const existingUser = await storage.getSnapTradeUser(flintUserId);
-        
-        if (existingUser && existingUser.snaptradeUserId) {
-          return res.json({ registered: true, userId: existingUser.snaptradeUserId });
-        }
-        
-        // If not in our storage, return error asking to use fresh account
-        return res.status(409).json({ 
-          error: "User already registered", 
-          message: "This email is already registered with SnapTrade. Please use the 'Fresh Account' option to create a new account.",
-          code: "USER_EXISTS"
-        });
-      } catch (storageError) {
-        console.error("Error checking existing user:", storageError);
-        return res.status(500).json({ error: "Failed to check existing registration" });
-      }
+  } catch (err: any) {
+    const errData = err.response?.data;
+    // If the user already exists in SnapTrade, treat as success
+    if (errData?.code === "USER_EXISTS" || /already registered/i.test(errData?.message || "")) {
+      // Reload credentials from DB (they should now exist)
+      const existing = await getUserByEmail(email);
+      return res.json({ registered: true, userId: existing.snaptradeUserId });
     }
-    
-    // Handle other errors
-    return res.status(500).json({ 
-      error: "Registration failed", 
-      message: error.message || "Unknown error occurred",
-      details: error.responseBody || error
-    });
+    // Otherwise, propagate the error
+    return next(err);
   }
 });
 
