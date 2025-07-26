@@ -1,0 +1,51 @@
+Please update our SnapTrade integration in `routes/snaptrade.ts` to resolve the HMAC signature errors and ensure every request is signed exactly per the official SDK:
+
+1. **Verify Environment Variables**  
+   - Confirm that `process.env.SNAPTRADE_CLIENT_ID` and `process.env.SNAPTRADE_CONSUMER_KEY` match the values in our SnapTrade Dashboard (no extra whitespace or hidden characters).  
+   - Add a startup log showing both lengths and prefixes for manual verification:
+     ```ts
+     console.log('SnapTrade SDK Configuration:', {
+       clientId: process.env.SNAPTRADE_CLIENT_ID,
+       consumerKey: process.env.SNAPTRADE_CONSUMER_KEY?.substring(0, 5) + '…',
+     });
+     ```
+
+2. **Ensure Accurate Request Signing**  
+   - Use only the official `snaptrade-typescript-sdk` for **all** SnapTrade calls.  
+   - Remove any manual HTTP or Axios calls to SnapTrade endpoints.  
+   - Initialize the SDK exactly as:
+     ```ts
+     const snaptrade = new Snaptrade({
+       clientId: process.env.SNAPTRADE_CLIENT_ID!,
+       consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
+     });
+     ```
+
+3. **Sync Server Clock**  
+   - Add a one-time log of `new Date().toISOString()` on startup so we can confirm the server’s clock alignment with UTC.
+
+4. **Add Detailed Error Logging**  
+   - In every `catch` block around SnapTrade calls, log:
+     ```ts
+     console.error('SnapTrade Error:', {
+       path: req.originalUrl,
+       payload: /* the exact request object or params */,
+       responseData: err.response?.data,
+       responseHeaders: err.response?.headers,
+     });
+     ```
+   - Then forward the raw `err.response.data` and correct status to the client.
+
+5. **Test Registration & Connection**  
+   - After applying these changes, restart the server.  
+   - In the browser console, call:
+     ```js
+     await fetch('/api/snaptrade/register', { method: 'POST', credentials: 'include' })
+       .then(r => r.json()).then(console.log);
+     ```
+   - Confirm no 400/500, and that you receive `{ url: 'https://portal.snaptrade.com/connect?token=…' }`.
+
+6. **Verify Accounts Listing**  
+   - Ensure that `/api/snaptrade/accounts` only runs after a successful register/connect, and that it returns real account data.
+
+These changes will guarantee SnapTrade’s HMAC signature verification passes and our integration works as documented.```
