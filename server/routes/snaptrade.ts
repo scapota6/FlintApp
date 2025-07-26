@@ -4,21 +4,26 @@ import { Router } from "express";
 import { Snaptrade } from "snaptrade-typescript-sdk";
 import { storage } from "../storage";
 import { isAuthenticated } from "../replitAuth";
+import { db } from "../db";
+import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
-// --- DB helper shims (adjust import paths as needed) ---
+// --- DB helper functions ---
 async function getUserByEmail(email: string) {
-  return await storage.getUserByEmail(email);
+  // Get user from database - we need to query by email
+  const result = await db.select().from(users).where(eq(users.email, email));
+  return result[0];
 }
 
 async function saveSnaptradeCredentials(
   email: string,
-  userId: string,
+  snaptradeUserId: string,
   userSecret: string,
 ) {
-  const user = await storage.getUserByEmail(email);
+  const user = await getUserByEmail(email);
   if (user) {
-    // Store plaintext secret directly
-    await storage.updateSnapTradeUser(user.id, userId, userSecret);
+    // Use the correct storage method
+    await storage.createSnapTradeUser(user.id, snaptradeUserId, userSecret);
   }
 }
 
@@ -38,39 +43,92 @@ if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CONSUMER_KEY) {
 
 const router = Router();
 
-router.post("/register", async (req, res, next) => {
-  const email = (req.user as any).email.toLowerCase();
-  let user = await getUserByEmail(email);
-
-  // 1) Register if needed
-  if (!user.snaptradeUserId || !user.snaptradeUserSecret) {
-    try {
-      const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
-        userId: email,
+router.post("/register", isAuthenticated, async (req: any, res, next) => {
+  try {
+    if (!snapTradeClient) {
+      return res.status(502).json({
+        error: "SnapTrade not configured",
+        details: "Missing SNAPTRADE_CLIENT_ID or SNAPTRADE_CONSUMER_KEY in environment",
       });
-      await saveSnaptradeCredentials(email, data.userId, data.userSecret);
-      user = await getUserByEmail(email);
-    } catch (err: any) {
-      const errData = err.response?.data;
-      if (
-        errData?.code === "USER_EXISTS" ||
-        errData?.code === "1010" ||
-        /already exist/i.test(errData?.detail || errData?.message || "")
-      ) {
+    }
+
+    const email = req.user.email?.toLowerCase();
+    if (!email) {
+      return res.status(400).json({
+        error: "User email required",
+        details: "Authenticated user email is missing",
+      });
+    }
+
+    // 1) Check DB for existing credentials
+    let user = await getUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // 2) Register if missing credentials
+    if (!user.snaptradeUserId || !user.snaptradeUserSecret) {
+      try {
+        console.log("📝 Registering SnapTrade user:", email);
+        const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
+          userId: email,
+        });
+        
+        // Save credentials to DB
+        await saveSnaptradeCredentials(email, data.userId!, data.userSecret!);
         user = await getUserByEmail(email);
-      } else {
-        return next(err);
+      } catch (err: any) {
+        console.error("SnapTrade registration error:", err);
+        const errData = err.response?.data;
+        
+        // Handle "user already exists" errors
+        if (
+          errData?.code === "USER_EXISTS" ||
+          errData?.code === "1010" ||
+          /already exist/i.test(errData?.detail || errData?.message || "")
+        ) {
+          console.log("User already exists in SnapTrade, fetching existing user...");
+          user = await getUserByEmail(email);
+          
+          // If we still don't have credentials, this is an issue
+          if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
+            return res.status(409).json({
+              error: "User already registered",
+              details: "User exists in SnapTrade but credentials not found in database"
+            });
+          }
+        } else {
+          return res.status(500).json({
+            error: "Failed to register SnapTrade user",
+            details: errData || err.message,
+          });
+        }
       }
     }
-  }
 
-  // 2) Generate the connection URL
-  try {
+    // 3) Generate connection URL using stored credentials
+    console.log("🔑 Generating connection URL for user:", user.snaptradeUserId);
     const { data } = await snapTradeClient.authentication.loginSnapTradeUser({
       userId: user.snaptradeUserId!,
       userSecret: user.snaptradeUserSecret!,
     });
-    return res.json({ url: data.redirectURI });
+
+    // 4) Return the connection URL - access the response data properly
+    console.log("🔍 SnapTrade login response:", data);
+    
+    // The response should contain redirectURI or similar property
+    const connectionUrl = (data as any).redirectURI || (data as any).redirect_uri || (data as any).url;
+    
+    if (!connectionUrl) {
+      console.error("No connection URL found in response:", data);
+      return res.status(502).json({
+        error: "No connection URL returned",
+        details: "SnapTrade login response missing URL property"
+      });
+    }
+    
+    return res.json({ url: connectionUrl });
+    
   } catch (err: any) {
     console.error("SnapTrade connect-url error:", err.response?.data || err);
     return res.status(502).json({
@@ -80,55 +138,7 @@ router.post("/register", async (req, res, next) => {
   }
 });
 
-// --- GET /api/snaptrade/connect-url ---
-router.get("/connect-url", isAuthenticated, async (req: any, res) => {
-  try {
-    if (!snapTradeClient) {
-      return res.status(502).json({
-        error: "SnapTrade not configured",
-        details:
-          "Missing SNAPTRADE_CLIENT_ID or SNAPTRADE_CONSUMER_KEY in environment",
-      });
-    }
 
-    const email = req.user.claims.email?.toLowerCase();
-    if (!email) {
-      return res.status(400).json({
-        error: "User email required",
-        details: "Authenticated user email is missing",
-      });
-    }
-
-    // 1) Ensure user is registered (will no-op if already done)
-    await router.handle({ method: "POST", url: "/register", ...req });
-
-    // 2) Load stored credentials
-    const user = await getUserByEmail(email);
-    const { snaptradeUserId: userId, snaptradeUserSecret: userSecret } = user;
-
-    // 3) Debug-log the exact payload
-    console.log("🔑 SnapTrade login payload:", { userId, userSecret });
-
-    // 4) Generate the connection URL
-    const { data } = await snapTradeClient.authentication.loginSnapTradeUser({
-      userId,
-      userSecret,
-    });
-
-    // 5) Return the one-time redirectURI
-    return res.json({ url: data.redirectURI });
-  } catch (err: any) {
-    console.error(
-      "❌ SnapTrade connect-url error:",
-      err.response?.data || err.message,
-    );
-    console.error("Request config:", err.config);
-    return res.status(502).json({
-      error: "SnapTrade URL generation failed",
-      details: err.response?.data || err.message,
-    });
-  }
-});
 
 // --- (Optional) Fuzzy Search Endpoint ---
 router.get("/search", isAuthenticated, async (req: any, res) => {
