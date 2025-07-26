@@ -23,74 +23,31 @@ if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CONSUMER_KEY) {
   console.log('SnapTrade environment variables missing - SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY required');
 }
 
-// SnapTrade user registration with correct parameter structure
-router.post('/register', isAuthenticated, async (req: any, res) => {
-  try {
-    if (!snapTradeClient) {
-      return res.status(502).json({ 
-        error: "SnapTrade not configured", 
-        details: "SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY environment variables required" 
-      });
-    }
-
-    const flintUserId = req.user.claims.sub;
-    const userEmail = req.user.claims.email?.toLowerCase();
-    
-    if (!userEmail) {
-      return res.status(400).json({ 
-        error: "User email required", 
-        details: "User email is required for SnapTrade registration" 
-      });
-    }
-
-    // Check DB for existing snaptradeUserId/Secret
-    const existingUser = await storage.getSnapTradeUser(flintUserId);
-    if (existingUser && existingUser.snaptradeUserId && existingUser.userSecret) {
-      console.log('SnapTrade user already registered:', existingUser.snaptradeUserId);
-      return res.json({ 
-        registered: true,
-        userId: existingUser.snaptradeUserId 
-      });
-    }
-
-    console.log('Registering SnapTrade user with email:', userEmail);
-
-    try {
-      // Use exact specification from user
-      const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
-        userId: userEmail
-      });
-
-      console.log('SnapTrade registration response received:', {
-        hasData: !!data,
-        dataKeys: data ? Object.keys(data) : []
-      });
-
-      // Save data.userId and data.userSecret to PostgreSQL
-      await storage.createSnapTradeUser(flintUserId, data.userId!, data.userSecret!);
-      
-      console.log('SnapTrade user registered and saved successfully:', data.userId);
-      
-      // Return JSON { registered: true, userId: data.userId }
-      res.json({
-        registered: true,
-        userId: data.userId
-      });
-
-    } catch (err: any) {
-      // Log the full SnapTrade response
-      console.error("🔴 SnapTrade register error response data:", err.response?.data);
-      // Forward the real SnapTrade JSON instead of our wrapper
-      return res.status(err.response?.status || 502).json(err.response?.data || { message: err.message });
-    }
-
-  } catch (error: any) {
-    console.error("Registration error:", error);
-    res.status(500).json({ 
-      error: "Internal server error",
-      details: error.message 
-    });
+// SnapTrade user registration - no try/catch
+router.post("/register", isAuthenticated, async (req: any, res, next) => {
+  const email = req.user.claims.email?.toLowerCase();
+  const flintUserId = req.user.claims.sub;
+  
+  if (!email) {
+    return res.status(400).json({ error: "User email required" });
   }
+
+  // Check if already registered
+  const existingUser = await storage.getSnapTradeUser(flintUserId);
+  if (existingUser && existingUser.snaptradeUserId && existingUser.userSecret) {
+    return res.json({ registered: true, userId: existingUser.snaptradeUserId });
+  }
+
+  // SnapTrade call—no try/catch here
+  const { data } = await snapTradeClient!.authentication.registerSnapTradeUser({
+    userId: email
+  });
+
+  // Save plaintext secret
+  await storage.createSnapTradeUser(flintUserId, data.userId!, data.userSecret!);
+
+  // Return success
+  return res.json({ registered: true, userId: data.userId });
 });
 
 // SnapTrade connection URL generator
