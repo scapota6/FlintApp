@@ -8,10 +8,24 @@ import { db } from "../db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
+// Validate environment variables
+const clientId = process.env.SNAPTRADE_CLIENT_ID?.trim();
+const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET?.trim();
+
+if (!clientId || !consumerKey) {
+  throw new Error('Missing SnapTrade environment variables');
+}
+
+console.log('SnapTrade SDK Configuration:', {
+  clientId: clientId,
+  consumerKeyLength: consumerKey.length,
+  consumerKeyStart: consumerKey.substring(0, 8) + '...',
+});
+
 // SDK Initialization (top of 'routes/snaptrade.ts'):
 const snaptrade = new Snaptrade({
-  clientId: process.env.SNAPTRADE_CLIENT_ID!,
-  consumerKey: process.env.SNAPTRADE_CLIENT_SECRET!,
+  clientId: clientId,
+  consumerKey: consumerKey,
 });
 
 // --- DB helper functions ---
@@ -45,6 +59,22 @@ router.get("/status", async (req: any, res) => {
     const body = err.response?.data || { message: err.message };
     return res.status(status).json(body);
   }
+});
+
+// Debug endpoint for environment verification
+router.get("/debug-env", async (req: any, res) => {
+  const clientId = process.env.SNAPTRADE_CLIENT_ID?.trim();
+  const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET?.trim();
+  
+  return res.json({
+    hasClientId: !!clientId,
+    clientId: clientId || 'MISSING',
+    hasConsumerKey: !!consumerKey,
+    consumerKeyLength: consumerKey?.length || 0,
+    consumerKeyPreview: consumerKey ? consumerKey.substring(0, 8) + '...' : 'MISSING',
+    serverTimestamp: Math.floor(Date.now() / 1000),
+    serverTime: new Date().toISOString()
+  });
 });
 
 // Legacy compatibility routes - redirect to unified register
@@ -116,6 +146,14 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
             });
           }
         } else {
+          // Log full error details for debugging
+          console.error("🔴 SnapTrade registerSnapTradeUser error:", {
+            status: err.response?.status,
+            data: err.response?.data,
+            headers: err.response?.headers,
+            message: err.message
+          });
+          
           // Forward err.response?.status and err.response?.data directly
           const status = err.response?.status || 500;
           const body = err.response?.data || { message: err.message };
@@ -130,13 +168,26 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
       userSecretLength: user.snaptradeUserSecret?.length
     });
     
-    const { data: portal } = await snaptrade.authentication.loginSnapTradeUser({
-      userId: user.snaptradeUserId!,
-      userSecret: user.snaptradeUserSecret!,
-    });
-    
-    console.log('SnapTrade Register: Portal response:', portal);
-    return res.json({ url: (portal as any).redirectURI });
+    try {
+      const { data: portal } = await snaptrade.authentication.loginSnapTradeUser({
+        userId: user.snaptradeUserId!,
+        userSecret: user.snaptradeUserSecret!,
+      });
+      
+      console.log('SnapTrade Register: Portal response:', portal);
+      return res.json({ url: (portal as any).redirectURI });
+    } catch (loginErr: any) {
+      console.error("🔴 SnapTrade loginSnapTradeUser error:", {
+        status: loginErr.response?.status,
+        data: loginErr.response?.data,
+        headers: loginErr.response?.headers,
+        message: loginErr.message
+      });
+      
+      const status = loginErr.response?.status || 500;
+      const body = loginErr.response?.data || { message: loginErr.message };
+      return res.status(status).json(body);
+    }
     
   } catch (err: any) {
     // Pass error to Express error handler middleware
@@ -296,9 +347,18 @@ router.get("/search", isAuthenticated, async (req: any, res) => {
 
 // Add Express error handler middleware at the bottom of the file:
 router.use((err: any, req: any, res: any, next: any) => {
-  console.error("🔴 SnapTrade raw error:", err.response?.data);
+  console.error("🔴 SnapTrade Express error handler:", {
+    url: req.url,
+    method: req.method,
+    status: err.response?.status,
+    data: err.response?.data,
+    headers: err.response?.headers,
+    message: err.message,
+    stack: err.stack?.split('\n').slice(0, 3) // First 3 lines of stack trace
+  });
+  
   const status = err.response?.status || 500;
-  const body   = err.response?.data   || { message: err.message };
+  const body = err.response?.data || { message: err.message };
   res.status(status).json(body);
 });
 
