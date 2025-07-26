@@ -1,131 +1,123 @@
+// routes/snaptrade.ts
+
 import { Router } from "express";
 import { Snaptrade } from "snaptrade-typescript-sdk";
 import { storage } from "../storage";
 import { isAuthenticated } from "../replitAuth";
 
-// Import required functions
+// --- DB helper shims (adjust import paths as needed) ---
 async function getUserByEmail(email: string) {
-  // Implementation to get user by email from storage
   return await storage.getUserByEmail(email);
 }
 
-async function saveSnaptradeCredentials(email: string, userId: string, userSecret: string) {
-  // Implementation to save SnapTrade credentials
+async function saveSnaptradeCredentials(
+  email: string,
+  userId: string,
+  userSecret: string,
+) {
   const user = await storage.getUserByEmail(email);
   if (user) {
+    // Store plaintext secret directly
     await storage.updateSnapTradeUser(user.id, userId, userSecret);
   }
 }
 
-const router = Router();
-
-// Initialize SnapTrade SDK
-let snapTradeClient: Snaptrade | null = null;
+// --- Initialize SnapTrade SDK ---
+let snapTradeClient: Snaptrade;
 if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CONSUMER_KEY) {
-  console.log('Initializing SnapTrade SDK with clientId:', process.env.SNAPTRADE_CLIENT_ID);
-  
-  try {
-    snapTradeClient = new Snaptrade({
-      clientId: process.env.SNAPTRADE_CLIENT_ID!,
-      consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
-    });
-    console.log('SnapTrade SDK initialized successfully');
-  } catch (error) {
-    console.error('Failed to initialize SnapTrade SDK:', error);
-  }
+  snapTradeClient = new Snaptrade({
+    clientId: process.env.SNAPTRADE_CLIENT_ID!,
+    consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
+  });
+  console.log("✅ SnapTrade SDK initialized");
 } else {
-  console.log('SnapTrade environment variables missing - SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY required');
+  console.warn(
+    "⚠️ Missing SNAPTRADE_CLIENT_ID or SNAPTRADE_CONSUMER_KEY in environment",
+  );
 }
 
+const router = Router();
+
+// --- POST /api/snaptrade/register ---
 router.post("/register", async (req, res, next) => {
   const email = (req.user as any).email.toLowerCase();
   const existing = await getUserByEmail(email);
 
-  // If credentials already in our DB, skip calling SnapTrade
+  // 1) If we already have credentials, skip
   if (existing.snaptradeUserId && existing.snaptradeUserSecret) {
     return res.json({ registered: true, userId: existing.snaptradeUserId });
   }
 
   try {
-    // Attempt fresh registration
-    const { data } = await snaptrade.authentication.registerSnapTradeUser({
-      snapTradeRegisterUserRequestBody: { userId: email },
-    });
-    // Save the new plaintext secret
+    // 2) Register new SnapTrade user
+    const { data } = await snapTradeClient.authentication.registerSnapTradeUser(
+      {
+        snapTradeRegisterUserRequestBody: { userId: email },
+      },
+    );
+
+    // 3) Save the userId & plaintext userSecret
     await saveSnaptradeCredentials(email, data.userId, data.userSecret);
+
     return res.json({ registered: true, userId: data.userId });
   } catch (err: any) {
     const errData = err.response?.data;
-    // If SnapTrade says user exists, load from DB and return success
-    if (errData?.code === "USER_EXISTS" || /already registered/i.test(errData?.message || "")) {
-      const loaded = await getUserByEmail(email);
-      return res.json({ registered: true, userId: loaded.snaptradeUserId });
+    // 4) If user already exists in SnapTrade, treat as success
+    if (
+      errData?.code === "USER_EXISTS" ||
+      errData?.code === "1010" ||
+      /already exist/i.test(errData?.detail || errData?.message || "")
+    ) {
+      const reloaded = await getUserByEmail(email);
+      return res.json({ registered: true, userId: reloaded.snaptradeUserId });
     }
-    // Otherwise, forward the error
+    // 5) Otherwise, forward the error
     return next(err);
   }
 });
 
-// SnapTrade connection URL generator
+// --- GET /api/snaptrade/connect-url ---
 router.get("/connect-url", isAuthenticated, async (req: any, res) => {
   try {
     if (!snapTradeClient) {
-      return res.status(502).json({ 
-        error: "SnapTrade not configured", 
-        details: "SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY environment variables required" 
+      return res.status(502).json({
+        error: "SnapTrade not configured",
+        details:
+          "Missing SNAPTRADE_CLIENT_ID or SNAPTRADE_CONSUMER_KEY in environment",
       });
     }
 
     const email = req.user.claims.email?.toLowerCase();
     if (!email) {
-      return res.status(400).json({ 
-        error: "User email required", 
-        details: "User email is required for SnapTrade operations" 
+      return res.status(400).json({
+        error: "User email required",
+        details: "Authenticated user email is missing",
       });
     }
 
-    // Ensure registration first
-    const flintUserId = req.user.claims.sub;
-    let snapTradeUser = await storage.getSnapTradeUser(flintUserId);
-    
-    if (!snapTradeUser?.snaptradeUserId) {
-      // Register user first with error handling
-      try {
-        const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
-          userId: email
-        });
-        await storage.createSnapTradeUser(flintUserId, data.userId!, data.userSecret!);
-        snapTradeUser = { snaptradeUserId: data.userId!, userSecret: data.userSecret! };
-      } catch (regError: any) {
-        // Handle case where user already exists
-        if (regError.responseBody && regError.responseBody.detail && regError.responseBody.detail.includes("already exist")) {
-          return res.status(409).json({
-            error: "User already registered",
-            message: "This email is already registered with SnapTrade. Please contact support to link your existing account.",
-            code: "USER_EXISTS"
-          });
-        }
-        throw regError; // Re-throw other errors to be caught by outer try-catch
-      }
-    }
+    // 1) Ensure user is registered (will no-op if already done)
+    await router.handle({ method: "POST", url: "/register", ...req });
 
-    // Minimal SDK call—no redirect params
-    console.log("SnapTrade login payload:", { 
-      userId: snapTradeUser.snaptradeUserId, 
-      userSecret: snapTradeUser.userSecret 
-    });
-    
+    // 2) Load stored credentials
+    const user = await getUserByEmail(email);
+    const { snaptradeUserId: userId, snaptradeUserSecret: userSecret } = user;
+
+    // 3) Debug-log the exact payload
+    console.log("🔑 SnapTrade login payload:", { userId, userSecret });
+
+    // 4) Generate the connection URL
     const { data } = await snapTradeClient.authentication.loginSnapTradeUser({
-      userId: snapTradeUser.snaptradeUserId!, 
-      userSecret: snapTradeUser.userSecret!
+      snapTradeLoginRequestBody: { userId, userSecret },
     });
 
-    // data.redirectURI is the connection URL
-    return res.json({ url: (data as any).redirectURI });
+    // 5) Return the one-time redirectURI
+    return res.json({ url: data.redirectURI });
   } catch (err: any) {
-    console.error("SnapTrade connect-url error:", err.response?.data || err);
+    console.error(
+      "❌ SnapTrade connect-url error:",
+      err.response?.data || err.message,
+    );
     console.error("Request config:", err.config);
-    console.error("Response data:", err.response?.data);
     return res.status(502).json({
       error: "SnapTrade URL generation failed",
       details: err.response?.data || err.message,
@@ -133,68 +125,97 @@ router.get("/connect-url", isAuthenticated, async (req: any, res) => {
   }
 });
 
-// SnapTrade search endpoint (existing functionality)
-router.get('/search', isAuthenticated, async (req: any, res) => {
+// --- (Optional) Fuzzy Search Endpoint ---
+router.get("/search", isAuthenticated, async (req: any, res) => {
   try {
     const { q } = req.query;
-    
-    if (!q || typeof q !== 'string' || q.length < 1) {
+    if (!q || typeof q !== "string" || q.length < 1) {
       return res.json([]);
     }
 
-    // Expanded stock database with comprehensive search capabilities
     const stockDatabase = [
-      { symbol: 'AAPL', name: 'Apple Inc.', price: 173.50, changePercent: 1.2, volume: 89000000 },
-      { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 2435.20, changePercent: -0.8, volume: 2100000 },
-      { symbol: 'MSFT', name: 'Microsoft Corporation', price: 378.85, changePercent: 0.5, volume: 45000000 },
-      { symbol: 'TSLA', name: 'Tesla Inc.', price: 248.42, changePercent: 2.1, volume: 125000000 },
-      { symbol: 'AMZN', name: 'Amazon.com Inc.', price: 3284.70, changePercent: 0.9, volume: 12000000 },
-      { symbol: 'NVDA', name: 'NVIDIA Corporation', price: 448.30, changePercent: 2.8, volume: 78000000 },
-      { symbol: 'META', name: 'Meta Platforms Inc.', price: 325.60, changePercent: -0.3, volume: 23000000 },
-      { symbol: 'NFLX', name: 'Netflix Inc.', price: 492.80, changePercent: 1.1, volume: 18000000 }
+      {
+        symbol: "AAPL",
+        name: "Apple Inc.",
+        price: 173.5,
+        changePercent: 1.2,
+        volume: 89000000,
+      },
+      {
+        symbol: "GOOGL",
+        name: "Alphabet Inc.",
+        price: 2435.2,
+        changePercent: -0.8,
+        volume: 2100000,
+      },
+      {
+        symbol: "MSFT",
+        name: "Microsoft Corporation",
+        price: 378.85,
+        changePercent: 0.5,
+        volume: 45000000,
+      },
+      {
+        symbol: "TSLA",
+        name: "Tesla Inc.",
+        price: 248.42,
+        changePercent: 2.1,
+        volume: 125000000,
+      },
+      {
+        symbol: "AMZN",
+        name: "Amazon.com Inc.",
+        price: 3284.7,
+        changePercent: 0.9,
+        volume: 12000000,
+      },
+      {
+        symbol: "NVDA",
+        name: "NVIDIA Corporation",
+        price: 448.3,
+        changePercent: 2.8,
+        volume: 78000000,
+      },
+      {
+        symbol: "META",
+        name: "Meta Platforms Inc.",
+        price: 325.6,
+        changePercent: -0.3,
+        volume: 23000000,
+      },
+      {
+        symbol: "NFLX",
+        name: "Netflix Inc.",
+        price: 492.8,
+        changePercent: 1.1,
+        volume: 18000000,
+      },
     ];
 
-    const queryLower = q.toLowerCase().trim();
-    
-    // Enhanced fuzzy matching with multiple scoring criteria
-    const searchResults = stockDatabase.map(stock => {
-      const symbolLower = stock.symbol.toLowerCase();
-      const nameLower = stock.name.toLowerCase();
-      let score = 0;
-      
-      // Exact symbol match (highest priority)
-      if (symbolLower === queryLower) score += 1000;
-      // Symbol starts with query
-      else if (symbolLower.startsWith(queryLower)) score += 800;
-      // Symbol contains query
-      else if (symbolLower.includes(queryLower)) score += 600;
-      // Company name starts with query
-      else if (nameLower.startsWith(queryLower)) score += 700;
-      // Any word in company name starts with query
-      const nameWords = nameLower.split(' ');
-      if (nameWords.some(word => word.startsWith(queryLower))) score += 500;
-      // Company name contains query anywhere
-      else if (nameLower.includes(queryLower)) score += 300;
-      
-      return { ...stock, searchScore: score };
-    }).filter(stock => stock.searchScore > 0);
+    const query = q.toLowerCase().trim();
+    const results = stockDatabase
+      .map((stock) => {
+        let score = 0;
+        const sym = stock.symbol.toLowerCase();
+        const nm = stock.name.toLowerCase();
 
-    // Sort by search score (highest first), then alphabetically
-    const sortedResults = searchResults
-      .sort((a, b) => {
-        if (a.searchScore !== b.searchScore) return b.searchScore - a.searchScore;
-        return a.symbol.localeCompare(b.symbol);
+        if (sym === query) score += 1000;
+        else if (sym.startsWith(query)) score += 800;
+        else if (sym.includes(query)) score += 600;
+        else if (nm.startsWith(query)) score += 700;
+        else if (nm.includes(query)) score += 300;
+
+        return { ...stock, score };
       })
-      .slice(0, 8) // Limit to top 8 results
-      .map(({ searchScore, ...stock }) => stock); // Remove search score from response
-    
-    res.json(sortedResults);
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score || a.symbol.localeCompare(b.symbol))
+      .slice(0, 8)
+      .map(({ score, ...rest }) => rest);
+
+    res.json(results);
   } catch (error: any) {
     console.error("Search error:", error);
-    res.status(500).json({ 
-      error: "Search failed",
-      details: error.message 
-    });
+    res.status(500).json({ error: "Search failed", details: error.message });
   }
 });
 
