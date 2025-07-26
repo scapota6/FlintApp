@@ -70,12 +70,15 @@ export function StockDetailPage() {
     try {
       // Try to get real-time data from SnapTrade search first
       const searchResults = await SnapTradeAPI.searchSymbols(symbol);
-      const stockResult = searchResults.find(s => s.symbol.toUpperCase() === symbol.toUpperCase());
+      const stockResult = searchResults.find(s => {
+        const resultSymbol = typeof s.symbol === 'string' ? s.symbol : s.symbol?.symbol;
+        return resultSymbol?.toUpperCase() === symbol.toUpperCase();
+      });
 
       if (stockResult) {
         setStockData({
-          symbol: stockResult.symbol,
-          name: stockResult.name,
+          symbol: typeof stockResult.symbol === 'string' ? stockResult.symbol : stockResult.symbol?.symbol || symbol.toUpperCase(),
+          name: stockResult.name || (typeof stockResult.symbol === 'object' ? stockResult.symbol.description : `${symbol.toUpperCase()} Inc.`),
           price: stockResult.price,
           change: stockResult.change || 0,
           changePercent: stockResult.changePercent,
@@ -106,15 +109,11 @@ export function StockDetailPage() {
     if (!symbol) return;
 
     try {
-      const response = await apiRequest("GET", `/api/watchlist/status?q=${symbol}`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const statusData = await response.json();
-      setIsInWatchlist(statusData.inList || false);
+      const response = await apiRequest("GET", "/api/watchlist");
+      const watchlist = await response.json();
+      setIsInWatchlist(watchlist.some((item: any) => item.symbol?.toUpperCase() === symbol?.toUpperCase()));
     } catch (err) {
       console.error('Failed to check watchlist status:', err);
-      setIsInWatchlist(false); // Default to false on error
     }
   };
 
@@ -124,17 +123,16 @@ export function StockDetailPage() {
     setWatchlistLoading(true);
 
     try {
-      const response = await apiRequest("POST", "/api/watchlist/update", {
-        symbol: symbol.toUpperCase(), 
-        add: !isInWatchlist
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      if (isInWatchlist) {
+        await apiRequest("DELETE", `/api/watchlist/${symbol.toUpperCase()}`);
+        setIsInWatchlist(false);
+      } else {
+        await apiRequest("POST", "/api/watchlist", {
+          symbol: symbol.toUpperCase(),
+          name: stockData.name
+        });
+        setIsInWatchlist(true);
       }
-      
-      // Toggle the state
-      setIsInWatchlist(!isInWatchlist);
     } catch (err) {
       console.error('Failed to update watchlist:', err);
     } finally {
