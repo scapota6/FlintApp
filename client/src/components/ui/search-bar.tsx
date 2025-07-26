@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Search, Plus, TrendingUp, TrendingDown } from "lucide-react";
+import { Search, Plus, TrendingUp, TrendingDown, Eye } from "lucide-react";
 import { Input } from "./input";
 import { Button } from "./button";
 import { Card, CardContent } from "./card";
 import { Badge } from "./badge";
 import { SnapTradeAPI, SnapTradeQuote } from "@/lib/snaptrade-api";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 
 interface SearchBarProps {
   onAddToWatchlist?: (symbol: string, name: string) => void;
@@ -88,10 +89,8 @@ export default function SearchBar({ onAddToWatchlist, onTrade, className }: Sear
           <CardContent className="p-2">
             <div className="max-h-96 overflow-y-auto">
               {results.map((result) => (
-                <div
-                  key={result.symbol}
-                  className="p-3 hover:bg-gray-700 rounded-lg cursor-pointer transition-colors"
-                >
+                <Link key={result.symbol} href={`/stock/${result.symbol}`}>
+                  <div className="p-3 hover:bg-gray-700 rounded-lg cursor-pointer transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
@@ -122,7 +121,11 @@ export default function SearchBar({ onAddToWatchlist, onTrade, className }: Sear
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleAddToWatchlist(result.symbol, result.name)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleAddToWatchlist(result.symbol, result.name);
+                          }}
                           className="border-gray-600 text-gray-300 hover:bg-gray-700"
                         >
                           <Plus className="h-3 w-3 mr-1" />
@@ -132,7 +135,11 @@ export default function SearchBar({ onAddToWatchlist, onTrade, className }: Sear
                       {onTrade && (
                         <Button
                           size="sm"
-                          onClick={() => handleTrade(result.symbol, result.name)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleTrade(result.symbol, result.name);
+                          }}
                           className="bg-blue-600 hover:bg-blue-700 text-white"
                         >
                           Trade
@@ -140,7 +147,8 @@ export default function SearchBar({ onAddToWatchlist, onTrade, className }: Sear
                       )}
                     </div>
                   </div>
-                </div>
+                  </div>
+                </Link>
               ))}
             </div>
           </CardContent>
