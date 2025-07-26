@@ -27,14 +27,100 @@ router.get("/", isAuthenticated, async (req: any, res) => {
       .where(eq(watchlist.userId, userId))
       .orderBy(watchlist.addedAt);
 
-    res.json(userWatchlist);
+    res.json({ watchlist: userWatchlist });
   } catch (err: any) {
     console.error('Get watchlist error:', err);
     res.status(500).json({ error: "Failed to get watchlist" });
   }
 });
 
-// Add symbol to watchlist
+// Get watchlist status for a specific symbol
+router.get("/status", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { q: symbol } = req.query;
+
+    if (!symbol) {
+      return res.status(400).json({ error: "Symbol query parameter 'q' is required" });
+    }
+
+    const existing = await db
+      .select()
+      .from(watchlist)
+      .where(and(
+        eq(watchlist.userId, userId),
+        eq(watchlist.symbol, (symbol as string).toUpperCase())
+      ));
+
+    res.json({ 
+      symbol: (symbol as string).toUpperCase(), 
+      inList: existing.length > 0 
+    });
+  } catch (err: any) {
+    console.error('Get watchlist status error:', err);
+    res.status(500).json({ error: "Failed to check watchlist status" });
+  }
+});
+
+// Update watchlist (add or remove symbol)
+router.post("/update", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { symbol, add } = req.body;
+
+    if (!symbol || typeof add !== 'boolean') {
+      return res.status(400).json({ error: "Symbol and add (boolean) are required" });
+    }
+
+    const symbolUpper = symbol.toUpperCase();
+
+    if (add) {
+      // Check if already in watchlist
+      const existing = await db
+        .select()
+        .from(watchlist)
+        .where(and(
+          eq(watchlist.userId, userId),
+          eq(watchlist.symbol, symbolUpper)
+        ));
+
+      if (existing.length === 0) {
+        // Add to watchlist
+        await db
+          .insert(watchlist)
+          .values({
+            userId,
+            symbol: symbolUpper,
+            name: `${symbolUpper} Inc.` // Default name
+          });
+      }
+    } else {
+      // Remove from watchlist
+      await db
+        .delete(watchlist)
+        .where(and(
+          eq(watchlist.userId, userId),
+          eq(watchlist.symbol, symbolUpper)
+        ));
+    }
+
+    // Return updated watchlist
+    const updatedWatchlist = await db
+      .select()
+      .from(watchlist)
+      .where(eq(watchlist.userId, userId))
+      .orderBy(watchlist.addedAt);
+
+    res.json({ 
+      watchlist: updatedWatchlist.map(item => item.symbol) 
+    });
+  } catch (err: any) {
+    console.error('Update watchlist error:', err);
+    res.status(500).json({ error: "Failed to update watchlist" });
+  }
+});
+
+// Add symbol to watchlist (legacy endpoint)
 router.post("/", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.claims.sub;
@@ -67,7 +153,7 @@ router.post("/", isAuthenticated, async (req: any, res) => {
       })
       .returning();
 
-    res.json(newItem);
+    res.json({ item: newItem });
   } catch (err: any) {
     console.error('Add to watchlist error:', err);
     res.status(500).json({ error: "Failed to add to watchlist" });

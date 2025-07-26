@@ -663,6 +663,55 @@ router.get("/search", isAuthenticated, async (req: any, res) => {
   }
 });
 
+// Get user holdings for a specific account
+router.get("/holdings", isAuthenticated, async (req: any, res) => {
+  try {
+    const email = req.user.claims.email?.toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: "User email required" });
+    }
+
+    const { accountId } = req.query;
+    if (!accountId) {
+      return res.status(400).json({ error: "accountId query parameter is required" });
+    }
+
+    // Get user credentials
+    const credentials = await getUserSnapTradeCredentials(email);
+
+    console.log(`Getting holdings for account ${accountId}`);
+
+    // Get holdings from SnapTrade
+    const { data: holdings } = await snaptrade.accountInformation.getUserHoldings({
+      userId: credentials.userId,
+      userSecret: credentials.userSecret,
+      accountId: accountId as string
+    });
+
+    console.log(`Retrieved ${holdings.length} holdings for account ${accountId}`);
+
+    // Return holdings array, even if empty
+    res.json(holdings || []);
+
+  } catch (err: any) {
+    console.error('Holdings fetch error:', {
+      path: req.originalUrl,
+      payload: { email: req.user?.claims?.email, accountId: req.query.accountId },
+      responseData: err.response?.data,
+      responseHeaders: err.response?.headers,
+      status: err.response?.status,
+      message: err.message
+    });
+    
+    const status = err.response?.status || 500;
+    const body = err.response?.data || { 
+      message: err.message,
+      error: "Holdings fetch failed"
+    };
+    return res.status(status).json(body);
+  }
+});
+
 // Express error handler middleware
 router.use((err: any, req: any, res: any, next: any) => {
   console.error('SnapTrade Express Error Handler:', {
