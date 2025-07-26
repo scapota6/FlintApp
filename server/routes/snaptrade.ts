@@ -69,7 +69,7 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
     // 2) Register if missing credentials
     if (!user.snaptradeUserId || !user.snaptradeUserSecret) {
       try {
-        console.log("📝 Registering SnapTrade user:", email);
+        console.log("Register payload:", { userId: email });
         const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
           userId: email,
         });
