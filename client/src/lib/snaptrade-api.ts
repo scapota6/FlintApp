@@ -63,8 +63,31 @@ export class SnapTradeAPI {
   }
 
   static async getAllHoldings(): Promise<SnapTradeHolding[]> {
-    const response = await apiRequest("GET", "/api/snaptrade/holdings");
-    return response.json();
+    try {
+      // Get all accounts first
+      const accounts = await this.getAccounts();
+      
+      if (!accounts.length) {
+        return []; // No accounts, return empty holdings
+      }
+
+      // Get holdings for each account
+      const allHoldings: SnapTradeHolding[] = [];
+      for (const account of accounts) {
+        try {
+          const holdings = await this.getHoldings(account.id);
+          allHoldings.push(...holdings);
+        } catch (err) {
+          console.warn(`Failed to get holdings for account ${account.id}:`, err);
+          // Continue with other accounts
+        }
+      }
+      
+      return allHoldings;
+    } catch (err) {
+      console.error('Failed to get all holdings:', err);
+      return []; // Return empty array instead of throwing
+    }
   }
 
   static async searchSymbols(query: string): Promise<SnapTradeQuote[]> {

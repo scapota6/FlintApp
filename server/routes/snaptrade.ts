@@ -524,45 +524,6 @@ router.post("/sync", isAuthenticated, async (req: any, res) => {
   }
 });
 
-// GET /api/snaptrade/holdings?accountId=... → call getUserHoldings using official SDK
-router.get("/holdings", isAuthenticated, async (req: any, res) => {
-  try {
-    const { accountId } = req.query;
-    const email = req.user.claims.email?.toLowerCase();
-    const user = await getUserByEmail(email);
-    
-    if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
-      return res.status(400).json({ error: "SnapTrade user not registered" });
-    }
-
-    const holdingsPayload = {
-      userId: user.snaptradeUserId!,
-      userSecret: user.snaptradeUserSecret!,
-      accountId: accountId as string,
-    };
-
-    const { data } = await snaptrade.accountInformation.getUserHoldings(holdingsPayload);
-    
-    return res.json(data);
-  } catch (err: any) {
-    console.error('SnapTrade Error:', {
-      path: req.originalUrl,
-      payload: { 
-        email: req.user?.claims?.email,
-        accountId: req.query.accountId
-      },
-      responseData: err.response?.data,
-      responseHeaders: err.response?.headers,
-      status: err.response?.status,
-      message: err.message
-    });
-    
-    const status = err.response?.status || 500;
-    const body = err.response?.data || { message: err.message };
-    return res.status(status).json(body);
-  }
-});
-
 // Search endpoint (mock data)
 router.get("/search", isAuthenticated, async (req: any, res) => {
   try {

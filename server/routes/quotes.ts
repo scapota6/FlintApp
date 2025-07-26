@@ -84,8 +84,8 @@ router.get("/:symbol", isAuthenticated, async (req: any, res) => {
 
     // Transform to our expected format
     const transformedQuote = {
-      symbol: quote.symbol,
-      name: (quote as any).description || `${quote.symbol} Inc.`,
+      symbol: (quote.symbol as any)?.raw_symbol || (quote.symbol as any)?.symbol || symbol.toUpperCase(),
+      name: (quote.symbol as any)?.description || `${symbol.toUpperCase()} Inc.`,
       price: quote.last_trade_price || quote.ask_price || quote.bid_price || 0,
       change: 0, // SnapTrade doesn't provide change in quotes
       changePercent: 0, // SnapTrade doesn't provide change percent in quotes

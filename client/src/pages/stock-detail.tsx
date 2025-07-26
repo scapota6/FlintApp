@@ -106,11 +106,15 @@ export function StockDetailPage() {
     if (!symbol) return;
 
     try {
-      const response = await apiRequest("GET", "/api/watchlist");
-      const watchlist = await response.json();
-      setIsInWatchlist(watchlist.some((item: any) => item.symbol.toUpperCase() === symbol.toUpperCase()));
+      const response = await apiRequest("GET", `/api/watchlist/status?q=${symbol}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const statusData = await response.json();
+      setIsInWatchlist(statusData.inList || false);
     } catch (err) {
       console.error('Failed to check watchlist status:', err);
+      setIsInWatchlist(false); // Default to false on error
     }
   };
 
@@ -120,16 +124,17 @@ export function StockDetailPage() {
     setWatchlistLoading(true);
 
     try {
-      if (isInWatchlist) {
-        await apiRequest("DELETE", `/api/watchlist/${symbol.toUpperCase()}`);
-        setIsInWatchlist(false);
-      } else {
-        await apiRequest("POST", "/api/watchlist", {
-          symbol: symbol.toUpperCase(),
-          name: stockData.name
-        });
-        setIsInWatchlist(true);
+      const response = await apiRequest("POST", "/api/watchlist/update", {
+        symbol: symbol.toUpperCase(), 
+        add: !isInWatchlist
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
+      
+      // Toggle the state
+      setIsInWatchlist(!isInWatchlist);
     } catch (err) {
       console.error('Failed to update watchlist:', err);
     } finally {
