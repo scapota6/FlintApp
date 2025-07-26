@@ -125,6 +125,11 @@ router.get("/connect-url", isAuthenticated, async (req: any, res) => {
     }
 
     // Minimal SDK call—no redirect params
+    console.log("SnapTrade login payload:", { 
+      userId: snapTradeUser.snaptradeUserId, 
+      userSecret: snapTradeUser.userSecret 
+    });
+    
     const { data } = await snapTradeClient.authentication.loginSnapTradeUser({
       userId: snapTradeUser.snaptradeUserId!, 
       userSecret: snapTradeUser.userSecret!
@@ -134,6 +139,8 @@ router.get("/connect-url", isAuthenticated, async (req: any, res) => {
     return res.json({ url: (data as any).redirectURI });
   } catch (err: any) {
     console.error("SnapTrade connect-url error:", err.response?.data || err);
+    console.error("Request config:", err.config);
+    console.error("Response data:", err.response?.data);
     return res.status(502).json({
       error: "SnapTrade URL generation failed",
       details: err.response?.data || err.message,
