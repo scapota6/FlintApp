@@ -180,10 +180,10 @@ export default function Watchlist() {
     return companies[symbol.toUpperCase()] || `${symbol.toUpperCase()} Corp.`;
   };
 
-  const filteredWatchlist = watchlist?.filter((item: any) =>
+  const filteredWatchlist = (Array.isArray(watchlist) ? watchlist : []).filter((item: any) =>
     item.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  );
 
   if (isLoading) {
     return (
