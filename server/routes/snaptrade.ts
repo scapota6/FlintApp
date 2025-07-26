@@ -1,3 +1,4 @@
+
 // routes/snaptrade.ts
 
 import { Router } from "express";
@@ -10,19 +11,23 @@ import { eq } from "drizzle-orm";
 
 // Validate environment variables
 const clientId = process.env.SNAPTRADE_CLIENT_ID?.trim();
-const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET?.trim();
+const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY?.trim();
 
 if (!clientId || !consumerKey) {
-  throw new Error('Missing SnapTrade environment variables');
+  throw new Error('Missing SnapTrade environment variables: SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY required');
 }
 
+// Enhanced startup logging for verification
 console.log('SnapTrade SDK Configuration:', {
   clientId: clientId,
+  consumerKey: consumerKey?.substring(0, 5) + '…',
+  clientIdLength: clientId.length,
   consumerKeyLength: consumerKey.length,
-  consumerKeyStart: consumerKey.substring(0, 8) + '...',
+  serverTime: new Date().toISOString(),
+  serverTimestamp: Math.floor(Date.now() / 1000)
 });
 
-// SDK Initialization (top of 'routes/snaptrade.ts'):
+// SDK Initialization - using official SDK only
 const snaptrade = new Snaptrade({
   clientId: clientId,
   consumerKey: consumerKey,
@@ -30,7 +35,6 @@ const snaptrade = new Snaptrade({
 
 // --- DB helper functions ---
 async function getUserByEmail(email: string) {
-  // Get user from database - we need to query by email
   const result = await db.select().from(users).where(eq(users.email, email));
   return result[0];
 }
@@ -42,7 +46,6 @@ async function saveSnaptradeCredentials(
 ) {
   const user = await getUserByEmail(email);
   if (user) {
-    // Use the correct storage method
     await storage.createSnapTradeUser(user.id, snaptradeUserId, userSecret);
   }
 }
@@ -55,6 +58,14 @@ router.get("/status", async (req: any, res) => {
     const { data } = await snaptrade.apiStatus.check();
     return res.json(data);
   } catch (err: any) {
+    console.error('SnapTrade API Status Error:', {
+      path: req.originalUrl,
+      responseData: err.response?.data,
+      responseHeaders: err.response?.headers,
+      message: err.message,
+      status: err.response?.status
+    });
+    
     const status = err.response?.status || 500;
     const body = err.response?.data || { message: err.message };
     return res.status(status).json(body);
@@ -63,15 +74,12 @@ router.get("/status", async (req: any, res) => {
 
 // Debug endpoint for environment verification
 router.get("/debug-env", async (req: any, res) => {
-  const clientId = process.env.SNAPTRADE_CLIENT_ID?.trim();
-  const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET?.trim();
-  
   return res.json({
     hasClientId: !!clientId,
     clientId: clientId || 'MISSING',
     hasConsumerKey: !!consumerKey,
     consumerKeyLength: consumerKey?.length || 0,
-    consumerKeyPreview: consumerKey ? consumerKey.substring(0, 8) + '...' : 'MISSING',
+    consumerKeyPreview: consumerKey ? consumerKey.substring(0, 5) + '…' : 'MISSING',
     serverTimestamp: Math.floor(Date.now() / 1000),
     serverTime: new Date().toISOString()
   });
@@ -102,8 +110,11 @@ router.get("/test-api", async (req: any, res) => {
       });
     } catch (registerError: any) {
       console.error('Test registration failed:', {
+        path: req.originalUrl,
+        payload: { userId: `test_${Date.now()}` },
+        responseData: registerError.response?.data,
+        responseHeaders: registerError.response?.headers,
         status: registerError.response?.status,
-        data: registerError.response?.data,
         message: registerError.message
       });
       
@@ -118,7 +129,12 @@ router.get("/test-api", async (req: any, res) => {
       });
     }
   } catch (err: any) {
-    console.error('SnapTrade API test failed:', err);
+    console.error('SnapTrade API test failed:', {
+      path: req.originalUrl,
+      responseData: err.response?.data,
+      responseHeaders: err.response?.headers,
+      message: err.message
+    });
     return res.status(500).json({
       error: 'API test failed',
       message: err.message,
@@ -172,37 +188,32 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
       hasUserSecret: !!user.snaptradeUserSecret
     });
 
-    // If missing credentials, register with SnapTrade
+    // If missing credentials, register with SnapTrade using official SDK
     if (!user.snaptradeUserId || !user.snaptradeUserSecret) {
       try {
-        const { data } = await snaptrade.authentication.registerSnapTradeUser({
-          userId: email,
+        const registerPayload = { userId: email };
+        console.log('SnapTrade Register: Calling registerSnapTradeUser with payload:', registerPayload);
+        
+        const { data } = await snaptrade.authentication.registerSnapTradeUser(registerPayload);
+        
+        console.log('SnapTrade Register: Registration successful:', {
+          userId: data.userId,
+          hasUserSecret: !!data.userSecret
         });
+        
         await saveSnaptradeCredentials(email, data.userId!, data.userSecret!);
         user = await getUserByEmail(email);
       } catch (err: any) {
-        // Enhanced error logging to capture response body
-        console.error("🔴 SnapTrade registerSnapTradeUser full error:", {
+        // Enhanced error logging as requested
+        console.error('SnapTrade Error:', {
+          path: req.originalUrl,
+          payload: { userId: email },
+          responseData: err.response?.data,
+          responseHeaders: err.response?.headers,
           status: err.response?.status,
-          statusText: err.response?.statusText,
-          data: err.response?.data,
-          headers: err.response?.headers,
           message: err.message,
-          config: {
-            url: err.config?.url,
-            method: err.config?.method,
-            data: err.config?.data
-          }
+          stack: err.stack?.split('\n').slice(0, 3)
         });
-
-        // Try to extract error response body
-        let errorBody = null;
-        if (err.response?.data) {
-          errorBody = err.response.data;
-        } else if (err.message && err.message.includes('RESPONSE HEADERS:')) {
-          // Extract response body from error message if available
-          console.log("🔴 Raw error message:", err.message);
-        }
         
         // Handle USER_EXISTS and 1010 as "already registered"
         const errData = err.response?.data;
@@ -219,37 +230,46 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
             });
           }
         } else {
-          // Forward the actual error response
+          // Forward raw response data and correct status
           const status = err.response?.status || 500;
           const body = err.response?.data || { 
             message: err.message,
-            error: "SnapTrade API Error",
-            details: errorBody
+            error: "SnapTrade API Error"
           };
           return res.status(status).json(body);
         }
       }
     }
 
-    // Generate connection URL using stored credentials
+    // Generate connection URL using stored credentials and official SDK
     console.log('SnapTrade Register: Logging in user with credentials:', {
       userId: user.snaptradeUserId,
       userSecretLength: user.snaptradeUserSecret?.length
     });
     
     try {
-      const { data: portal } = await snaptrade.authentication.loginSnapTradeUser({
+      const loginPayload = {
         userId: user.snaptradeUserId!,
         userSecret: user.snaptradeUserSecret!,
+      };
+      
+      const { data: portal } = await snaptrade.authentication.loginSnapTradeUser(loginPayload);
+      
+      console.log('SnapTrade Register: Portal response received:', {
+        hasRedirectURI: !!(portal as any).redirectURI
       });
       
-      console.log('SnapTrade Register: Portal response:', portal);
       return res.json({ url: (portal as any).redirectURI });
     } catch (loginErr: any) {
-      console.error("🔴 SnapTrade loginSnapTradeUser error:", {
+      console.error('SnapTrade Error:', {
+        path: req.originalUrl,
+        payload: {
+          userId: user.snaptradeUserId,
+          userSecretLength: user.snaptradeUserSecret?.length
+        },
+        responseData: loginErr.response?.data,
+        responseHeaders: loginErr.response?.headers,
         status: loginErr.response?.status,
-        data: loginErr.response?.data,
-        headers: loginErr.response?.headers,
         message: loginErr.message
       });
       
@@ -259,15 +279,18 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
     }
     
   } catch (err: any) {
-    // Pass error to Express error handler middleware
+    console.error('SnapTrade Error:', {
+      path: req.originalUrl,
+      payload: { email: req.user?.claims?.email },
+      responseData: err.response?.data,
+      responseHeaders: err.response?.headers,
+      message: err.message
+    });
     return next(err);
   }
 });
 
-
-
-// Add endpoints (or use existing) to:
-// GET /api/snaptrade/accounts → call listUserAccounts
+// GET /api/snaptrade/accounts → call listUserAccounts using official SDK
 router.get("/accounts", isAuthenticated, async (req: any, res) => {
   try {
     const email = req.user.claims.email?.toLowerCase();
@@ -277,25 +300,35 @@ router.get("/accounts", isAuthenticated, async (req: any, res) => {
     
     const user = await getUserByEmail(email);
     
-    // Require that getUserByEmail(email) returns a non-null userSecret
     if (!user?.snaptradeUserSecret) {
       return res.status(401).json({ error: "Please connect your brokerage first" });
     }
 
-    const { data } = await snaptrade.accountInformation.listUserAccounts({
+    const accountsPayload = {
       userId: user.snaptradeUserId!,
       userSecret: user.snaptradeUserSecret!,
-    });
+    };
+
+    const { data } = await snaptrade.accountInformation.listUserAccounts(accountsPayload);
     
     return res.json(data);
   } catch (err: any) {
+    console.error('SnapTrade Error:', {
+      path: req.originalUrl,
+      payload: { email: req.user?.claims?.email },
+      responseData: err.response?.data,
+      responseHeaders: err.response?.headers,
+      status: err.response?.status,
+      message: err.message
+    });
+    
     const status = err.response?.status || 500;
     const body = err.response?.data || { message: err.message };
     return res.status(status).json(body);
   }
 });
 
-// GET /api/snaptrade/holdings?accountId=... → call getUserHoldings
+// GET /api/snaptrade/holdings?accountId=... → call getUserHoldings using official SDK
 router.get("/holdings", isAuthenticated, async (req: any, res) => {
   try {
     const { accountId } = req.query;
@@ -306,21 +339,35 @@ router.get("/holdings", isAuthenticated, async (req: any, res) => {
       return res.status(400).json({ error: "SnapTrade user not registered" });
     }
 
-    const { data } = await snaptrade.accountInformation.getUserHoldings({
+    const holdingsPayload = {
       userId: user.snaptradeUserId!,
       userSecret: user.snaptradeUserSecret!,
       accountId: accountId as string,
-    });
+    };
+
+    const { data } = await snaptrade.accountInformation.getUserHoldings(holdingsPayload);
     
     return res.json(data);
   } catch (err: any) {
+    console.error('SnapTrade Error:', {
+      path: req.originalUrl,
+      payload: { 
+        email: req.user?.claims?.email,
+        accountId: req.query.accountId
+      },
+      responseData: err.response?.data,
+      responseHeaders: err.response?.headers,
+      status: err.response?.status,
+      message: err.message
+    });
+    
     const status = err.response?.status || 500;
     const body = err.response?.data || { message: err.message };
     return res.status(status).json(body);
   }
 });
 
-// --- (Optional) Fuzzy Search Endpoint ---
+// Search endpoint (mock data)
 router.get("/search", isAuthenticated, async (req: any, res) => {
   try {
     const { q } = req.query;
@@ -409,21 +456,27 @@ router.get("/search", isAuthenticated, async (req: any, res) => {
 
     res.json(results);
   } catch (error: any) {
-    console.error("Search error:", error);
+    console.error('SnapTrade Error:', {
+      path: req.originalUrl,
+      payload: { query: req.query.q },
+      responseData: error.response?.data,
+      responseHeaders: error.response?.headers,
+      message: error.message
+    });
     res.status(500).json({ error: "Search failed", details: error.message });
   }
 });
 
-// Add Express error handler middleware at the bottom of the file:
+// Express error handler middleware
 router.use((err: any, req: any, res: any, next: any) => {
-  console.error("🔴 SnapTrade Express error handler:", {
-    url: req.url,
+  console.error('SnapTrade Express Error Handler:', {
+    path: req.originalUrl,
     method: req.method,
+    responseData: err.response?.data,
+    responseHeaders: err.response?.headers,
     status: err.response?.status,
-    data: err.response?.data,
-    headers: err.response?.headers,
     message: err.message,
-    stack: err.stack?.split('\n').slice(0, 3) // First 3 lines of stack trace
+    stack: err.stack?.split('\n').slice(0, 3)
   });
   
   const status = err.response?.status || 500;
