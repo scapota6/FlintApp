@@ -39,30 +39,64 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
   const hasBankAccount = accounts.some(acc => acc.accountType === 'bank');
   const hasBrokerageAccount = accounts.some(acc => acc.accountType === 'brokerage' || acc.accountType === 'crypto');
 
-  // Simplified Teller Connect mutation - direct URL approach
+  // Teller Connect mutation - working version restored
   const tellerConnectMutation = useMutation({
     mutationFn: async () => {
-      console.log('🏦 Teller Connect: Initiating bank connection');
-      const connectUrl = 'https://teller.io/connect/qxwJ6E9JJEeFNgmH';
-      window.open(connectUrl, '_blank', 'width=500,height=600');
-      return { success: true };
+      // Get Teller application ID
+      const initResponse = await apiRequest("POST", "/api/teller/connect-init");
+      const { applicationId, environment } = await initResponse.json();
+      
+      return new Promise((resolve, reject) => {
+        // Open Teller Connect in popup
+        const popup = window.open(
+          `https://teller.io/connect/${applicationId}`,
+          'teller',
+          'width=500,height=600,scrollbars=yes,resizable=yes'
+        );
+        
+        // Listen for successful connection
+        const messageHandler = (event: MessageEvent) => {
+          if (event.origin === 'https://teller.io' && event.data.type === 'teller-connect-success') {
+            const token = event.data.accessToken;
+            
+            // Exchange token with backend
+            apiRequest("POST", "/api/teller/exchange-token", { token })
+              .then(() => {
+                window.removeEventListener('message', messageHandler);
+                popup?.close();
+                resolve({ success: true });
+              })
+              .catch(reject);
+          }
+        };
+        
+        window.addEventListener('message', messageHandler);
+        
+        // Handle popup close
+        const checkClosed = setInterval(() => {
+          if (popup?.closed) {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', messageHandler);
+            reject(new Error('Connection cancelled'));
+          }
+        }, 1000);
+      });
     },
     onSuccess: () => {
-      console.log('🏦 Teller Connect: Success callback triggered');
       toast({
-        title: "Bank Connection Initiated",
-        description: "Complete the connection in the new window, then refresh this page.",
+        title: "Bank Account Connected",
+        description: "Your bank account has been successfully connected.",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
     },
     onError: (error: any) => {
-      console.error('🏦 Teller Connect Error:', error);
+      console.error('Teller Connect Error:', error);
       toast({
         title: "Connection Failed",
         description: error.message || "Unable to connect bank account.",
         variant: "destructive",
       });
-    },
+    }
   });
 
   // SnapTrade Connect mutation with debugging
