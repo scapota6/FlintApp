@@ -62,6 +62,25 @@ router.post("/", isAuthenticated, async (req: any, res) => {
     // Get user credentials
     const credentials = await getUserSnapTradeCredentials(email);
 
+    // Verify the accountId belongs to this user
+    const { data: userAccounts } = await snaptrade.accountInformation.listUserAccounts({
+      userId: credentials.userId,
+      userSecret: credentials.userSecret
+    });
+
+    const targetAccount = userAccounts.find((acc: any) => acc.id === accountId);
+    if (!targetAccount) {
+      return res.status(400).json({ 
+        error: "Invalid accountId or permissions - account not found" 
+      });
+    }
+
+    console.log('Account verified:', {
+      accountId: targetAccount.id,
+      institutionName: targetAccount.institution_name,
+      accountType: targetAccount.meta?.type || 'unknown'
+    });
+
     // Place order via SnapTrade using placeForceOrder - no tradeId needed
     const orderPayload = {
       userId: credentials.userId,
@@ -78,7 +97,12 @@ router.post("/", isAuthenticated, async (req: any, res) => {
     console.log('Placing order:', {
       userId: credentials.userId,
       userSecret: '***',
-      ...orderPayload
+      account_id: accountId,
+      action: action.toUpperCase(),
+      symbol: symbol.toUpperCase(),
+      order_type: orderPayload.order_type,
+      time_in_force: 'Day',
+      units: Number(quantity)
     });
 
     const { data: orderResult } = await snaptrade.trading.placeForceOrder(orderPayload);

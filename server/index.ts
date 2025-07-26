@@ -4,6 +4,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import snaptradeRouter from "./routes/snaptrade";
 import ordersRouter from "./routes/orders";
 import watchlistRouter from "./routes/watchlist";
+import quotesRouter from "./routes/quotes";
 
 const app = express();
 app.use(express.json());
@@ -50,6 +51,9 @@ app.use((req, res, next) => {
   
   // Mount Watchlist API router
   app.use("/api/watchlist", watchlistRouter);
+  
+  // Mount Quotes API router
+  app.use("/api/quotes", quotesRouter);
 
   // Debug routers disabled - using unified flow only
   // app.use("/api/snaptrade-debug", snaptradeDebugRouter);

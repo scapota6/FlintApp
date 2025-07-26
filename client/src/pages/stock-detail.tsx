@@ -10,6 +10,7 @@ import { TradingViewChart } from "@/components/charts/TradingViewChart";
 import { TradeModal } from "@/components/modals/trade-modal";
 import { SnapTradeAPI } from "@/lib/snaptrade-api";
 import { apiRequest } from "@/lib/queryClient";
+import { QuoteAPI, useRealTimeQuote } from "@/lib/quote-api";
 
 interface StockData {
   symbol: string;
@@ -34,12 +35,31 @@ export function StockDetailPage() {
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
 
+  // Use real-time quotes with 10-second updates
+  const { quote: realTimeQuote, loading: quoteLoading, error: quoteError } = useRealTimeQuote(symbol || '', 10000);
+
   useEffect(() => {
     if (symbol) {
       loadStockData();
       checkWatchlistStatus();
     }
   }, [symbol]);
+
+  // Update stock data when real-time quote changes
+  useEffect(() => {
+    if (realTimeQuote && !quoteError) {
+      setStockData({
+        symbol: realTimeQuote.symbol,
+        name: realTimeQuote.name,
+        price: realTimeQuote.price,
+        change: realTimeQuote.change,
+        changePercent: realTimeQuote.changePercent,
+        volume: realTimeQuote.volume,
+        marketCap: realTimeQuote.marketCap
+      });
+      setIsLoading(false);
+    }
+  }, [realTimeQuote, quoteError]);
 
   const loadStockData = async () => {
     if (!symbol) return;
