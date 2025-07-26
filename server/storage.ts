@@ -120,7 +120,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
     
     if (user?.userSecret) {
-      // Return userSecret directly from DB (plaintext for debugging)
+      // Return userSecret directly from DB without decryption
       return { 
         snaptradeUserId: user.snaptradeUserId, 
         userSecret: user.userSecret 
@@ -131,12 +131,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSnapTradeUser(userId: string, snaptradeUserId: string, userSecret: string): Promise<void> {
-    // Store userSecret as plaintext - no encryption
+    // Store userSecret directly in DB without encryption
     await db
       .update(users)
       .set({
         snaptradeUserId: snaptradeUserId,
-        snaptradeUserSecret: userSecret, // Store raw userSecret directly
+        snaptradeUserSecret: userSecret, // Store userSecret directly
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));
