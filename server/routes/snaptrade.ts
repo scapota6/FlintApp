@@ -11,7 +11,7 @@ import { eq } from "drizzle-orm";
 // SDK Initialization (top of 'routes/snaptrade.ts'):
 const snaptrade = new Snaptrade({
   clientId: process.env.SNAPTRADE_CLIENT_ID!,
-  consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
+  consumerKey: process.env.SNAPTRADE_CLIENT_SECRET!,
 });
 
 // --- DB helper functions ---
