@@ -10,7 +10,27 @@ Preferred communication style: Simple, everyday language.
 
 ## Development Activity Log
 
-### July 26, 2025 - SnapTrade Unified Architecture Complete & Production Ready
+### July 26, 2025 - SnapTrade Order System Fixed & Dark Theme Applied
+**Critical Order Placement Fixes**:
+- ✅ **Fixed Order Parameter Structure**: Updated to use account_id, action, symbol, order_type, time_in_force, units (SnapTrade official format)
+- ✅ **Switched to placeForceOrder**: Changed from placeOrder (requires tradeId) to placeForceOrder (direct placement)
+- ✅ **Fixed Order History**: Updated to use getAccountActivities method instead of deprecated getOrderHistory
+- ✅ **Dark Theme Modal**: Applied complete dark styling to TradeModal for better readability
+- ✅ **Error Resolution**: Fixed "Required parameter tradeId was null or undefined" error completely
+
+**Order System Technical Details**:
+- **Place Orders**: Uses snaptrade.trading.placeForceOrder() with proper parameter structure
+- **Order History**: Uses snaptrade.accountInformation.getAccountActivities() with filtering for BUY,SELL,OPTION_BUY,OPTION_SELL
+- **Parameter Mapping**: quantity → units, action → BUY/SELL uppercase, orderType → Market/Limit capitalized
+- **Authentication**: Proper userId/userSecret credential handling from database
+
+**UI Improvements**:
+- **Dark Theme Modal**: TradeModal now uses gray-900 background with white text for proper contrast
+- **Enhanced Alerts**: Error and success messages styled with dark theme (red-900/20, green-900/20 backgrounds)
+- **Form Elements**: All inputs, selects, and buttons styled consistently with dark theme
+- **Better Readability**: All text properly contrasted against dark backgrounds
+
+### July 26, 2025 - SnapTrade Unified Architecture Complete & Production Ready (Previous)
 **Major SnapTrade Integration Success**:
 - ✅ **Unified Route Architecture**: Consolidated all SnapTrade functionality into single POST /api/snaptrade/register endpoint
 - ✅ **Official SDK Implementation**: Using snaptrade-typescript-sdk@9.0.118 with exact parameter structure per documentation

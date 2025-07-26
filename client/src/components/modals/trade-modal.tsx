@@ -118,71 +118,71 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] bg-gray-900 text-white border-gray-700">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-white">
             {action === "BUY" ? (
-              <TrendingUp className="h-5 w-5 text-green-600" />
+              <TrendingUp className="h-5 w-5 text-green-400" />
             ) : (
-              <TrendingDown className="h-5 w-5 text-red-600" />
+              <TrendingDown className="h-5 w-5 text-red-400" />
             )}
             {action} {symbol.toUpperCase()}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-gray-300">
             Current Price: ${currentPrice.toFixed(2)}
           </DialogDescription>
         </DialogHeader>
 
         {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+          <Alert variant="destructive" className="bg-red-900/20 border-red-800 text-red-200">
+            <AlertDescription className="text-red-200">{error}</AlertDescription>
           </Alert>
         )}
 
         {success && (
-          <Alert>
-            <AlertDescription className="text-green-600">{success}</AlertDescription>
+          <Alert className="bg-green-900/20 border-green-800 text-green-200">
+            <AlertDescription className="text-green-200">{success}</AlertDescription>
           </Alert>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="action">Action</Label>
+              <Label htmlFor="action" className="text-gray-200">Action</Label>
               <Select value={action} onValueChange={(value: "BUY" | "SELL") => setAction(value)}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="BUY">Buy</SelectItem>
-                  <SelectItem value="SELL">Sell</SelectItem>
+                <SelectContent className="bg-gray-800 border-gray-600">
+                  <SelectItem value="BUY" className="text-white hover:bg-gray-700">Buy</SelectItem>
+                  <SelectItem value="SELL" className="text-white hover:bg-gray-700">Sell</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label htmlFor="orderType">Order Type</Label>
+              <Label htmlFor="orderType" className="text-gray-200">Order Type</Label>
               <Select value={orderType} onValueChange={(value: "MARKET" | "LIMIT") => setOrderType(value)}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MARKET">Market</SelectItem>
-                  <SelectItem value="LIMIT">Limit</SelectItem>
+                <SelectContent className="bg-gray-800 border-gray-600">
+                  <SelectItem value="MARKET" className="text-white hover:bg-gray-700">Market</SelectItem>
+                  <SelectItem value="LIMIT" className="text-white hover:bg-gray-700">Limit</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           <div>
-            <Label htmlFor="account">Account</Label>
+            <Label htmlFor="account" className="text-gray-200">Account</Label>
             <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-              <SelectTrigger>
+              <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
                 <SelectValue placeholder="Select account" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-gray-800 border-gray-600">
                 {accounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
+                  <SelectItem key={account.id} value={account.id} className="text-white hover:bg-gray-700">
                     {account.name} - ${account.balance?.total?.amount?.toFixed(2) || '0.00'}
                   </SelectItem>
                 ))}
@@ -192,7 +192,7 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="quantity">Quantity</Label>
+              <Label htmlFor="quantity" className="text-gray-200">Quantity</Label>
               <Input
                 id="quantity"
                 type="number"
@@ -201,13 +201,14 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 placeholder="Number of shares"
+                className="bg-gray-800 border-gray-600 text-white placeholder:text-gray-400"
                 required
               />
             </div>
 
             {orderType === "LIMIT" && (
               <div>
-                <Label htmlFor="limitPrice">Limit Price</Label>
+                <Label htmlFor="limitPrice" className="text-gray-200">Limit Price</Label>
                 <Input
                   id="limitPrice"
                   type="number"
@@ -216,6 +217,7 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
                   value={limitPrice}
                   onChange={(e) => setLimitPrice(e.target.value)}
                   placeholder="0.00"
+                  className="bg-gray-800 border-gray-600 text-white placeholder:text-gray-400"
                   required
                 />
               </div>
@@ -223,17 +225,17 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
           </div>
 
           {quantity && (
-            <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
-              <div className="flex justify-between text-sm">
+            <div className="space-y-2 p-3 bg-gray-800 rounded-lg border border-gray-700">
+              <div className="flex justify-between text-sm text-gray-200">
                 <span>Estimated Total:</span>
-                <span className="font-medium">${estimatedTotal.toFixed(2)}</span>
+                <span className="font-medium text-white">${estimatedTotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-sm text-gray-200">
                 <span>Available Balance:</span>
-                <span>${availableBalance.toFixed(2)}</span>
+                <span className="text-white">${availableBalance.toFixed(2)}</span>
               </div>
               {!canAfford && action === "BUY" && (
-                <Badge variant="destructive" className="w-full justify-center">
+                <Badge variant="destructive" className="w-full justify-center bg-red-900/20 border-red-800 text-red-200">
                   Insufficient funds
                 </Badge>
               )}
@@ -241,13 +243,13 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} className="bg-gray-800 border-gray-600 text-white hover:bg-gray-700">
               Cancel
             </Button>
             <Button 
               type="submit" 
               disabled={isLoading || !canAfford || success !== ""}
-              className={action === "BUY" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+              className={action === "BUY" ? "bg-green-600 hover:bg-green-700 text-white" : "bg-red-600 hover:bg-red-700 text-white"}
             >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {action} {quantity ? `${quantity} shares` : 'Stock'}
