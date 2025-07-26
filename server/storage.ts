@@ -26,7 +26,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, isNotNull } from "drizzle-orm";
-import { CredentialEncryption } from "./security/encryption";
+// Removed encryption import - storing plaintext for debugging
 
 export interface IStorage {
   // User operations (required for Replit Auth)
