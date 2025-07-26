@@ -1,0 +1,50 @@
+You are my Replit AI developer. Do **not** break any of the existing Teller or SnapTrade integrations.
+
+Please implement the remaining MVP features in priority order, including:
+
+1. **Order Entry & Live Charts**  
+   - Embed/chart component on each instrument page.  
+   - “Buy/Sell” form wired to a new `POST /api/order` endpoint.  
+   - Use SnapTrade’s `placeOrder` (or broker sandbox API) for real trades.  
+   - Show order confirmations and update user balances in real time.
+
+2. **Position & Holdings Display**  
+   - After trades fill, fetch `GET /api/snaptrade/holdings` and display positions with P/L on dashboard.  
+   - Poll or use webhooks so balances update live.
+
+3. **Watchlist CRUD**  
+   - Add “Add to Watchlist” and “Remove” buttons.  
+   - Persist in your database and expose `GET/POST/DELETE /api/watchlist`.  
+   - Show the current watchlist on the dashboard.
+
+4. **Price Alerts & Notifications**  
+   - Create UI to set simple threshold alerts (e.g. price > X).  
+   - Build backend scheduler or webhook stub to fire alerts.  
+   - Send in-app notification banners and log to the activity feed.
+
+5. **Activity Feed**  
+   - Centralize all major events (login, connect, trade, transfer, alert) into a scrollable Activity page.
+
+6. **In-App Transfers (Phase 1)**  
+   - Simple “Transfer Funds” form between connected Teller bank accounts (`POST /api/transfer`).  
+   - Validate amounts, show pending/completed status.
+
+7. **UX & Performance Polish**  
+   - Add skeleton loaders/spinners and friendly error messages everywhere.  
+   - Lazy-load heavy charting code.  
+   - Ensure dashboard and trade pages are fully responsive.
+
+8. **Security & Validation**  
+   - Add schema validation (Zod or Joi) on all new endpoints.  
+   - Throttle high-risk routes.  
+   - Ensure existing secrets remain encrypted at rest.
+
+9. **Testing**  
+   - Write unit tests for new services (order-placement, watchlist, transfers).  
+   - Add Cypress/E2E tests covering: login → connect account → place trade → view position.
+
+10. **Deployment Pipeline**  
+    - Set up GitHub Actions (or Replit Deploy Hooks) to run lint, tests, and build on every PR.  
+    - Create a staging environment mirroring production keys for safe testing.  
+
+Work top-down through this checklist, confirm each major milestone with a Replit commit entry, and automatically rollback any change that breaks an existing Teller or SnapTrade integration. Once complete, push to `main` and notify me.  
