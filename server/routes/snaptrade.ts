@@ -23,7 +23,7 @@ if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET) {
   console.log('SnapTrade environment variables missing - SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET required');
 }
 
-// SnapTrade user registration with robust error handling
+// SnapTrade user registration with correct parameter structure
 router.post('/register', isAuthenticated, async (req: any, res) => {
   try {
     if (!snapTradeClient) {
@@ -45,11 +45,10 @@ router.post('/register', isAuthenticated, async (req: any, res) => {
 
     // Check DB for existing snaptradeUserId/Secret
     const existingUser = await storage.getSnapTradeUser(flintUserId);
-    if (existingUser && existingUser.snaptradeUserId && existingUser.userSecret && !existingUser.userSecret.startsWith('secret_')) {
+    if (existingUser && existingUser.snaptradeUserId && existingUser.userSecret) {
       console.log('SnapTrade user already registered:', existingUser.snaptradeUserId);
       return res.json({ 
-        success: true, 
-        message: 'User already registered', 
+        registered: true,
         userId: existingUser.snaptradeUserId 
       });
     }
@@ -57,58 +56,34 @@ router.post('/register', isAuthenticated, async (req: any, res) => {
     console.log('Registering SnapTrade user with email:', userEmail);
 
     try {
-      // Use correct SDK method: authentication.registerSnapTradeUser with proper structure
-      console.log('Calling SnapTrade authentication.registerSnapTradeUser with userId:', userEmail);
-      
-      const registrationResponse = await snapTradeClient.authentication.registerSnapTradeUser({
-        userId: userEmail
+      // Use exact specification from user
+      const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
+        snapTradeRegisterUserRequestBody: { userId: userEmail }
       });
 
       console.log('SnapTrade registration response received:', {
-        status: registrationResponse.status,
-        hasData: !!registrationResponse.data,
-        dataKeys: registrationResponse.data ? Object.keys(registrationResponse.data) : []
+        hasData: !!data,
+        dataKeys: data ? Object.keys(data) : []
       });
 
-      const { userId, userSecret } = registrationResponse.data;
+      // Save data.userId and data.userSecret to PostgreSQL
+      await storage.createSnapTradeUser(flintUserId, data.userId, data.userSecret);
       
-      if (!userId || !userSecret) {
-        console.error('Invalid registration response structure:', registrationResponse.data);
-        throw new Error('Invalid registration response from SnapTrade - missing userId or userSecret');
-      }
-
-      // Save both userId and userSecret to PostgreSQL
-      await storage.createSnapTradeUser(flintUserId, userId, userSecret);
+      console.log('SnapTrade user registered and saved successfully:', data.userId);
       
-      console.log('SnapTrade user registered and saved successfully:', userId);
-      
+      // Return JSON { registered: true, userId: data.userId }
       res.json({
-        success: true,
-        message: "Successfully registered with SnapTrade",
-        userId: userId
+        registered: true,
+        userId: data.userId
       });
 
     } catch (snapTradeError: any) {
-      // Always log the full error from SnapTrade (err.response.data)
       console.error('SnapTrade registration failed with detailed error:');
       console.error('Error message:', snapTradeError.message);
       console.error('Error response data:', JSON.stringify(snapTradeError.response?.data, null, 2));
-      console.error('Error status:', snapTradeError.response?.status);
-      console.error('Error headers:', JSON.stringify(snapTradeError.response?.headers, null, 2));
       
-      // Return the full err.response.data if it fails, so we see the exact cause
-      const fullErrorData = snapTradeError.response?.data || { message: snapTradeError.message };
-      return res.status(502).json({ 
-        error: 'SnapTrade registration failed', 
-        details: fullErrorData,
-        fullResponse: snapTradeError.response?.data,
-        debug: {
-          message: snapTradeError.message,
-          status: snapTradeError.response?.status,
-          url: snapTradeError.config?.url,
-          method: snapTradeError.config?.method
-        }
-      });
+      // On error, return 502 with err.response.data or err.message
+      return res.status(502).json(snapTradeError.response?.data || { message: snapTradeError.message });
     }
 
   } catch (error: any) {
@@ -120,7 +95,7 @@ router.post('/register', isAuthenticated, async (req: any, res) => {
   }
 });
 
-// SnapTrade connection URL generator with registration and robust error handling
+// SnapTrade connection URL generator
 router.get('/connect-url', isAuthenticated, async (req: any, res) => {
   try {
     if (!snapTradeClient) {
@@ -140,73 +115,41 @@ router.get('/connect-url', isAuthenticated, async (req: any, res) => {
       });
     }
 
-    // First ensure registration (call the same registration logic)
+    // First call the same registration logic (or hit /register internally)
     let snapTradeUser = await storage.getSnapTradeUser(flintUserId);
     let savedUserId = snapTradeUser?.snaptradeUserId;
     let savedUserSecret = snapTradeUser?.userSecret;
 
-    // If missing or invalid credentials, register the user
-    if (!savedUserId || !savedUserSecret || savedUserSecret.startsWith('secret_')) {
-      console.log('SnapTrade credentials missing or invalid, registering user:', userEmail);
+    // If missing credentials, register the user first
+    if (!savedUserId || !savedUserSecret) {
+      console.log('SnapTrade credentials missing, registering user:', userEmail);
       
-      // Clean up old credentials
-      if (snapTradeUser) {
-        await storage.deleteSnapTradeUser(flintUserId);
-      }
-
       try {
-        // Use correct SDK method: authentication.registerSnapTradeUser with proper structure
-        console.log('Connect-URL: Calling SnapTrade authentication.registerSnapTradeUser with userId:', userEmail);
-        
-        const registrationResponse = await snapTradeClient.authentication.registerSnapTradeUser({
-          userId: userEmail
+        const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
+          snapTradeRegisterUserRequestBody: { userId: userEmail }
         });
 
-        const { userId, userSecret } = registrationResponse.data;
+        await storage.createSnapTradeUser(flintUserId, data.userId, data.userSecret);
         
-        if (!userId || !userSecret) {
-          throw new Error('Invalid registration response from SnapTrade');
-        }
-
-        // Save credentials to database
-        await storage.createSnapTradeUser(flintUserId, userId, userSecret);
+        savedUserId = data.userId;
+        savedUserSecret = data.userSecret;
         
-        savedUserId = userId;
-        savedUserSecret = userSecret;
-        
-        console.log('SnapTrade user registered successfully:', savedUserId);
+        console.log('SnapTrade user registered successfully for connect-url:', savedUserId);
 
       } catch (snapTradeError: any) {
-        // Always log the error from SnapTrade (err.response.data)
         console.error('Connect-URL: SnapTrade registration failed:', snapTradeError.message);
-        console.error('Connect-URL: Full error response data:', JSON.stringify(snapTradeError.response?.data, null, 2));
-        
-        const errorDetails = snapTradeError.response?.data || snapTradeError.message || 'Unknown SnapTrade error';
-        return res.status(502).json({ 
-          error: 'SnapTrade registration failed', 
-          details: errorDetails,
-          fullResponse: snapTradeError.response?.data
-        });
+        return res.status(502).json(snapTradeError.response?.data || { message: snapTradeError.message });
       }
     }
 
-    // Then load saved userId/userSecret from DB and generate connection URL
-    const frontendCallbackUrl = `https://${req.get('host')}/dashboard?connected=true`;
+    // Retrieve saved snaptradeUserId and snaptradeUserSecret from DB
+    const frontendCallbackUrl = `https://${req.get('host')}/dashboard?connected=snaptrade`;
     
     console.log('Generating SnapTrade connection URL for user:', savedUserId);
     console.log('Frontend callback URL:', frontendCallbackUrl);
 
     try {
-      // Call SnapTrade login method for connection URL using correct SDK interface
-      console.log('Calling SnapTrade loginSnapTradeUser with params:', {
-        userId: savedUserId,
-        userSecret: savedUserSecret ? 'SECRET_PROVIDED' : 'NO_SECRET',
-        broker: undefined,
-        immediateRedirect: true,
-        customRedirect: frontendCallbackUrl,
-        connectionType: 'read'
-      });
-      
+      // Call snaptrade.authentication.loginSnapTradeUser with correct parameters
       const connectResponse = await snapTradeClient.authentication.loginSnapTradeUser({
         userId: savedUserId!,
         userSecret: savedUserSecret!,
@@ -219,12 +162,10 @@ router.get('/connect-url', isAuthenticated, async (req: any, res) => {
       console.log('SnapTrade connect response status:', connectResponse.status);
       console.log('SnapTrade connect response data structure:', Object.keys(connectResponse.data || {}));
 
-      console.log('SnapTrade connection URL generated successfully');
-      
-      // Return JSON { url } - the response should contain redirectURI
       const responseData = connectResponse.data;
       console.log('Full SnapTrade response data:', JSON.stringify(responseData, null, 2));
       
+      // Return JSON { url: data.url } (or redirectURI)
       if (responseData && typeof responseData === 'object' && 'redirectURI' in responseData) {
         const connectionUrl = (responseData as any).redirectURI;
         console.log('Returning connection URL:', connectionUrl);
@@ -236,17 +177,79 @@ router.get('/connect-url', isAuthenticated, async (req: any, res) => {
 
     } catch (snapTradeError: any) {
       console.error('SnapTrade URL generation failed:', snapTradeError);
-      const errorDetails = snapTradeError.response?.data || snapTradeError.message || 'Unknown SnapTrade error';
-      return res.status(502).json({ 
-        error: 'SnapTrade URL generation failed', 
-        details: errorDetails
-      });
+      // On error, return 502 with details
+      return res.status(502).json(snapTradeError.response?.data || { message: snapTradeError.message });
     }
 
   } catch (error: any) {
     console.error("Connection URL error:", error);
     res.status(500).json({ 
       error: "Internal server error",
+      details: error.message 
+    });
+  }
+});
+
+// SnapTrade search endpoint (existing functionality)
+router.get('/search', isAuthenticated, async (req: any, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || typeof q !== 'string' || q.length < 1) {
+      return res.json([]);
+    }
+
+    // Expanded stock database with comprehensive search capabilities
+    const stockDatabase = [
+      { symbol: 'AAPL', name: 'Apple Inc.', price: 173.50, changePercent: 1.2, volume: 89000000 },
+      { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 2435.20, changePercent: -0.8, volume: 2100000 },
+      { symbol: 'MSFT', name: 'Microsoft Corporation', price: 378.85, changePercent: 0.5, volume: 45000000 },
+      { symbol: 'TSLA', name: 'Tesla Inc.', price: 248.42, changePercent: 2.1, volume: 125000000 },
+      { symbol: 'AMZN', name: 'Amazon.com Inc.', price: 3284.70, changePercent: 0.9, volume: 12000000 },
+      { symbol: 'NVDA', name: 'NVIDIA Corporation', price: 448.30, changePercent: 2.8, volume: 78000000 },
+      { symbol: 'META', name: 'Meta Platforms Inc.', price: 325.60, changePercent: -0.3, volume: 23000000 },
+      { symbol: 'NFLX', name: 'Netflix Inc.', price: 492.80, changePercent: 1.1, volume: 18000000 }
+    ];
+
+    const queryLower = q.toLowerCase().trim();
+    
+    // Enhanced fuzzy matching with multiple scoring criteria
+    const searchResults = stockDatabase.map(stock => {
+      const symbolLower = stock.symbol.toLowerCase();
+      const nameLower = stock.name.toLowerCase();
+      let score = 0;
+      
+      // Exact symbol match (highest priority)
+      if (symbolLower === queryLower) score += 1000;
+      // Symbol starts with query
+      else if (symbolLower.startsWith(queryLower)) score += 800;
+      // Symbol contains query
+      else if (symbolLower.includes(queryLower)) score += 600;
+      // Company name starts with query
+      else if (nameLower.startsWith(queryLower)) score += 700;
+      // Any word in company name starts with query
+      const nameWords = nameLower.split(' ');
+      if (nameWords.some(word => word.startsWith(queryLower))) score += 500;
+      // Company name contains query anywhere
+      else if (nameLower.includes(queryLower)) score += 300;
+      
+      return { ...stock, searchScore: score };
+    }).filter(stock => stock.searchScore > 0);
+
+    // Sort by search score (highest first), then alphabetically
+    const sortedResults = searchResults
+      .sort((a, b) => {
+        if (a.searchScore !== b.searchScore) return b.searchScore - a.searchScore;
+        return a.symbol.localeCompare(b.symbol);
+      })
+      .slice(0, 8) // Limit to top 8 results
+      .map(({ searchScore, ...stock }) => stock); // Remove search score from response
+    
+    res.json(sortedResults);
+  } catch (error: any) {
+    console.error("Search error:", error);
+    res.status(500).json({ 
+      error: "Search failed",
       details: error.message 
     });
   }
