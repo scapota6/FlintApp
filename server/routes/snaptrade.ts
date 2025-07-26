@@ -80,10 +80,17 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
       });
     }
 
+    console.log('SnapTrade Register: Starting for email:', email);
+    
     let user = await getUserByEmail(email);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
+    
+    console.log('SnapTrade Register: User found with credentials:', {
+      hasUserId: !!user.snaptradeUserId,
+      hasUserSecret: !!user.snaptradeUserSecret
+    });
 
     // If missing credentials, register with SnapTrade
     if (!user.snaptradeUserId || !user.snaptradeUserSecret) {
@@ -118,11 +125,17 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
     }
 
     // Generate connection URL using stored credentials
+    console.log('SnapTrade Register: Logging in user with credentials:', {
+      userId: user.snaptradeUserId,
+      userSecretLength: user.snaptradeUserSecret?.length
+    });
+    
     const { data: portal } = await snaptrade.authentication.loginSnapTradeUser({
       userId: user.snaptradeUserId!,
       userSecret: user.snaptradeUserSecret!,
     });
     
+    console.log('SnapTrade Register: Portal response:', portal);
     return res.json({ url: (portal as any).redirectURI });
     
   } catch (err: any) {
