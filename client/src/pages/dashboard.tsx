@@ -162,18 +162,8 @@ export default function Dashboard() {
           userTier="basic"
         />
 
-        {/* Trading and Watchlist */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <div className="md:col-span-2">
-            <BalanceCards data={dashboardData} />
-          </div>
-          <div>
-            <SimpleConnectButtons 
-              accounts={dashboardData?.accounts || []} 
-              userTier="basic"
-            />
-          </div>
-        </div>
+        {/* Balance Cards */}
+        <BalanceCards data={dashboardData} />
 
         <div className="grid gap-6 md:grid-cols-2">
           <HoldingsCard data={dashboardData?.holdings || []}/>
