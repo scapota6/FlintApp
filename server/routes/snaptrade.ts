@@ -141,13 +141,13 @@ router.get('/connect-url', isAuthenticated, async (req: any, res) => {
     }
 
     // Retrieve saved snaptradeUserId and snaptradeUserSecret from DB
-    const frontendCallbackUrl = `https://${req.get('host')}/dashboard?connected=snaptrade`;
+    const frontendCallbackUrl = process.env.FRONTEND_URL + '/snaptrade/callback';
     
     console.log('Generating SnapTrade connection URL for user:', savedUserId);
     console.log('Frontend callback URL:', frontendCallbackUrl);
 
     try {
-      // Call snaptrade.authentication.loginSnapTradeUser with correct parameters
+      // Use the exact specification from user
       const connectResponse = await snapTradeClient.authentication.loginSnapTradeUser({
         userId: savedUserId!,
         userSecret: savedUserSecret!,
@@ -163,7 +163,7 @@ router.get('/connect-url', isAuthenticated, async (req: any, res) => {
       const responseData = connectResponse.data;
       console.log('Full SnapTrade response data:', JSON.stringify(responseData, null, 2));
       
-      // Return JSON { url: data.url } (or redirectURI)
+      // Extract data.redirectURI from the SDK response and return it as { url: data.redirectURI }
       if (responseData && typeof responseData === 'object' && 'redirectURI' in responseData) {
         const connectionUrl = (responseData as any).redirectURI;
         console.log('Returning connection URL:', connectionUrl);
@@ -175,6 +175,7 @@ router.get('/connect-url', isAuthenticated, async (req: any, res) => {
 
     } catch (err: any) {
       console.error("SnapTrade registration error:", err.response?.data || err);
+      console.error("Full error details:", err);
       // On error, return 502 with details
       return res.status(502).json(err.response?.data || { message: err.message });
     }

@@ -120,9 +120,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
     
     if (user?.userSecret) {
+      // Decrypt the userSecret before returning it
+      const decryptedSecret = CredentialEncryption.decrypt(user.userSecret);
       return { 
         snaptradeUserId: user.snaptradeUserId, 
-        userSecret: user.userSecret 
+        userSecret: decryptedSecret 
       };
     }
     
