@@ -13,6 +13,8 @@ import Watchlist from "@/pages/watchlist";
 import Activity from "@/pages/activity";
 import Subscribe from "@/pages/subscribe";
 import Admin from "@/pages/admin";
+import Profile from "@/pages/profile";
+import News from "@/pages/news";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -38,6 +40,8 @@ function Router() {
           <Route path="/activity" component={Activity} />
           <Route path="/subscribe" component={Subscribe} />
           <Route path="/admin" component={Admin} />
+          <Route path="/profile" component={Profile} />
+          <Route path="/news" component={News} />
         </>
       )}
       <Route component={NotFound} />

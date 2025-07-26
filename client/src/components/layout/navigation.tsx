@@ -17,6 +17,7 @@ export default function Navigation() {
     { path: "/trading", label: "Trading", active: location === "/trading" },
     { path: "/transfers", label: "Transfers", active: location === "/transfers" },
     { path: "/watchlist", label: "Watchlist", active: location === "/watchlist" },
+    { path: "/news", label: "News", active: location === "/news" },
     { path: "/activity", label: "Activity", active: location === "/activity" },
   ];
 
@@ -57,16 +58,18 @@ export default function Navigation() {
             >
               <Bell className="h-5 w-5" />
             </Button>
-            <div className="flex items-center space-x-2">
-              <img
-                src={user?.profileImageUrl || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=32&h=32"}
-                alt="Profile"
-                className="w-6 h-6 rounded-full object-cover"
-              />
-              <span className="text-sm font-medium text-white hidden sm:block">
-                {user?.firstName || 'User'}
-              </span>
-            </div>
+            <Link href="/profile">
+              <div className="flex items-center space-x-2 cursor-pointer hover:opacity-80">
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {user?.email?.[0]?.toUpperCase() || 'U'}
+                  </span>
+                </div>
+                <span className="text-sm font-medium text-white hidden sm:block">
+                  {user?.firstName || 'User'}
+                </span>
+              </div>
+            </Link>
             <Button
               variant="ghost"
               size="icon"

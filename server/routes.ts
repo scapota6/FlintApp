@@ -11,7 +11,10 @@ import {
   insertTradeSchema,
   insertTransferSchema,
   insertActivityLogSchema,
+  users,
 } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import { db } from "./db";
 
 // Initialize Stripe (only if API key is provided)
 let stripe: Stripe | null = null;
@@ -68,14 +71,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let cryptoValue = 0;
       
       accounts.forEach(account => {
+        const accountBalance = typeof account.balance === 'string' ? parseFloat(account.balance) : (account.balance || 0);
         if (account.provider === 'teller') {
-          bankBalance += account.balance || 0;
+          bankBalance += accountBalance;
         } else if (account.provider === 'snaptrade') {
-          investmentValue += account.balance || 0;
+          investmentValue += accountBalance;
         } else if (account.provider === 'crypto') {
-          cryptoValue += account.balance || 0;
+          cryptoValue += accountBalance;
         }
-        totalBalance += account.balance || 0;
+        totalBalance += accountBalance;
       });
       
       const dashboardData = {
@@ -88,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           provider: account.provider,
           accountName: account.accountName,
           balance: account.balance,
-          lastUpdated: account.lastUpdated
+          lastUpdated: account.lastSynced
         })),
         subscriptionTier: user?.subscriptionTier || 'free'
       };
@@ -107,7 +111,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createActivityLog({
         userId,
         action: 'login',
-        details: { timestamp: new Date().toISOString() }
+        description: 'User logged in',
+        metadata: { timestamp: new Date().toISOString() }
       });
       res.json({ success: true });
     } catch (error) {
@@ -197,9 +202,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createActivityLog({
         userId,
         action: 'trade',
-        details: {
+        description: 'Trade executed',
+        metadata: {
           symbol: validatedData.symbol,
-          type: validatedData.type,
+          side: validatedData.side,
           quantity: validatedData.quantity,
           price: validatedData.price
         }
@@ -239,7 +245,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createActivityLog({
         userId,
         action: 'transfer',
-        details: {
+        description: 'Transfer executed',
+        metadata: {
           fromAccount: validatedData.fromAccountId,
           toAccount: validatedData.toAccountId,
           amount: validatedData.amount
@@ -302,7 +309,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createActivityLog({
         userId,
         action: 'subscription_upgrade',
-        details: { tier }
+        description: 'Subscription upgraded',
+        metadata: { tier }
       });
       
       res.json({ success: true });
@@ -396,7 +404,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createActivityLog({
         userId,
         action: 'account_connected',
-        details: {
+        description: 'Account connected successfully',
+        metadata: {
           provider: 'teller',
           accountCount: accounts.length
         }
@@ -433,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const snapTradeUserId = `flint_user_${flintUserId}_${Date.now()}`;
       
       const clientId = process.env.SNAPTRADE_CLIENT_ID.trim();
-      const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET.trim();
+      const consumerSecret = process.env.SNAPTRADE_CLIENT_SECRET.trim();
 
       const registerResponse = await fetch('https://api.snaptrade.com/api/v1/snapTrade/registerUser', {
         method: 'POST',
@@ -441,7 +450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'accept': 'application/json',
           'Content-Type': 'application/json',
           'clientId': clientId,
-          'consumerKey': consumerKey
+          'consumerSecret': consumerSecret
         },
         body: JSON.stringify({ userId: snapTradeUserId })
       });
@@ -490,7 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const redirectURI = `https://${req.get('host')}/dashboard?connected=true`;
       
       const queryParams = new URLSearchParams({
-        userId: snapTradeUser.snaptradeUserId,
+        userId: snapTradeUser.snaptradeUserId || '',
         userSecret: snapTradeUser.userSecret
       });
 
@@ -560,6 +569,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error searching symbols:", error);
       res.status(500).json({ message: "Failed to search symbols: " + error.message });
+    }
+  });
+
+  // User profile management endpoints
+  app.patch('/api/users/profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { firstName, lastName } = req.body;
+      
+      const [user] = await db
+        .update(users)
+        .set({ 
+          firstName,
+          lastName,
+          updatedAt: new Date() 
+        })
+        .where(eq(users.id, userId))
+        .returning();
+        
+      res.json(user);
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      res.status(500).json({ message: "Failed to update profile: " + error.message });
+    }
+  });
+
+  app.patch('/api/users/notifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      // In a real app, you'd store notification preferences in the database
+      // For now, just return success
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error updating notifications:", error);
+      res.status(500).json({ message: "Failed to update notifications: " + error.message });
+    }
+  });
+
+  // News endpoints
+  app.get('/api/news', async (req: any, res) => {
+    try {
+      const { category, sentiment, search } = req.query;
+      
+      // Mock news data - in production this would fetch from news APIs
+      const mockNews = [
+        {
+          id: '1',
+          title: 'Federal Reserve Signals Potential Rate Cut in Q2 2025',
+          summary: 'The Federal Reserve hints at monetary policy changes amid economic indicators showing...',
+          source: 'Reuters',
+          publishedAt: new Date().toISOString(),
+          url: '#',
+          sentiment: 'positive',
+          category: 'Federal Reserve',
+          symbols: ['SPY', 'QQQ'],
+        },
+        {
+          id: '2', 
+          title: 'Tech Stocks Rally on AI Infrastructure Spending',
+          summary: 'Major technology companies report increased investments in artificial intelligence infrastructure...',
+          source: 'Bloomberg',
+          publishedAt: new Date(Date.now() - 3600000).toISOString(),
+          url: '#',
+          sentiment: 'positive',
+          category: 'Technology',
+          symbols: ['AAPL', 'GOOGL', 'MSFT'],
+        }
+      ];
+      
+      res.json(mockNews);
+    } catch (error: any) {
+      console.error("Error fetching news:", error);
+      res.status(500).json({ message: "Failed to fetch news: " + error.message });
     }
   });
 
