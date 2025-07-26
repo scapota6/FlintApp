@@ -104,10 +104,15 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
 router.get("/accounts", isAuthenticated, async (req: any, res) => {
   try {
     const email = req.user.claims.email?.toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: "User email required" });
+    }
+    
     const user = await getUserByEmail(email);
     
-    if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
-      return res.status(400).json({ error: "SnapTrade user not registered" });
+    // Require that getUserByEmail(email) returns a non-null userSecret
+    if (!user?.snaptradeUserSecret) {
+      return res.status(401).json({ error: "Please connect your brokerage first" });
     }
 
     const { data } = await snaptrade.accountInformation.listUserAccounts({
