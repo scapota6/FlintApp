@@ -456,7 +456,7 @@ router.post("/sync", isAuthenticated, async (req: any, res) => {
         const connectedAccount = {
           userId,
           provider: 'snaptrade' as const,
-          providerAccountId: account.id,
+          externalAccountId: account.id,
           accountType: account.type || 'investment',
           accountName: account.name || account.institution_name || 'Investment Account',
           institutionName: account.institution_name || 'SnapTrade Brokerage',
@@ -472,7 +472,7 @@ router.post("/sync", isAuthenticated, async (req: any, res) => {
           .from(connectedAccounts)
           .where(and(
             eq(connectedAccounts.userId, userId),
-            eq(connectedAccounts.providerAccountId, account.id)
+            eq(connectedAccounts.externalAccountId, account.id)
           ));
 
         if (existingAccounts.length > 0) {

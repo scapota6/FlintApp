@@ -1,0 +1,62 @@
+Please update our Flint/Replit project so that once the user finishes the SnapTrade Connection Portal flow and clicks “Done,” the popup closes automatically and their newly connected account appears immediately as a widget on the dashboard:
+
+1. **Modify the Front-end Connection Component** (`simple-connect-buttons.tsx`):  
+   - When opening the portal URL in a new window, capture the popup window reference:
+     ```ts
+     const popup = window.open(url, '_blank', 'width=600,height=800');
+     ```
+   - After calling `window.open`, start polling `popup.closed` every 500 ms:
+     ```ts
+     const interval = setInterval(() => {
+       if (popup && popup.closed) {
+         clearInterval(interval);
+         // Trigger dashboard refresh
+         queryClient.invalidateQueries(['snaptrade', 'accounts']);
+       }
+     }, 500);
+     ```
+   - Ensure any “Done” click on the portal triggers `window.close()` inside the popup.
+
+2. **Ensure Redirect URI Closes the Popup**:  
+   - In your SnapTrade callback route (e.g. `public/snaptrade-callback.html`), add:
+     ```html
+     <script>
+     if (window.opener) {
+       window.opener.postMessage({ snaptradeConnected: true }, window.location.origin);
+       window.close();
+     }
+     </script>
+     ```
+   - In your main app, listen for that message and invalidate the React Query cache:
+     ```ts
+     useEffect(() => {
+       window.addEventListener('message', (e) => {
+         if (e.origin === window.location.origin && e.data.snaptradeConnected) {
+           queryClient.invalidateQueries(['snaptrade', 'accounts']);
+         }
+       });
+     }, []);
+     ```
+
+3. **Update the Dashboard Component** (`Dashboard.tsx` or similar):  
+   - Fetch the accounts list using the `useQuery(['snaptrade','accounts'], ...)` hook.  
+   - Once data is loaded, map over each account and render a stylized “widget” card:
+     ```tsx
+     {accounts.map(account => (
+       <AccountCard 
+         key={account.id}
+         name={account.broker}
+         type={account.type}
+         balance={account.balance}
+         // Add icon or “Alpaca Paper” badge if brokerId === 'alpaca_paper'
+       />
+     ))}
+     ```
+   - Ensure the hook refetches when the connection flow completes (see step 1).
+
+4. **Test End-to-End**:  
+   - Connect via SnapTrade.  
+   - Click “Done” in the portal—confirm the popup closes.  
+   - Verify the dashboard refreshes and shows the Alpaca Paper account as a widget card.
+
+That will give users a smooth “Connect → Done → See your accounts” experience with instant dashboard updates.```

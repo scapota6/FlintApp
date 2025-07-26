@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SnapTrade Connection Complete</title>
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    }
+    .container {
+      text-align: center;
+    }
+    .checkmark {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background-color: #10b981;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .checkmark svg {
+      width: 40px;
+      height: 40px;
+      stroke: white;
+      stroke-width: 3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="checkmark">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h1>Connection Successful!</h1>
+    <p>Your brokerage account has been connected. This window will close automatically...</p>
+  </div>
+  
+  <script>
+    // Notify parent window that connection is complete
+    if (window.opener) {
+      window.opener.postMessage({ snaptradeConnected: true }, window.location.origin);
+    }
+    
+    // Close the window after a short delay
+    setTimeout(() => {
+      window.close();
+    }, 2000);
+  </script>
+</body>
+</html>

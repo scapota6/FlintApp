@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,43 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
   const { toast } = useToast();
   const queryClient = useQueryClient();
   // Removed loading animations as requested by user
+  
+  // Listen for postMessage from SnapTrade callback
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.origin === window.location.origin && event.data.snaptradeConnected) {
+        toast({
+          title: "Connection Complete",
+          description: "Syncing your accounts...",
+        });
+        
+        // Automatically sync accounts
+        try {
+          const syncResponse = await apiRequest('POST', '/api/snaptrade/sync');
+          const syncData = await syncResponse.json();
+          
+          if (syncData.success) {
+            toast({
+              title: "Accounts Synced",
+              description: `Successfully synced ${syncData.syncedCount} account(s)`,
+            });
+            // Refresh dashboard
+            await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+          }
+        } catch (error) {
+          console.error('Auto-sync error:', error);
+          toast({
+            title: "Sync Failed", 
+            description: "Please click 'Sync Accounts' to manually sync",
+            variant: "destructive",
+          });
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [toast, queryClient]);
 
   // Check account limits based on user tier
   const getAccountLimit = (tier: string) => {
@@ -315,12 +352,45 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                           const data = await response.json();
                           
                           if (data.url) {
-                            // Open SnapTrade connection portal
-                            window.open(data.url, '_blank', 'width=800,height=600');
+                            // Open SnapTrade connection portal and capture reference
+                            const popup = window.open(data.url, '_blank', 'width=800,height=600');
                             toast({
                               title: "SnapTrade Connection Portal",
-                              description: "Complete the brokerage connection in the new window, then click 'Sync Accounts'",
+                              description: "Complete the brokerage connection in the new window",
                             });
+                            
+                            // Poll for popup closure
+                            const interval = setInterval(async () => {
+                              if (popup && popup.closed) {
+                                clearInterval(interval);
+                                toast({
+                                  title: "Connection Complete",
+                                  description: "Syncing your accounts...",
+                                });
+                                
+                                // Automatically sync accounts after popup closes
+                                try {
+                                  const syncResponse = await apiRequest('POST', '/api/snaptrade/sync');
+                                  const syncData = await syncResponse.json();
+                                  
+                                  if (syncData.success) {
+                                    toast({
+                                      title: "Accounts Synced",
+                                      description: `Successfully synced ${syncData.syncedCount} account(s)`,
+                                    });
+                                    // Refresh dashboard to show the new accounts
+                                    await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+                                  }
+                                } catch (error) {
+                                  console.error('Auto-sync error:', error);
+                                  toast({
+                                    title: "Sync Failed", 
+                                    description: "Please click 'Sync Accounts' to manually sync",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }
+                            }, 500);
                           } else {
                             throw new Error(data.message || 'Failed to generate portal URL');
                           }

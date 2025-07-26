@@ -9,6 +9,7 @@ import QuickTransfer from "@/components/dashboard/quick-transfer";
 import ActivityFeed from "@/components/dashboard/activity-feed";
 import SimpleConnectButtons from "@/components/dashboard/simple-connect-buttons";
 import AccountDetailModal from "@/components/dashboard/account-detail-modal";
+import AccountCard from "@/components/dashboard/account-card";
 import SmartSearchBar from "@/components/search/SmartSearchBar";
 import { FinancialAPI } from "@/lib/financial-api";
 import { useAuth } from "@/hooks/useAuth";
@@ -132,6 +133,27 @@ export default function Dashboard() {
 
         {/* Balance Cards */}
         <BalanceCards data={dashboardData} />
+
+        {/* Connected Accounts */}
+        {dashboardData?.accounts && dashboardData.accounts.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold mb-4">Connected Accounts</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {dashboardData.accounts.map((account: any) => (
+                <AccountCard
+                  key={account.id}
+                  id={account.id}
+                  name={account.accountName}
+                  provider={account.provider}
+                  type={account.accountType || 'investment'}
+                  balance={account.balance}
+                  currency={account.currency}
+                  institutionName={account.institutionName}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Simple Connect Buttons */}
         <SimpleConnectButtons 
