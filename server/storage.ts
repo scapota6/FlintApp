@@ -131,12 +131,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSnapTradeUser(userId: string, snaptradeUserId: string, userSecret: string): Promise<void> {
-    // Temporarily store userSecret as plaintext for debugging
+    // Store userSecret as plaintext - no encryption
     await db
       .update(users)
       .set({
         snaptradeUserId: snaptradeUserId,
-        snaptradeUserSecret: userSecret, // Store as plaintext
+        snaptradeUserSecret: userSecret, // Store raw userSecret directly
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));
