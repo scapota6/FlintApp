@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'wouter';
+import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,8 +22,9 @@ interface StockData {
 }
 
 export function StockDetailPage() {
-  const { symbol } = useParams<{ symbol: string }>();
-  const navigate = useNavigate();
+  const params = useParams();
+  const symbol = params.symbol;
+  const [, setLocation] = useLocation();
 
   const [stockData, setStockData] = useState<StockData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -156,7 +158,7 @@ export function StockDetailPage() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate(-1)}
+          onClick={() => history.back()}
           className="flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />

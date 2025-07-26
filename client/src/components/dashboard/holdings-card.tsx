@@ -7,13 +7,17 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, TrendingDown, RefreshCw, ExternalLink } from "lucide-react";
 import { SnapTradeAPI, SnapTradeHolding } from "@/lib/snaptrade-api";
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 
-export function HoldingsCard() {
+interface HoldingsCardProps {
+  data: any[];
+}
+
+export function HoldingsCard({ data }: HoldingsCardProps) {
   const [holdings, setHoldings] = useState<SnapTradeHolding[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     loadHoldings();
@@ -106,7 +110,7 @@ export function HoldingsCard() {
         <CardContent>
           <div className="text-center py-8">
             <p className="text-gray-500 mb-4">No holdings found</p>
-            <Button onClick={() => navigate('/trading')} variant="outline">
+            <Button onClick={() => setLocation('/trading')} variant="outline">
               Start Trading
             </Button>
           </div>
@@ -160,7 +164,7 @@ export function HoldingsCard() {
               <div
                 key={`${holding.account_id}-${holding.symbol}`}
                 className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                onClick={() => navigate(`/stock/${holding.symbol}`)}
+                onClick={() => setLocation(`/stock/${holding.symbol}`)}
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">

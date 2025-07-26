@@ -258,3 +258,5 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
     </Dialog>
   );
 }
+
+export default TradeModal;

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import TradeModal from "@/components/modals/trade-modal";
+import { TradeModal } from "@/components/modals/trade-modal";
 
 export default function QuickTrade() {
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
@@ -94,7 +94,8 @@ export default function QuickTrade() {
       <TradeModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        asset={selectedAsset}
+        symbol={selectedAsset?.symbol || ""}
+        currentPrice={selectedAsset?.price || 0}
       />
     </>
   );
