@@ -77,6 +77,56 @@ router.get("/debug-env", async (req: any, res) => {
   });
 });
 
+// Test endpoint to verify SnapTrade API connectivity
+router.get("/test-api", async (req: any, res) => {
+  try {
+    console.log('Testing SnapTrade API connectivity...');
+    const { data } = await snaptrade.apiStatus.check();
+    console.log('SnapTrade API test successful:', data);
+    
+    // Try a simple registerSnapTradeUser call with test data
+    try {
+      const testUserId = `test_${Date.now()}`;
+      console.log('Testing registerSnapTradeUser with userId:', testUserId);
+      
+      const registerResult = await snaptrade.authentication.registerSnapTradeUser({
+        userId: testUserId,
+      });
+      
+      console.log('Test registration successful:', registerResult.data);
+      
+      return res.json({
+        apiStatus: data,
+        testRegistration: registerResult.data,
+        success: true
+      });
+    } catch (registerError: any) {
+      console.error('Test registration failed:', {
+        status: registerError.response?.status,
+        data: registerError.response?.data,
+        message: registerError.message
+      });
+      
+      return res.json({
+        apiStatus: data,
+        testRegistrationError: {
+          status: registerError.response?.status,
+          data: registerError.response?.data,
+          message: registerError.message
+        },
+        success: false
+      });
+    }
+  } catch (err: any) {
+    console.error('SnapTrade API test failed:', err);
+    return res.status(500).json({
+      error: 'API test failed',
+      message: err.message,
+      success: false
+    });
+  }
+});
+
 // Legacy compatibility routes - redirect to unified register
 router.get("/connect-url", isAuthenticated, async (req: any, res) => {
   return res.status(301).json({ 
@@ -131,6 +181,29 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
         await saveSnaptradeCredentials(email, data.userId!, data.userSecret!);
         user = await getUserByEmail(email);
       } catch (err: any) {
+        // Enhanced error logging to capture response body
+        console.error("🔴 SnapTrade registerSnapTradeUser full error:", {
+          status: err.response?.status,
+          statusText: err.response?.statusText,
+          data: err.response?.data,
+          headers: err.response?.headers,
+          message: err.message,
+          config: {
+            url: err.config?.url,
+            method: err.config?.method,
+            data: err.config?.data
+          }
+        });
+
+        // Try to extract error response body
+        let errorBody = null;
+        if (err.response?.data) {
+          errorBody = err.response.data;
+        } else if (err.message && err.message.includes('RESPONSE HEADERS:')) {
+          // Extract response body from error message if available
+          console.log("🔴 Raw error message:", err.message);
+        }
+        
         // Handle USER_EXISTS and 1010 as "already registered"
         const errData = err.response?.data;
         if (
@@ -146,17 +219,13 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
             });
           }
         } else {
-          // Log full error details for debugging
-          console.error("🔴 SnapTrade registerSnapTradeUser error:", {
-            status: err.response?.status,
-            data: err.response?.data,
-            headers: err.response?.headers,
-            message: err.message
-          });
-          
-          // Forward err.response?.status and err.response?.data directly
+          // Forward the actual error response
           const status = err.response?.status || 500;
-          const body = err.response?.data || { message: err.message };
+          const body = err.response?.data || { 
+            message: err.message,
+            error: "SnapTrade API Error",
+            details: errorBody
+          };
           return res.status(status).json(body);
         }
       }
