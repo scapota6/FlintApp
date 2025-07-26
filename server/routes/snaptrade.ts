@@ -130,11 +130,10 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
     return res.json({ url: connectionUrl });
     
   } catch (err: any) {
-    console.error("SnapTrade connect-url error:", err.response?.data || err);
-    return res.status(502).json({
-      error: "SnapTrade URL generation failed",
-      details: err.response?.data || err.message,
-    });
+    // Forward SnapTrade's actual status and JSON body
+    const status = err.response?.status || 500;
+    const body   = err.response?.data   || { message: err.message };
+    return res.status(status).json(body);
   }
 });
 
