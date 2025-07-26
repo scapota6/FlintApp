@@ -94,7 +94,7 @@ router.post('/register', isAuthenticated, async (req: any, res) => {
 });
 
 // SnapTrade connection URL generator
-router.get('/connect-url', isAuthenticated, async (req: any, res) => {
+router.get("/connect-url", isAuthenticated, async (req: any, res) => {
   try {
     if (!snapTradeClient) {
       return res.status(502).json({ 
@@ -103,88 +103,40 @@ router.get('/connect-url', isAuthenticated, async (req: any, res) => {
       });
     }
 
-    const flintUserId = req.user.claims.sub;
-    const userEmail = req.user.claims.email?.toLowerCase();
-    
-    if (!userEmail) {
+    const email = req.user.claims.email?.toLowerCase();
+    if (!email) {
       return res.status(400).json({ 
         error: "User email required", 
         details: "User email is required for SnapTrade operations" 
       });
     }
 
-    // First call the same registration logic (or hit /register internally)
+    // Ensure registration first
+    const flintUserId = req.user.claims.sub;
     let snapTradeUser = await storage.getSnapTradeUser(flintUserId);
-    let savedUserId = snapTradeUser?.snaptradeUserId;
-    let savedUserSecret = snapTradeUser?.userSecret;
-
-    // If missing credentials, register the user first
-    if (!savedUserId || !savedUserSecret) {
-      console.log('SnapTrade credentials missing, registering user:', userEmail);
-      
-      try {
-        const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
-          userId: userEmail
-        });
-
-        await storage.createSnapTradeUser(flintUserId, data.userId!, data.userSecret!);
-        
-        savedUserId = data.userId;
-        savedUserSecret = data.userSecret;
-        
-        console.log('SnapTrade user registered successfully for connect-url:', savedUserId);
-
-      } catch (err: any) {
-        console.error("SnapTrade registration error:", err.response?.data || err);
-        return res.status(502).json(err.response?.data || { message: err.message });
-      }
-    }
-
-    // Retrieve saved snaptradeUserId and snaptradeUserSecret from DB
-    const frontendCallbackUrl = process.env.FRONTEND_URL + '/snaptrade/callback';
     
-    console.log('Generating SnapTrade connection URL for user:', savedUserId);
-    console.log('Frontend callback URL:', frontendCallbackUrl);
-
-    try {
-      // Use the exact specification from user
-      const connectResponse = await snapTradeClient.authentication.loginSnapTradeUser({
-        userId: savedUserId!,
-        userSecret: savedUserSecret!,
-        broker: undefined,
-        immediateRedirect: true,
-        customRedirect: frontendCallbackUrl,
-        connectionType: 'read'
+    if (!snapTradeUser?.snaptradeUserId) {
+      // Register user first
+      const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
+        userId: email
       });
-      
-      console.log('SnapTrade connect response status:', connectResponse.status);
-      console.log('SnapTrade connect response data structure:', Object.keys(connectResponse.data || {}));
-
-      const responseData = connectResponse.data;
-      console.log('Full SnapTrade response data:', JSON.stringify(responseData, null, 2));
-      
-      // Extract data.redirectURI from the SDK response and return it as { url: data.redirectURI }
-      if (responseData && typeof responseData === 'object' && 'redirectURI' in responseData) {
-        const connectionUrl = (responseData as any).redirectURI;
-        console.log('Returning connection URL:', connectionUrl);
-        res.json({ url: connectionUrl });
-      } else {
-        console.error('No redirectURI found in response:', responseData);
-        throw new Error('No redirectURI in SnapTrade response');
-      }
-
-    } catch (err: any) {
-      console.error("SnapTrade registration error:", err.response?.data || err);
-      console.error("Full error details:", err);
-      // On error, return 502 with details
-      return res.status(502).json(err.response?.data || { message: err.message });
+      await storage.createSnapTradeUser(flintUserId, data.userId!, data.userSecret!);
+      snapTradeUser = { snaptradeUserId: data.userId!, userSecret: data.userSecret! };
     }
 
-  } catch (error: any) {
-    console.error("Connection URL error:", error);
-    res.status(500).json({ 
-      error: "Internal server error",
-      details: error.message 
+    // Minimal SDK call—no redirect params
+    const { data } = await snapTradeClient.authentication.loginSnapTradeUser({
+      userId: snapTradeUser.snaptradeUserId!, 
+      userSecret: snapTradeUser.userSecret!
+    });
+
+    // data.redirectURI is the connection URL
+    return res.json({ url: (data as any).redirectURI });
+  } catch (err: any) {
+    console.error("SnapTrade connect-url error:", err.response?.data || err);
+    return res.status(502).json({
+      error: "SnapTrade URL generation failed",
+      details: err.response?.data || err.message,
     });
   }
 });
