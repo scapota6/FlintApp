@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Search, TrendingUp, TrendingDown, Eye, Plus } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Trading() {
   const { user } = useAuth();
@@ -48,7 +49,11 @@ export default function Trading() {
     }
   }, [error, toast]);
 
-  const handleTradeClick = (asset: any) => {
+  const handleTradeClick = (asset: any, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setSelectedAsset(asset);
     setIsTradeModalOpen(true);
   };
@@ -129,10 +134,8 @@ export default function Trading() {
                 
                 <div className="space-y-3">
                   {filteredAssets.map((asset) => (
-                    <div
-                      key={asset.symbol}
-                      className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
-                    >
+                    <Link key={asset.symbol} href={`/stock/${asset.symbol}`}>
+                      <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer">
                       <div className="flex items-center space-x-3">
                         <div className={`w-10 h-10 ${asset.color} rounded-full flex items-center justify-center`}>
                           <span className="text-white font-bold">{asset.letter}</span>
@@ -161,14 +164,15 @@ export default function Trading() {
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => handleTradeClick(asset)}
+                            onClick={(e) => handleTradeClick(asset, e)}
                             className="bg-blue-600 hover:bg-blue-700"
                           >
                             Trade
                           </Button>
                         </div>
                       </div>
-                    </div>
+                      </div>
+                    </Link>
                   ))}
                 </div>
               </CardContent>
@@ -242,7 +246,7 @@ export default function Trading() {
                 <TabsTrigger value="filled">Filled</TabsTrigger>
               </TabsList>
               <TabsContent value="all" className="space-y-3 mt-4">
-                {trades?.slice(0, 10).map((trade: any, index: number) => (
+                {(Array.isArray(trades) ? trades : []).slice(0, 10).map((trade: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <Badge variant={trade.side === 'buy' ? 'default' : 'destructive'}>
@@ -263,7 +267,7 @@ export default function Trading() {
                 )}
               </TabsContent>
               <TabsContent value="pending" className="space-y-3 mt-4">
-                {trades?.filter((trade: any) => trade.status === 'pending').map((trade: any, index: number) => (
+                {(Array.isArray(trades) ? trades : []).filter((trade: any) => trade.status === 'pending').map((trade: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <Badge variant="outline">{trade.side.toUpperCase()}</Badge>
@@ -282,7 +286,7 @@ export default function Trading() {
                 )}
               </TabsContent>
               <TabsContent value="filled" className="space-y-3 mt-4">
-                {trades?.filter((trade: any) => trade.status === 'filled').map((trade: any, index: number) => (
+                {(Array.isArray(trades) ? trades : []).filter((trade: any) => trade.status === 'filled').map((trade: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <Badge variant={trade.side === 'buy' ? 'default' : 'destructive'}>

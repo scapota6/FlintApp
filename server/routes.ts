@@ -503,6 +503,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userSecret: snapTradeUser.userSecret
       });
 
+      console.log('SnapTrade Login attempt with:', {
+        clientId: clientId.substring(0, 10) + '...',
+        consumerSecret: consumerSecret.substring(0, 10) + '...',
+        userId: snapTradeUser.snaptradeUserId,
+        userSecret: snapTradeUser.userSecret.substring(0, 10) + '...'
+      });
+
       const loginResponse = await fetch(`https://api.snaptrade.com/api/v1/snapTrade/login?${queryParams}`, {
         method: 'POST',
         headers: {

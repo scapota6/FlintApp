@@ -1,0 +1,190 @@
+https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/snaptrade/connect-url 500 (Internal Server Error)
+window.fetch @ Network.js:219
+apiRequest @ queryClient.ts:15
+getConnectionUrl @ snaptrade-api.ts:52
+mutationFn @ simple-connect-buttons.tsx:73
+fn @ @tanstack_react-query.js?v=551bc257:1189
+run @ @tanstack_react-query.js?v=551bc257:494
+start @ @tanstack_react-query.js?v=551bc257:536
+execute @ @tanstack_react-query.js?v=551bc257:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=551bc257:2630
+(anonymous) @ @tanstack_react-query.js?v=551bc257:3295
+onClick @ simple-connect-buttons.tsx:188
+callCallback2 @ chunk-WERSD76P.js?v=551bc257:3674
+invokeGuardedCallbackDev @ chunk-WERSD76P.js?v=551bc257:3699
+invokeGuardedCallback @ chunk-WERSD76P.js?v=551bc257:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-WERSD76P.js?v=551bc257:3736
+executeDispatch @ chunk-WERSD76P.js?v=551bc257:7014
+processDispatchQueueItemsInOrder @ chunk-WERSD76P.js?v=551bc257:7034
+processDispatchQueue @ chunk-WERSD76P.js?v=551bc257:7043
+dispatchEventsForPlugins @ chunk-WERSD76P.js?v=551bc257:7051
+(anonymous) @ chunk-WERSD76P.js?v=551bc257:7174
+batchedUpdates$1 @ chunk-WERSD76P.js?v=551bc257:18913
+batchedUpdates @ chunk-WERSD76P.js?v=551bc257:3579
+dispatchEventForPluginEventSystem @ chunk-WERSD76P.js?v=551bc257:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-WERSD76P.js?v=551bc257:5478
+dispatchEvent @ chunk-WERSD76P.js?v=551bc257:5472
+dispatchDiscreteEvent @ chunk-WERSD76P.js?v=551bc257:5449Understand this error
+Console.js:61 📈 SnapTrade Connect Error: Error: 500: {"message":"Failed to generate connection URL: SnapTrade login failed: 403 - {\"detail\":\"Authentication credentials were not provided.\",\"status_code\":403,\"code\":\"0000\"}"}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:22:3)
+    at async SnapTradeAPI.getConnectionUrl (snaptrade-api.ts:52:22)
+    at async Object.mutationFn (simple-connect-buttons.tsx:73:25)
+Mt.forEach.n.<computed> @ Console.js:61
+mutationFn @ simple-connect-buttons.tsx:78
+await in mutationFn
+fn @ @tanstack_react-query.js?v=551bc257:1189
+run @ @tanstack_react-query.js?v=551bc257:494
+start @ @tanstack_react-query.js?v=551bc257:536
+execute @ @tanstack_react-query.js?v=551bc257:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=551bc257:2630
+(anonymous) @ @tanstack_react-query.js?v=551bc257:3295
+onClick @ simple-connect-buttons.tsx:188
+callCallback2 @ chunk-WERSD76P.js?v=551bc257:3674
+invokeGuardedCallbackDev @ chunk-WERSD76P.js?v=551bc257:3699
+invokeGuardedCallback @ chunk-WERSD76P.js?v=551bc257:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-WERSD76P.js?v=551bc257:3736
+executeDispatch @ chunk-WERSD76P.js?v=551bc257:7014
+processDispatchQueueItemsInOrder @ chunk-WERSD76P.js?v=551bc257:7034
+processDispatchQueue @ chunk-WERSD76P.js?v=551bc257:7043
+dispatchEventsForPlugins @ chunk-WERSD76P.js?v=551bc257:7051
+(anonymous) @ chunk-WERSD76P.js?v=551bc257:7174
+batchedUpdates$1 @ chunk-WERSD76P.js?v=551bc257:18913
+batchedUpdates @ chunk-WERSD76P.js?v=551bc257:3579
+dispatchEventForPluginEventSystem @ chunk-WERSD76P.js?v=551bc257:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-WERSD76P.js?v=551bc257:5478
+dispatchEvent @ chunk-WERSD76P.js?v=551bc257:5472
+dispatchDiscreteEvent @ chunk-WERSD76P.js?v=551bc257:5449Understand this error
+Console.js:61 📈 SnapTrade Connect Error: Error: 500: {"message":"Failed to generate connection URL: SnapTrade login failed: 403 - {\"detail\":\"Authentication credentials were not provided.\",\"status_code\":403,\"code\":\"0000\"}"}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:22:3)
+    at async SnapTradeAPI.getConnectionUrl (snaptrade-api.ts:52:22)
+    at async Object.mutationFn (simple-connect-buttons.tsx:73:25)
+Mt.forEach.n.<computed> @ Console.js:61
+onError @ simple-connect-buttons.tsx:90
+execute @ @tanstack_react-query.js?v=551bc257:1254
+await in execute
+mutate @ @tanstack_react-query.js?v=551bc257:2630
+(anonymous) @ @tanstack_react-query.js?v=551bc257:3295
+onClick @ simple-connect-buttons.tsx:188
+callCallback2 @ chunk-WERSD76P.js?v=551bc257:3674
+invokeGuardedCallbackDev @ chunk-WERSD76P.js?v=551bc257:3699
+invokeGuardedCallback @ chunk-WERSD76P.js?v=551bc257:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-WERSD76P.js?v=551bc257:3736
+executeDispatch @ chunk-WERSD76P.js?v=551bc257:7014
+processDispatchQueueItemsInOrder @ chunk-WERSD76P.js?v=551bc257:7034
+processDispatchQueue @ chunk-WERSD76P.js?v=551bc257:7043
+dispatchEventsForPlugins @ chunk-WERSD76P.js?v=551bc257:7051
+(anonymous) @ chunk-WERSD76P.js?v=551bc257:7174
+batchedUpdates$1 @ chunk-WERSD76P.js?v=551bc257:18913
+batchedUpdates @ chunk-WERSD76P.js?v=551bc257:3579
+dispatchEventForPluginEventSystem @ chunk-WERSD76P.js?v=551bc257:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-WERSD76P.js?v=551bc257:5478
+dispatchEvent @ chunk-WERSD76P.js?v=551bc257:5472
+dispatchDiscreteEvent @ chunk-WERSD76P.js?v=551bc257:5449Understand this error
+_app-c19eb5ab56f538a0.js:18  POST https://sp.replit.com/v1/t net::ERR_TIMED_OUT
+(anonymous) @ _app-c19eb5ab56f538a0.js:18
+o @ sdk.min.js:1
+dispatch @ fetch-dispatcher.ts:11
+(anonymous) @ index.ts:122
+(anonymous) @ tslib.es6.js:103
+(anonymous) @ tslib.es6.js:108
+(anonymous) @ tslib.es6.js:80
+u @ tslib.es6.js:72
+g @ index.ts:93
+(anonymous) @ delivery.js:28
+(anonymous) @ delivery.js:11
+(anonymous) @ tslib.es6.js:103
+(anonymous) @ tslib.es6.js:108
+(anonymous) @ tslib.es6.js:80
+u @ tslib.es6.js:72
+(anonymous) @ delivery.js:4
+o @ delivery.js:27
+(anonymous) @ event-queue.js:325
+(anonymous) @ event-queue.js:323
+n @ _app-c19eb5ab56f538a0.js:18
+setTimeout
+(anonymous) @ _app-c19eb5ab56f538a0.js:18
+(anonymous) @ event-queue.js:321
+(anonymous) @ event-queue.js:320
+(anonymous) @ tslib.es6.js:103
+(anonymous) @ tslib.es6.js:108
+s @ tslib.es6.js:73
+Promise.then
+a @ tslib.es6.js:76
+s @ tslib.es6.js:73
+Promise.then
+a @ tslib.es6.js:76
+(anonymous) @ tslib.es6.js:76
+u @ tslib.es6.js:72
+(anonymous) @ event-queue.js:273
+(anonymous) @ event-queue.js:181
+(anonymous) @ tslib.es6.js:103
+(anonymous) @ tslib.es6.js:108
+s @ tslib.es6.js:73
+Promise.then
+a @ tslib.es6.js:76
+(anonymous) @ tslib.es6.js:76
+u @ tslib.es6.js:72
+(anonymous) @ event-queue.js:169
+(anonymous) @ event-queue.js:135
+(anonymous) @ tslib.es6.js:103
+(anonymous) @ tslib.es6.js:108
+(anonymous) @ tslib.es6.js:80
+u @ tslib.es6.js:72
+(anonymous) @ event-queue.js:128
+(anonymous) @ dispatch.js:25
+(anonymous) @ tslib.es6.js:103
+(anonymous) @ tslib.es6.js:108
+(anonymous) @ tslib.es6.js:80
+u @ tslib.es6.js:72
+p @ dispatch.js:18
+(anonymous) @ index.ts:460
+(anonymous) @ tslib.es6.js:103
+(anonymous) @ tslib.es6.js:108
+(anonymous) @ tslib.es6.js:80
+u @ tslib.es6.js:72
+(anonymous) @ index.ts:454
+(anonymous) @ index.ts:253
+(anonymous) @ tslib.es6.js:103
+(anonymous) @ tslib.es6.js:108
+(anonymous) @ tslib.es6.js:80
+u @ tslib.es6.js:72
+(anonymous) @ index.ts:241
+A @ _app-c19eb5ab56f538a0.js:28
+f @ 9648-cdbde826275373a6.js:1
+(anonymous) @ 9648-cdbde826275373a6.js:1
+(anonymous) @ main-97e4ac9b7b9740ff.js:1
+n @ main-97e4ac9b7b9740ff.js:1
+u @ main-97e4ac9b7b9740ff.js:1
+Promise.then
+n @ main-97e4ac9b7b9740ff.js:1
+u @ main-97e4ac9b7b9740ff.js:1
+(anonymous) @ main-97e4ac9b7b9740ff.js:1
+(anonymous) @ main-97e4ac9b7b9740ff.js:1
+(anonymous) @ 9648-cdbde826275373a6.js:1
+(anonymous) @ 4740-56542c5f4dbb8af6.js:1
+(anonymous) @ main-97e4ac9b7b9740ff.js:1
+n @ main-97e4ac9b7b9740ff.js:1
+u @ main-97e4ac9b7b9740ff.js:1
+(anonymous) @ main-97e4ac9b7b9740ff.js:1
+(anonymous) @ main-97e4ac9b7b9740ff.js:1
+U.et @ 4740-56542c5f4dbb8af6.js:1
+(anonymous) @ _app-c19eb5ab56f538a0.js:23
+(anonymous) @ _app-c19eb5ab56f538a0.js:23
+onClick @ _app-c19eb5ab56f538a0.js:23
+(anonymous) @ _app-c19eb5ab56f538a0.js:28
+eB @ framework-34a6ec6253342aac.js:1
+eH @ framework-34a6ec6253342aac.js:1
+(anonymous) @ framework-34a6ec6253342aac.js:1
+re @ framework-34a6ec6253342aac.js:1
+rt @ framework-34a6ec6253342aac.js:1
+(anonymous) @ framework-34a6ec6253342aac.js:1
+uT @ framework-34a6ec6253342aac.js:1
+eM @ framework-34a6ec6253342aac.js:1
+ru @ framework-34a6ec6253342aac.js:1
+tB @ framework-34a6ec6253342aac.js:1
+tD @ framework-34a6ec6253342aac.js:1
+n @ _app-c19eb5ab56f538a0.js:18Understand this error

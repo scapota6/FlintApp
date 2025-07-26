@@ -43,7 +43,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
   const tellerConnectMutation = useMutation({
     mutationFn: async () => {
       console.log('🏦 Teller Connect: Initiating bank connection');
-      const connectUrl = 'https://app.teller.io/connect/qxwJ6E9JJEeFNgmH';
+      const connectUrl = 'https://teller.io/connect/qxwJ6E9JJEeFNgmH';
       window.open(connectUrl, '_blank', 'width=500,height=600');
       return { success: true };
     },

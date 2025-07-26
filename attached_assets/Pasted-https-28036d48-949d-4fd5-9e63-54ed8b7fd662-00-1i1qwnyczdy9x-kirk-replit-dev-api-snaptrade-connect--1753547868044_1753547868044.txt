@@ -1,0 +1,64 @@
+https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/snaptrade/connect-url 500 (Internal Server Error)
+window.fetch @ Network.js:219
+apiRequest @ queryClient.ts:15
+getConnectionUrl @ snaptrade-api.ts:52
+mutationFn @ simple-connect-buttons.tsx:73
+fn @ @tanstack_react-query.js?v=551bc257:1189
+run @ @tanstack_react-query.js?v=551bc257:494
+start @ @tanstack_react-query.js?v=551bc257:536
+execute @ @tanstack_react-query.js?v=551bc257:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=551bc257:2630
+(anonymous) @ @tanstack_react-query.js?v=551bc257:3295
+onClick @ simple-connect-buttons.tsx:188
+callCallback2 @ chunk-WERSD76P.js?v=551bc257:3674
+invokeGuardedCallbackDev @ chunk-WERSD76P.js?v=551bc257:3699
+invokeGuardedCallback @ chunk-WERSD76P.js?v=551bc257:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-WERSD76P.js?v=551bc257:3736
+executeDispatch @ chunk-WERSD76P.js?v=551bc257:7014
+processDispatchQueueItemsInOrder @ chunk-WERSD76P.js?v=551bc257:7034
+processDispatchQueue @ chunk-WERSD76P.js?v=551bc257:7043
+dispatchEventsForPlugins @ chunk-WERSD76P.js?v=551bc257:7051
+(anonymous) @ chunk-WERSD76P.js?v=551bc257:7174
+batchedUpdates$1 @ chunk-WERSD76P.js?v=551bc257:18913
+batchedUpdates @ chunk-WERSD76P.js?v=551bc257:3579
+dispatchEventForPluginEventSystem @ chunk-WERSD76P.js?v=551bc257:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-WERSD76P.js?v=551bc257:5478
+dispatchEvent @ chunk-WERSD76P.js?v=551bc257:5472
+dispatchDiscreteEvent @ chunk-WERSD76P.js?v=551bc257:5449Understand this error
+Console.js:61 📈 SnapTrade Connect Error: Error: 500: {"message":"Failed to generate connection URL: SnapTrade login failed: 403 - {\"detail\":\"Authentication credentials were not provided.\",\"status_code\":403,\"code\":\"0000\"}"}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:22:3)
+    at async SnapTradeAPI.getConnectionUrl (snaptrade-api.ts:52:22)
+    at async Object.mutationFn (simple-connect-buttons.tsx:73:25)
+Mt.forEach.n.<computed> @ Console.js:61
+mutationFn @ simple-connect-buttons.tsx:78
+await in mutationFn
+fn @ @tanstack_react-query.js?v=551bc257:1189
+run @ @tanstack_react-query.js?v=551bc257:494
+start @ @tanstack_react-query.js?v=551bc257:536
+execute @ @tanstack_react-query.js?v=551bc257:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=551bc257:2630
+(anonymous) @ @tanstack_react-query.js?v=551bc257:3295
+onClick @ simple-connect-buttons.tsx:188
+callCallback2 @ chunk-WERSD76P.js?v=551bc257:3674
+invokeGuardedCallbackDev @ chunk-WERSD76P.js?v=551bc257:3699
+invokeGuardedCallback @ chunk-WERSD76P.js?v=551bc257:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-WERSD76P.js?v=551bc257:3736
+executeDispatch @ chunk-WERSD76P.js?v=551bc257:7014
+processDispatchQueueItemsInOrder @ chunk-WERSD76P.js?v=551bc257:7034
+processDispatchQueue @ chunk-WERSD76P.js?v=551bc257:7043
+dispatchEventsForPlugins @ chunk-WERSD76P.js?v=551bc257:7051
+(anonymous) @ chunk-WERSD76P.js?v=551bc257:7174
+batchedUpdates$1 @ chunk-WERSD76P.js?v=551bc257:18913
+batchedUpdates @ chunk-WERSD76P.js?v=551bc257:3579
+dispatchEventForPluginEventSystem @ chunk-WERSD76P.js?v=551bc257:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-WERSD76P.js?v=551bc257:5478
+dispatchEvent @ chunk-WERSD76P.js?v=551bc257:5472
+dispatchDiscreteEvent @ chunk-WERSD76P.js?v=551bc257:5449Understand this error
+Console.js:61 📈 SnapTrade Connect Error: Error: 500: {"message":"Failed to generate connection URL: SnapTrade login failed: 403 - {\"detail\":\"Authentication credentials were not provided.\",\"status_code\":403,\"code\":\"0000\"}"}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:22:3)
+    at async SnapTradeAPI.getConnectionUrl (snaptrade-api.ts:52:22)
+    at async Object.mutationFn (simple-connect-buttons.tsx:73:25)
