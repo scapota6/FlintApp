@@ -8,7 +8,7 @@ import { db } from "../db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
-// Initialize the SDK at top of the file
+// SDK Initialization (top of 'routes/snaptrade.ts'):
 const snaptrade = new Snaptrade({
   clientId: process.env.SNAPTRADE_CLIENT_ID!,
   consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
@@ -55,20 +55,18 @@ router.post("/register", isAuthenticated, async (req: any, res) => {
   if (!user.snaptradeUserId || !user.snaptradeUserSecret) {
     try {
       const { data } = await snaptrade.authentication.registerSnapTradeUser({
-        userId: req.user.claims.email!.toLowerCase(),
+        userId: email,
       });
-      
-      // Save data.userId & data.userSecret in your DB
-      await saveSnaptradeCredentials(email, data.userId!, data.userSecret!);
+      await saveSnaptradeCredentials(email, data.userId, data.userSecret);
       user = await getUserByEmail(email);
     } catch (err: any) {
+      // Handle USER_EXISTS and 1010 errors by loading existing record
       const errData = err.response?.data;
       if (
         errData?.code === "USER_EXISTS" ||
         errData?.code === "1010" ||
         /already exist/i.test(errData?.detail || errData?.message || "")
       ) {
-        // Reload user from DB
         user = await getUserByEmail(email);
         if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
           return res.status(409).json({
@@ -77,7 +75,7 @@ router.post("/register", isAuthenticated, async (req: any, res) => {
           });
         }
       } else {
-        // Forward raw SnapTrade errors
+        // Return raw SnapTrade errors in catch
         const status = err.response?.status || 500;
         const body = err.response?.data || { message: err.message };
         return res.status(status).json(body);
@@ -85,17 +83,15 @@ router.post("/register", isAuthenticated, async (req: any, res) => {
     }
   }
 
-  // Then call loginSnapTradeUser
+  // Generate Connection Portal URL
   try {
-    const { data: loginData } = await snaptrade.authentication.loginSnapTradeUser({
+    const { data: portal } = await snaptrade.authentication.loginSnapTradeUser({
       userId: user.snaptradeUserId!,
       userSecret: user.snaptradeUserSecret!,
     });
-    
-    // Return JSON { url: loginData.redirectURI }
-    return res.json({ url: (loginData as any).redirectURI });
+    return res.json({ url: (portal as any).redirectURI });
   } catch (err: any) {
-    // Forward raw SnapTrade errors in the catch block
+    // Return raw SnapTrade errors in catch
     const status = err.response?.status || 500;
     const body = err.response?.data || { message: err.message };
     return res.status(status).json(body);
@@ -103,6 +99,55 @@ router.post("/register", isAuthenticated, async (req: any, res) => {
 });
 
 
+
+// Add endpoints (or use existing) to:
+// GET /api/snaptrade/accounts → call listUserAccounts
+router.get("/accounts", isAuthenticated, async (req: any, res) => {
+  try {
+    const email = req.user.claims.email?.toLowerCase();
+    const user = await getUserByEmail(email);
+    
+    if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
+      return res.status(400).json({ error: "SnapTrade user not registered" });
+    }
+
+    const { data } = await snaptrade.accountInformation.listUserAccounts({
+      userId: user.snaptradeUserId!,
+      userSecret: user.snaptradeUserSecret!,
+    });
+    
+    return res.json(data);
+  } catch (err: any) {
+    const status = err.response?.status || 500;
+    const body = err.response?.data || { message: err.message };
+    return res.status(status).json(body);
+  }
+});
+
+// GET /api/snaptrade/holdings?accountId=... → call getUserHoldings
+router.get("/holdings", isAuthenticated, async (req: any, res) => {
+  try {
+    const { accountId } = req.query;
+    const email = req.user.claims.email?.toLowerCase();
+    const user = await getUserByEmail(email);
+    
+    if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
+      return res.status(400).json({ error: "SnapTrade user not registered" });
+    }
+
+    const { data } = await snaptrade.accountInformation.getUserHoldings({
+      userId: user.snaptradeUserId!,
+      userSecret: user.snaptradeUserSecret!,
+      accountId: accountId as string,
+    });
+    
+    return res.json(data);
+  } catch (err: any) {
+    const status = err.response?.status || 500;
+    const body = err.response?.data || { message: err.message };
+    return res.status(status).json(body);
+  }
+});
 
 // --- (Optional) Fuzzy Search Endpoint ---
 router.get("/search", isAuthenticated, async (req: any, res) => {
