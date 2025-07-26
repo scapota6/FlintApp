@@ -78,10 +78,10 @@ router.post('/register', isAuthenticated, async (req: any, res) => {
       });
 
     } catch (err: any) {
-      console.error("SnapTrade registration error:", err.response?.data || err);
-      
-      // On error, return 502 with err.response.data or err.message
-      return res.status(502).json(err.response?.data || { message: err.message });
+      // Log the full SnapTrade response
+      console.error("🔴 SnapTrade register error response data:", err.response?.data);
+      // Forward the real SnapTrade JSON instead of our wrapper
+      return res.status(err.response?.status || 502).json(err.response?.data || { message: err.message });
     }
 
   } catch (error: any) {
