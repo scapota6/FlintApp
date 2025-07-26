@@ -38,39 +38,45 @@ if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CONSUMER_KEY) {
 
 const router = Router();
 
-// --- POST /api/snaptrade/register ---
 router.post("/register", async (req, res, next) => {
   const email = (req.user as any).email.toLowerCase();
-  const existing = await getUserByEmail(email);
+  let user = await getUserByEmail(email);
 
-  // 1) If we already have credentials, skip
-  if (existing.snaptradeUserId && existing.snaptradeUserSecret) {
-    return res.json({ registered: true, userId: existing.snaptradeUserId });
+  // 1) Register if needed
+  if (!user.snaptradeUserId || !user.snaptradeUserSecret) {
+    try {
+      const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
+        userId: email,
+      });
+      await saveSnaptradeCredentials(email, data.userId, data.userSecret);
+      user = await getUserByEmail(email);
+    } catch (err: any) {
+      const errData = err.response?.data;
+      if (
+        errData?.code === "USER_EXISTS" ||
+        errData?.code === "1010" ||
+        /already exist/i.test(errData?.detail || errData?.message || "")
+      ) {
+        user = await getUserByEmail(email);
+      } else {
+        return next(err);
+      }
+    }
   }
 
+  // 2) Generate the connection URL
   try {
-    // 2) Register new SnapTrade user
-    const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
-      userId: email,
+    const { data } = await snapTradeClient.authentication.loginSnapTradeUser({
+      userId: user.snaptradeUserId!,
+      userSecret: user.snaptradeUserSecret!,
     });
-
-    // 3) Save the userId & plaintext userSecret
-    await saveSnaptradeCredentials(email, data.userId, data.userSecret);
-
-    return res.json({ registered: true, userId: data.userId });
+    return res.json({ url: data.redirectURI });
   } catch (err: any) {
-    const errData = err.response?.data;
-    // 4) If user already exists in SnapTrade, treat as success
-    if (
-      errData?.code === "USER_EXISTS" ||
-      errData?.code === "1010" ||
-      /already exist/i.test(errData?.detail || errData?.message || "")
-    ) {
-      const reloaded = await getUserByEmail(email);
-      return res.json({ registered: true, userId: reloaded.snaptradeUserId });
-    }
-    // 5) Otherwise, forward the error
-    return next(err);
+    console.error("SnapTrade connect-url error:", err.response?.data || err);
+    return res.status(502).json({
+      error: "SnapTrade URL generation failed",
+      details: err.response?.data || err.message,
+    });
   }
 });
 
