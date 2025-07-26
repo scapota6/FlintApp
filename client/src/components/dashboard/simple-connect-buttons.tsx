@@ -139,14 +139,17 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
     }
   });
 
-  // SnapTrade Connect mutation with debugging
+  // SnapTrade Connect mutation - simplified flow with auto-registration
   const snapTradeConnectMutation = useMutation({
     mutationFn: async () => {
       console.log('📈 SnapTrade Connect: Starting brokerage connection');
       try {
+        // The backend now handles registration automatically
         const { url } = await SnapTradeAPI.getConnectionUrl();
-        console.log('📈 SnapTrade Connect: Got connection URL:', url.substring(0, 50) + '...');
-        window.location.href = url;
+        console.log('📈 SnapTrade Connect: Got connection URL, opening in new window');
+        
+        // Open SnapTrade portal in new window (user will complete connection there)
+        window.open(url, '_blank', 'width=500,height=600,scrollbars=yes,resizable=yes');
         return { success: true };
       } catch (error) {
         console.error('📈 SnapTrade Connect Error:', error);
@@ -156,8 +159,8 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
     onSuccess: () => {
       console.log('📈 SnapTrade Connect: Success callback triggered');
       toast({
-        title: "Brokerage Account Connected",
-        description: "Your brokerage account has been successfully connected!",
+        title: "Brokerage Connection Initiated",
+        description: "Complete the connection in the new window, then refresh this page.",
       });
     },
     onError: (error: any) => {
