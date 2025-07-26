@@ -8,6 +8,12 @@ import { db } from "../db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
+// Initialize the SDK at top of the file
+const snaptrade = new Snaptrade({
+  clientId: process.env.SNAPTRADE_CLIENT_ID!,
+  consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
+});
+
 // --- DB helper functions ---
 async function getUserByEmail(email: string) {
   // Get user from database - we need to query by email
@@ -27,112 +33,71 @@ async function saveSnaptradeCredentials(
   }
 }
 
-// --- Initialize SnapTrade SDK ---
-let snapTradeClient: Snaptrade;
-if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CONSUMER_KEY) {
-  snapTradeClient = new Snaptrade({
-    clientId: process.env.SNAPTRADE_CLIENT_ID!,
-    consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
-  });
-  console.log("✅ SnapTrade SDK initialized");
-} else {
-  console.warn(
-    "⚠️ Missing SNAPTRADE_CLIENT_ID or SNAPTRADE_CONSUMER_KEY in environment",
-  );
-}
-
 const router = Router();
 
-router.post("/register", isAuthenticated, async (req: any, res, next) => {
-  try {
-    if (!snapTradeClient) {
-      return res.status(502).json({
-        error: "SnapTrade not configured",
-        details: "Missing SNAPTRADE_CLIENT_ID or SNAPTRADE_CONSUMER_KEY in environment",
+// Single POST /api/snaptrade/register (protected by isAuthenticated)
+router.post("/register", isAuthenticated, async (req: any, res) => {
+  // Check DB for existing snaptradeUserId & userSecret
+  const email = req.user.claims.email?.toLowerCase();
+  if (!email) {
+    return res.status(400).json({
+      error: "User email required",
+      details: "Authenticated user email is missing",
+    });
+  }
+
+  let user = await getUserByEmail(email);
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  // If missing, call registerSnapTradeUser
+  if (!user.snaptradeUserId || !user.snaptradeUserSecret) {
+    try {
+      const { data } = await snaptrade.authentication.registerSnapTradeUser({
+        userId: req.user.claims.email!.toLowerCase(),
       });
-    }
-
-    const email = req.user.claims.email?.toLowerCase();
-    if (!email) {
-      return res.status(400).json({
-        error: "User email required",
-        details: "Authenticated user email is missing",
-      });
-    }
-
-    // 1) Check DB for existing credentials
-    let user = await getUserByEmail(email);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    // 2) Register if missing credentials
-    if (!user.snaptradeUserId || !user.snaptradeUserSecret) {
-      try {
-        console.log("Register payload:", { userId: email });
-        const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
-          userId: email,
-        });
-        
-        // Save credentials to DB
-        await saveSnaptradeCredentials(email, data.userId!, data.userSecret!);
+      
+      // Save data.userId & data.userSecret in your DB
+      await saveSnaptradeCredentials(email, data.userId!, data.userSecret!);
+      user = await getUserByEmail(email);
+    } catch (err: any) {
+      const errData = err.response?.data;
+      if (
+        errData?.code === "USER_EXISTS" ||
+        errData?.code === "1010" ||
+        /already exist/i.test(errData?.detail || errData?.message || "")
+      ) {
+        // Reload user from DB
         user = await getUserByEmail(email);
-      } catch (err: any) {
-        console.error("SnapTrade registration error:", err);
-        const errData = err.response?.data;
-        
-        // Handle "user already exists" errors
-        if (
-          errData?.code === "USER_EXISTS" ||
-          errData?.code === "1010" ||
-          /already exist/i.test(errData?.detail || errData?.message || "")
-        ) {
-          console.log("User already exists in SnapTrade, fetching existing user...");
-          user = await getUserByEmail(email);
-          
-          // If we still don't have credentials, this is an issue
-          if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
-            return res.status(409).json({
-              error: "User already registered",
-              details: "User exists in SnapTrade but credentials not found in database"
-            });
-          }
-        } else {
-          return res.status(500).json({
-            error: "Failed to register SnapTrade user",
-            details: errData || err.message,
+        if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
+          return res.status(409).json({
+            error: "User already registered",
+            details: "User exists in SnapTrade but credentials not found in database"
           });
         }
+      } else {
+        // Forward raw SnapTrade errors
+        const status = err.response?.status || 500;
+        const body = err.response?.data || { message: err.message };
+        return res.status(status).json(body);
       }
     }
+  }
 
-    // 3) Generate connection URL using stored credentials
-    console.log("🔑 Generating connection URL for user:", user.snaptradeUserId);
-    const { data } = await snapTradeClient.authentication.loginSnapTradeUser({
+  // Then call loginSnapTradeUser
+  try {
+    const { data: loginData } = await snaptrade.authentication.loginSnapTradeUser({
       userId: user.snaptradeUserId!,
       userSecret: user.snaptradeUserSecret!,
     });
-
-    // 4) Return the connection URL - access the response data properly
-    console.log("🔍 SnapTrade login response:", data);
     
-    // The response should contain redirectURI or similar property
-    const connectionUrl = (data as any).redirectURI || (data as any).redirect_uri || (data as any).url;
-    
-    if (!connectionUrl) {
-      console.error("No connection URL found in response:", data);
-      return res.status(502).json({
-        error: "No connection URL returned",
-        details: "SnapTrade login response missing URL property"
-      });
-    }
-    
-    return res.json({ url: connectionUrl });
-    
+    // Return JSON { url: loginData.redirectURI }
+    return res.json({ url: (loginData as any).redirectURI });
   } catch (err: any) {
-    // Forward SnapTrade's actual status and JSON body
+    // Forward raw SnapTrade errors in the catch block
     const status = err.response?.status || 500;
-    const body   = err.response?.data   || { message: err.message };
+    const body = err.response?.data || { message: err.message };
     return res.status(status).json(body);
   }
 });
