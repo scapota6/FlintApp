@@ -46,13 +46,31 @@
   </div>
   
   <script>
-    // Notify parent window that connection is complete
-    if (window.opener) {
-      window.opener.postMessage({ snaptradeConnected: true }, window.location.origin);
-    }
+    // Check if we're on the connection-complete page
+    const checkConnectionComplete = () => {
+      if (window.location.pathname.includes('/connection-complete') || 
+          window.location.search.includes('success=true')) {
+        // Notify parent window that connection is complete
+        if (window.opener) {
+          window.opener.postMessage({ type: 'SNAPTRADE_DONE' }, window.location.origin);
+        }
+        
+        // Close the window immediately
+        window.close();
+      }
+    };
     
-    // Close the window after a short delay
+    // Check on load
+    checkConnectionComplete();
+    
+    // Also listen for navigation changes
+    window.addEventListener('popstate', checkConnectionComplete);
+    
+    // Fallback: if not on completion page, still notify and close after delay
     setTimeout(() => {
+      if (window.opener) {
+        window.opener.postMessage({ type: 'SNAPTRADE_DONE' }, window.location.origin);
+      }
       window.close();
     }, 2000);
   </script>

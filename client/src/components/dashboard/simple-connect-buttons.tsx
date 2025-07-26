@@ -23,7 +23,8 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
   // Listen for postMessage from SnapTrade callback
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
-      if (event.origin === window.location.origin && event.data.snaptradeConnected) {
+      if (event.origin === window.location.origin && 
+          (event.data.snaptradeConnected || event.data.type === 'SNAPTRADE_DONE')) {
         toast({
           title: "Connection Complete",
           description: "Syncing your accounts...",
@@ -46,7 +47,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
           console.error('Auto-sync error:', error);
           toast({
             title: "Sync Failed", 
-            description: "Please click 'Sync Accounts' to manually sync",
+            description: "Please try again",
             variant: "destructive",
           });
         }
@@ -194,6 +195,62 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
         }
         
         console.log('📈 SnapTrade Connect: Opened connection popup successfully');
+        
+        // Monitor popup for completion or closure
+        let synced = false;
+        const interval = setInterval(async () => {
+          try {
+            // Check if popup URL indicates completion
+            if (popup && !popup.closed) {
+              try {
+                const popupUrl = popup.location.href;
+                if (popupUrl.includes('/connection-complete') || 
+                    popupUrl.includes('success=true') ||
+                    popupUrl.includes('/done')) {
+                  // Connection complete - close popup and sync
+                  popup.close();
+                }
+              } catch (e) {
+                // Cross-origin error is expected, ignore it
+              }
+            }
+            
+            // Check if popup is closed
+            if (popup && popup.closed && !synced) {
+              synced = true;
+              clearInterval(interval);
+              toast({
+                title: "Connection Complete",
+                description: "Syncing your accounts...",
+              });
+              
+              // Automatically sync accounts after popup closes
+              try {
+                const syncResponse = await apiRequest('POST', '/api/snaptrade/sync');
+                const syncData = await syncResponse.json();
+                
+                if (syncData.success) {
+                  toast({
+                    title: "Accounts Synced",
+                    description: `Successfully synced ${syncData.syncedCount} account(s)`,
+                  });
+                  // Refresh dashboard to show the new accounts
+                  await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+                }
+              } catch (error) {
+                console.error('Auto-sync error:', error);
+                toast({
+                  title: "Sync Failed", 
+                  description: "Please try again",
+                  variant: "destructive",
+                });
+              }
+            }
+          } catch (error) {
+            console.error('Popup monitoring error:', error);
+          }
+        }, 500);
+        
         return { success: true };
       } catch (error) {
         console.error('📈 SnapTrade Connect Error:', error);
@@ -202,10 +259,6 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
     },
     onSuccess: () => {
       console.log('📈 SnapTrade Connect: Success callback triggered');
-      toast({
-        title: "Brokerage Connection Initiated",
-        description: "Complete the connection in the new window, then refresh this page.",
-      });
     },
     onError: (error: any) => {
       console.error('📈 SnapTrade Connect Error:', error);
@@ -299,149 +352,26 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                   <span className="text-gray-400 text-sm">Brokerage account linked</span>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <Button
-                    onClick={() => {
-                      if (!canConnectMore) {
-                        handleUpgradeNeeded();
-                        return;
-                      }
-                      snapTradeConnectMutation.mutate();
-                    }}
-                    disabled={snapTradeConnectMutation.isPending}
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                  >
-                    {snapTradeConnectMutation.isPending ? (
-                      "Connecting..."
-                    ) : (
-                      <>
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Connect Brokerage
-                      </>
-                    )}
-                  </Button>
-                  <div className="grid grid-cols-3 gap-1">
-                    <Button
-                      onClick={async () => {
-                        try {
-                          const response = await apiRequest('GET', '/api/snaptrade/status');
-                          const data = await response.json();
-                          toast({
-                            title: "Success",
-                            description: `SnapTrade API working! Version: ${data.status?.version}`,
-                          });
-                        } catch (error: any) {
-                          console.error('API status error:', error);
-                          toast({
-                            title: "Error", 
-                            description: error.message || "SnapTrade API connection failed.",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      variant="outline"
-                      className="text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
-                    >
-                      Test API
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        try {
-                          // Use unified POST /api/snaptrade/register endpoint
-                          const response = await apiRequest('POST', '/api/snaptrade/register');
-                          const data = await response.json();
-                          
-                          if (data.url) {
-                            // Open SnapTrade connection portal and capture reference
-                            const popup = window.open(data.url, '_blank', 'width=800,height=600');
-                            toast({
-                              title: "SnapTrade Connection Portal",
-                              description: "Complete the brokerage connection in the new window",
-                            });
-                            
-                            // Poll for popup closure
-                            const interval = setInterval(async () => {
-                              if (popup && popup.closed) {
-                                clearInterval(interval);
-                                toast({
-                                  title: "Connection Complete",
-                                  description: "Syncing your accounts...",
-                                });
-                                
-                                // Automatically sync accounts after popup closes
-                                try {
-                                  const syncResponse = await apiRequest('POST', '/api/snaptrade/sync');
-                                  const syncData = await syncResponse.json();
-                                  
-                                  if (syncData.success) {
-                                    toast({
-                                      title: "Accounts Synced",
-                                      description: `Successfully synced ${syncData.syncedCount} account(s)`,
-                                    });
-                                    // Refresh dashboard to show the new accounts
-                                    await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
-                                  }
-                                } catch (error) {
-                                  console.error('Auto-sync error:', error);
-                                  toast({
-                                    title: "Sync Failed", 
-                                    description: "Please click 'Sync Accounts' to manually sync",
-                                    variant: "destructive",
-                                  });
-                                }
-                              }
-                            }, 500);
-                          } else {
-                            throw new Error(data.message || 'Failed to generate portal URL');
-                          }
-                        } catch (error: any) {
-                          console.error('SnapTrade connection error:', error);
-                          toast({
-                            title: "Connection Error", 
-                            description: error.message || "Failed to start SnapTrade connection. Please try again.",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      variant="outline"
-                      className="text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
-                    >
+                <Button
+                  onClick={() => {
+                    if (!canConnectMore) {
+                      handleUpgradeNeeded();
+                      return;
+                    }
+                    snapTradeConnectMutation.mutate();
+                  }}
+                  disabled={snapTradeConnectMutation.isPending}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {snapTradeConnectMutation.isPending ? (
+                    "Connecting..."
+                  ) : (
+                    <>
+                      <ExternalLink className="h-4 w-4 mr-2" />
                       Connect Brokerage
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        try {
-                          // First sync accounts from SnapTrade to database
-                          const syncResponse = await apiRequest('POST', '/api/snaptrade/sync');
-                          const syncData = await syncResponse.json();
-                          
-                          if (syncData.success) {
-                            toast({
-                              title: "Accounts Synced",
-                              description: `Successfully synced ${syncData.syncedCount} account(s) from SnapTrade`,
-                            });
-                            // Refresh dashboard to show the new accounts
-                            await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
-                          } else {
-                            throw new Error(syncData.message || 'Failed to sync accounts');
-                          }
-                        } catch (error: any) {
-                          console.error('Sync accounts error:', error);
-                          toast({
-                            title: "Error", 
-                            description: error.message || "Failed to sync accounts. Please try again.",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      variant="outline"
-                      className="text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
-                    >
-                      Sync Accounts
-                    </Button>
-
-                  </div>
-                </div>
+                    </>
+                  )}
+                </Button>
               )}
             </div>
           </div>
