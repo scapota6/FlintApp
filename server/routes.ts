@@ -815,6 +815,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Teller.io API routes
+  app.post('/api/teller/connect-init', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!process.env.TELLER_APPLICATION_ID) {
+        return res.status(500).json({ message: "Teller not configured. Please add TELLER_APPLICATION_ID to environment variables." });
+      }
+      
+      // Return Teller application ID for frontend integration
+      res.json({ 
+        applicationId: process.env.TELLER_APPLICATION_ID,
+        environment: process.env.TELLER_ENVIRONMENT || 'sandbox'
+      });
+    } catch (error) {
+      console.error("Error initiating Teller connect:", error);
+      res.status(500).json({ message: "Failed to initiate Teller connection" });
+    }
+  });
+
+  app.post('/api/teller/exchange-token', isAuthenticated, async (req: any, res) => {
+    try {
+      const { token } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!token) {
+        return res.status(400).json({ message: "Access token is required" });
+      }
+
+      // Check user account limits
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const existingAccounts = await storage.getConnectedAccounts(userId);
+      const accountLimit = getAccountLimit(user.subscriptionTier || 'free');
+      
+      if (existingAccounts.length >= accountLimit) {
+        return res.status(403).json({ 
+          message: "Account limit reached. Upgrade your plan to connect more accounts.",
+          limit: accountLimit,
+          current: existingAccounts.length
+        });
+      }
+      
+      // Validate with Teller API
+      const tellerResponse = await fetch('https://api.teller.io/accounts', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!tellerResponse.ok) {
+        throw new Error('Invalid Teller token');
+      }
+      
+      const accounts = await tellerResponse.json();
+      
+      // Create account records for each connected account
+      for (const account of accounts) {
+        const accountData = {
+          userId,
+          provider: 'teller',
+          externalAccountId: account.id,
+          accountName: account.name || 'Bank Account',
+          accountType: 'bank',
+          balance: parseFloat(account.balance?.available || "0.00"),
+          accessToken: token,
+          lastUpdated: new Date()
+        };
+        
+        const validatedData = insertConnectedAccountSchema.parse(accountData);
+        await storage.createConnectedAccount(validatedData);
+      }
+      
+      // Log the connection
+      await storage.createActivityLog({
+        userId,
+        action: 'account_connected',
+        description: `Connected ${accounts.length} bank account(s) via Teller`,
+        metadata: { provider: 'teller', accountType: 'bank', count: accounts.length }
+      });
+      
+      res.json({ success: true, accountsConnected: accounts.length });
+    } catch (error: any) {
+      console.error("Error exchanging Teller token:", error);
+      res.status(500).json({ message: "Failed to exchange token: " + error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

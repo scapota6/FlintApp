@@ -39,50 +39,90 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
   const hasBankAccount = accounts.some(acc => acc.accountType === 'bank');
   const hasBrokerageAccount = accounts.some(acc => acc.accountType === 'brokerage' || acc.accountType === 'crypto');
 
-  // Teller Connect mutation - working version restored
+  // Teller Connect mutation - simplified and debugged
   const tellerConnectMutation = useMutation({
     mutationFn: async () => {
-      // Get Teller application ID
-      const initResponse = await apiRequest("POST", "/api/teller/connect-init");
-      const { applicationId, environment } = await initResponse.json();
+      console.log('🏦 Teller Connect: Starting bank connection process');
       
-      return new Promise((resolve, reject) => {
-        // Open Teller Connect in popup
-        const popup = window.open(
-          `https://teller.io/connect/${applicationId}`,
-          'teller',
-          'width=500,height=600,scrollbars=yes,resizable=yes'
-        );
+      try {
+        // Get Teller application ID
+        console.log('🏦 Teller Connect: Calling /api/teller/connect-init');
+        const initResponse = await apiRequest("POST", "/api/teller/connect-init");
+        const initData = await initResponse.json();
+        console.log('🏦 Teller Connect: Init response:', initData);
         
-        // Listen for successful connection
-        const messageHandler = (event: MessageEvent) => {
-          if (event.origin === 'https://teller.io' && event.data.type === 'teller-connect-success') {
-            const token = event.data.accessToken;
-            
-            // Exchange token with backend
-            apiRequest("POST", "/api/teller/exchange-token", { token })
-              .then(() => {
-                window.removeEventListener('message', messageHandler);
-                popup?.close();
-                resolve({ success: true });
-              })
-              .catch(reject);
+        const { applicationId, environment } = initData;
+        
+        if (!applicationId) {
+          throw new Error('No application ID received from server');
+        }
+        
+        console.log('🏦 Teller Connect: Opening popup with applicationId:', applicationId);
+        
+        return new Promise((resolve, reject) => {
+          // Open Teller Connect in popup
+          const popup = window.open(
+            `https://teller.io/connect/${applicationId}`,
+            'teller',
+            'width=500,height=600,scrollbars=yes,resizable=yes'
+          );
+          
+          if (!popup) {
+            reject(new Error('Popup blocked. Please allow popups for this site.'));
+            return;
           }
-        };
-        
-        window.addEventListener('message', messageHandler);
-        
-        // Handle popup close
-        const checkClosed = setInterval(() => {
-          if (popup?.closed) {
+          
+          // Listen for successful connection
+          const messageHandler = (event: MessageEvent) => {
+            console.log('🏦 Teller Connect: Received message:', event);
+            
+            if (event.origin === 'https://teller.io' && event.data.type === 'teller-connect-success') {
+              const token = event.data.accessToken;
+              console.log('🏦 Teller Connect: Success, exchanging token');
+              
+              // Exchange token with backend
+              apiRequest("POST", "/api/teller/exchange-token", { token })
+                .then(() => {
+                  console.log('🏦 Teller Connect: Token exchange successful');
+                  window.removeEventListener('message', messageHandler);
+                  popup?.close();
+                  resolve({ success: true });
+                })
+                .catch((error) => {
+                  console.error('🏦 Teller Connect: Token exchange failed:', error);
+                  reject(error);
+                });
+            }
+          };
+          
+          window.addEventListener('message', messageHandler);
+          
+          // Handle popup close
+          const checkClosed = setInterval(() => {
+            if (popup?.closed) {
+              clearInterval(checkClosed);
+              window.removeEventListener('message', messageHandler);
+              console.log('🏦 Teller Connect: Popup closed by user');
+              reject(new Error('Connection cancelled by user'));
+            }
+          }, 1000);
+          
+          // Timeout after 5 minutes
+          setTimeout(() => {
             clearInterval(checkClosed);
             window.removeEventListener('message', messageHandler);
-            reject(new Error('Connection cancelled'));
-          }
-        }, 1000);
-      });
+            popup?.close();
+            reject(new Error('Connection timeout - please try again'));
+          }, 300000);
+        });
+        
+      } catch (error) {
+        console.error('🏦 Teller Connect: Error in mutation function:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
+      console.log('🏦 Teller Connect: Success callback triggered');
       toast({
         title: "Bank Account Connected",
         description: "Your bank account has been successfully connected.",
@@ -90,10 +130,10 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
     },
     onError: (error: any) => {
-      console.error('Teller Connect Error:', error);
+      console.error('🏦 Teller Connect Error:', error);
       toast({
         title: "Connection Failed",
-        description: error.message || "Unable to connect bank account.",
+        description: error?.message || "Unable to connect bank account. Please try again.",
         variant: "destructive",
       });
     }
