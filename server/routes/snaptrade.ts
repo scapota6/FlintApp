@@ -7,20 +7,20 @@ const router = Router();
 
 // Initialize SnapTrade SDK
 let snapTradeClient: Snaptrade | null = null;
-if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET) {
+if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CONSUMER_KEY) {
   console.log('Initializing SnapTrade SDK with clientId:', process.env.SNAPTRADE_CLIENT_ID);
   
   try {
     snapTradeClient = new Snaptrade({
-      clientId: process.env.SNAPTRADE_CLIENT_ID,
-      consumerKey: process.env.SNAPTRADE_CLIENT_SECRET,
+      clientId: process.env.SNAPTRADE_CLIENT_ID!,
+      consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
     });
     console.log('SnapTrade SDK initialized successfully');
   } catch (error) {
     console.error('Failed to initialize SnapTrade SDK:', error);
   }
 } else {
-  console.log('SnapTrade environment variables missing - SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET required');
+  console.log('SnapTrade environment variables missing - SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY required');
 }
 
 // SnapTrade user registration with correct parameter structure
@@ -29,7 +29,7 @@ router.post('/register', isAuthenticated, async (req: any, res) => {
     if (!snapTradeClient) {
       return res.status(502).json({ 
         error: "SnapTrade not configured", 
-        details: "SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET environment variables required" 
+        details: "SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY environment variables required" 
       });
     }
 
@@ -58,7 +58,7 @@ router.post('/register', isAuthenticated, async (req: any, res) => {
     try {
       // Use exact specification from user
       const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
-        snapTradeRegisterUserRequestBody: { userId: userEmail }
+        userId: userEmail
       });
 
       console.log('SnapTrade registration response received:', {
@@ -67,7 +67,7 @@ router.post('/register', isAuthenticated, async (req: any, res) => {
       });
 
       // Save data.userId and data.userSecret to PostgreSQL
-      await storage.createSnapTradeUser(flintUserId, data.userId, data.userSecret);
+      await storage.createSnapTradeUser(flintUserId, data.userId!, data.userSecret!);
       
       console.log('SnapTrade user registered and saved successfully:', data.userId);
       
@@ -77,13 +77,11 @@ router.post('/register', isAuthenticated, async (req: any, res) => {
         userId: data.userId
       });
 
-    } catch (snapTradeError: any) {
-      console.error('SnapTrade registration failed with detailed error:');
-      console.error('Error message:', snapTradeError.message);
-      console.error('Error response data:', JSON.stringify(snapTradeError.response?.data, null, 2));
+    } catch (err: any) {
+      console.error("SnapTrade registration error:", err.response?.data || err);
       
       // On error, return 502 with err.response.data or err.message
-      return res.status(502).json(snapTradeError.response?.data || { message: snapTradeError.message });
+      return res.status(502).json(err.response?.data || { message: err.message });
     }
 
   } catch (error: any) {
@@ -101,7 +99,7 @@ router.get('/connect-url', isAuthenticated, async (req: any, res) => {
     if (!snapTradeClient) {
       return res.status(502).json({ 
         error: "SnapTrade not configured", 
-        details: "SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET environment variables required" 
+        details: "SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY environment variables required" 
       });
     }
 
@@ -126,19 +124,19 @@ router.get('/connect-url', isAuthenticated, async (req: any, res) => {
       
       try {
         const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
-          snapTradeRegisterUserRequestBody: { userId: userEmail }
+          userId: userEmail
         });
 
-        await storage.createSnapTradeUser(flintUserId, data.userId, data.userSecret);
+        await storage.createSnapTradeUser(flintUserId, data.userId!, data.userSecret!);
         
         savedUserId = data.userId;
         savedUserSecret = data.userSecret;
         
         console.log('SnapTrade user registered successfully for connect-url:', savedUserId);
 
-      } catch (snapTradeError: any) {
-        console.error('Connect-URL: SnapTrade registration failed:', snapTradeError.message);
-        return res.status(502).json(snapTradeError.response?.data || { message: snapTradeError.message });
+      } catch (err: any) {
+        console.error("SnapTrade registration error:", err.response?.data || err);
+        return res.status(502).json(err.response?.data || { message: err.message });
       }
     }
 
@@ -175,10 +173,10 @@ router.get('/connect-url', isAuthenticated, async (req: any, res) => {
         throw new Error('No redirectURI in SnapTrade response');
       }
 
-    } catch (snapTradeError: any) {
-      console.error('SnapTrade URL generation failed:', snapTradeError);
+    } catch (err: any) {
+      console.error("SnapTrade registration error:", err.response?.data || err);
       // On error, return 502 with details
-      return res.status(502).json(snapTradeError.response?.data || { message: snapTradeError.message });
+      return res.status(502).json(err.response?.data || { message: err.message });
     }
 
   } catch (error: any) {
