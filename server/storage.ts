@@ -120,33 +120,23 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
     
     if (user?.userSecret) {
-      try {
-        // Decrypt the userSecret before returning it
-        const decryptedSecret = CredentialEncryption.decrypt(user.userSecret);
-        return { 
-          snaptradeUserId: user.snaptradeUserId, 
-          userSecret: decryptedSecret 
-        };
-      } catch (decryptError) {
-        console.error('Failed to decrypt SnapTrade userSecret, returning raw value:', decryptError);
-        // If decryption fails, assume it's already in plain text (for backwards compatibility)
-        return { 
-          snaptradeUserId: user.snaptradeUserId, 
-          userSecret: user.userSecret 
-        };
-      }
+      // Return userSecret directly from DB (plaintext for debugging)
+      return { 
+        snaptradeUserId: user.snaptradeUserId, 
+        userSecret: user.userSecret 
+      };
     }
     
     return undefined;
   }
 
   async createSnapTradeUser(userId: string, snaptradeUserId: string, userSecret: string): Promise<void> {
-    const encryptedSecret = CredentialEncryption.encrypt(userSecret);
+    // Temporarily store userSecret as plaintext for debugging
     await db
       .update(users)
       .set({
         snaptradeUserId: snaptradeUserId,
-        snaptradeUserSecret: encryptedSecret,
+        snaptradeUserSecret: userSecret, // Store as plaintext
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));
