@@ -279,14 +279,21 @@ export function StockDetailPage() {
       </Card>
 
       {/* Chart */}
-      <Card>
+      <Card className="bg-white dark:bg-gray-900 text-black dark:text-white">
         <CardHeader>
-          <CardTitle>Price Chart</CardTitle>
+          <CardTitle className="text-black dark:text-white">Live Chart - {stockData.symbol}</CardTitle>
+          <CardDescription className="text-gray-600 dark:text-gray-300">
+            Real-time price: ${stockData.price.toFixed(2)} 
+            <span className={`ml-2 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+              ({isPositive ? '+' : ''}{stockData.changePercent.toFixed(2)}%)
+            </span>
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-2">
           <TradingViewChart
-            symbol={stockData.symbol}
-            height={600}
+            symbol={`NASDAQ:${stockData.symbol}`}
+            height={500}
+            theme="dark"
             onBuyClick={() => handleTradeClick("BUY")}
             onSellClick={() => handleTradeClick("SELL")}
           />
