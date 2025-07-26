@@ -1,0 +1,101 @@
+
+> rest-express@1.0.0 dev
+Initializing SnapTrade SDK with clientId: FLINT-AGFQD
+Environment check - CLIENT_ID length: 11
+Environment check - CLIENT_SECRET length: 51
+SnapTrade SDK initialized successfully
+SnapTrade SDK Configuration: {
+  clientId: 'FLINT-AGFQD',
+  consumerKey: 'eJunn…',
+  clientIdLength: 11,
+  consumerKeyLength: 50,
+  serverTime: '2025-07-26T22:18:20.802Z',
+  serverTimestamp: 1753568300
+}
+10:18:21 PM [express] serving on port 5000
+SnapTrade API Status: {
+  version: 151,
+  timestamp: '2025-07-26T22:18:21.116978Z',
+  online: true
+}
+Browserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+10:18:28 PM [express] GET /api/auth/user 304 in 364ms :: {"id":"45137738","email":"scapota@flint-inve…
+10:18:29 PM [express] GET /api/dashboard 304 in 237ms :: {"totalBalance":0,"bankBalance":0,"investmen…
+10:18:29 PM [express] POST /api/log-login 200 in 357ms :: {"success":true}
+10:18:36 PM [express] GET /api/auth/user 304 in 174ms :: {"id":"45137738","email":"scapota@flint-inve…
+10:18:36 PM [express] POST /api/log-login 200 in 175ms :: {"success":true}
+10:18:36 PM [express] GET /api/dashboard 304 in 229ms :: {"totalBalance":0,"bankBalance":0,"investmen…
+SnapTrade Register: Starting for email: scapota@flint-investing.com
+SnapTrade Register: User found with credentials: { hasUserId: false, hasUserSecret: false }
+SnapTrade Register: Calling registerSnapTradeUser with payload: { userId: 'scapota@flint-investing.com' }
+SnapTrade Error: {
+  path: '/api/snaptrade/register',
+  payload: { userId: 'scapota@flint-investing.com' },
+  responseData: undefined,
+  responseHeaders: undefined,
+  status: undefined,
+  message: 'Request failed with status code 400\n' +
+    'RESPONSE HEADERS:\n' +
+    '{\n' +
+    '  "date": "Sat, 26 Jul 2025 22:18:38 GMT",\n' +
+    '  "content-type": "application/json",\n' +
+    '  "content-length": "120",\n' +
+    '  "connection": "keep-alive",\n' +
+    '  "server": "gunicorn",\n' +
+    '  "allow": "POST, OPTIONS",\n' +
+    '  "x-frame-options": "DENY",\n' +
+    '  "x-request-id": "b480e7b1d227e741903bd7632b5f8535",\n' +
+    '  "x-ratelimit-limit": "250",\n' +
+    '  "x-ratelimit-remaining": "249",\n' +
+    '  "vary": "origin",\n' +
+    '  "strict-transport-security": "max-age=31536000; includeSubDomains; preload",\n' +
+    '  "x-content-type-options": "nosniff",\n' +
+    '  "referrer-policy": "same-origin",\n' +
+    '  "cross-origin-opener-policy": "same-origin"\n' +
+    '}',
+  stack: [
+    'SnaptradeError: Request failed with status code 400',
+    'RESPONSE HEADERS:',
+    '{'
+  ]
+}
+10:18:38 PM [express] POST /api/snaptrade/register 500 in 501ms :: {"message":"Request failed with st…
+10:18:40 PM [express] GET /api/snaptrade/status 200 in 248ms :: {"version":151,"timestamp":"2025-07-2…
+SnapTrade Register: Starting for email: scapota@flint-investing.com
+SnapTrade Register: User found with credentials: { hasUserId: false, hasUserSecret: false }
+SnapTrade Register: Calling registerSnapTradeUser with payload: { userId: 'scapota@flint-investing.com' }
+SnapTrade Error: {
+  path: '/api/snaptrade/register',
+  payload: { userId: 'scapota@flint-investing.com' },
+  responseData: undefined,
+  responseHeaders: undefined,
+  status: undefined,
+  message: 'Request failed with status code 400\n' +
+    'RESPONSE HEADERS:\n' +
+    '{\n' +
+    '  "date": "Sat, 26 Jul 2025 22:18:41 GMT",\n' +
+    '  "content-type": "application/json",\n' +
+    '  "content-length": "120",\n' +
+    '  "connection": "keep-alive",\n' +
+    '  "server": "gunicorn",\n' +
+    '  "allow": "POST, OPTIONS",\n' +
+    '  "x-frame-options": "DENY",\n' +
+    '  "x-request-id": "dd6fac51aadb6f4f89e2fbda3c9fd9fc",\n' +
+    '  "x-ratelimit-limit": "250",\n' +
+    '  "x-ratelimit-remaining": "248",\n' +
+    '  "vary": "origin",\n' +
+    '  "strict-transport-security": "max-age=31536000; includeSubDomains; preload",\n' +
+    '  "x-content-type-options": "nosniff",\n' +
+    '  "referrer-policy": "same-origin",\n' +
+    '  "cross-origin-opener-policy": "same-origin"\n' +
+    '}',
+  stack: [
+    'SnaptradeError: Request failed with status code 400',
+    'RESPONSE HEADERS:',
+    '{'
+  ]
+}
+10:18:41 PM [express] POST /api/snaptrade/register 500 in 308ms :: {"message":"Request failed with st…
+10:18:42 PM [express] GET /api/snaptrade/accounts 401 in 176ms :: {"error":"Please connect your broke…
