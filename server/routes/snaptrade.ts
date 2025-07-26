@@ -36,7 +36,7 @@ async function saveSnaptradeCredentials(
 const router = Router();
 
 // Single POST /api/snaptrade/register (protected by isAuthenticated)
-router.post("/register", isAuthenticated, async (req: any, res) => {
+router.post("/register", isAuthenticated, async (req: any, res, next) => {
   try {
     const email = req.user.claims.email?.toLowerCase();
     if (!email) {
@@ -92,10 +92,8 @@ router.post("/register", isAuthenticated, async (req: any, res) => {
     return res.json({ url: (portal as any).redirectURI });
     
   } catch (err: any) {
-    // Forward err.response?.status and err.response?.data directly
-    const status = err.response?.status || 500;
-    const body = err.response?.data || { message: err.message };
-    return res.status(status).json(body);
+    // Pass error to Express error handler middleware
+    return next(err);
   }
 });
 
@@ -242,6 +240,14 @@ router.get("/search", isAuthenticated, async (req: any, res) => {
     console.error("Search error:", error);
     res.status(500).json({ error: "Search failed", details: error.message });
   }
+});
+
+// Add Express error handler middleware at the bottom of the file:
+router.use((err: any, req: any, res: any, next: any) => {
+  console.error("🔴 SnapTrade raw error:", err.response?.data);
+  const status = err.response?.status || 500;
+  const body   = err.response?.data   || { message: err.message };
+  res.status(status).json(body);
 });
 
 export default router;
