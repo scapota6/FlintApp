@@ -9,7 +9,7 @@ import QuickTransfer from "@/components/dashboard/quick-transfer";
 import ActivityFeed from "@/components/dashboard/activity-feed";
 import SimpleConnectButtons from "@/components/dashboard/simple-connect-buttons";
 import AccountDetailModal from "@/components/dashboard/account-detail-modal";
-import SearchBar from "@/components/ui/search-bar";
+import SmartSearchBar from "@/components/search/SmartSearchBar";
 import { FinancialAPI } from "@/lib/financial-api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -115,16 +115,17 @@ export default function Dashboard() {
         {/* Dashboard Header */}
         <div className="mb-8">
           <h2 className="text-2xl sm:text-3xl font-semibold mb-2">
-            Good morning, {user?.firstName || 'User'}
+            Good morning, User
           </h2>
           <p className="text-gray-400 text-sm">Here's your financial overview</p>
         </div>
 
         {/* Universal Search Bar */}
         <div className="mb-8">
-          <SearchBar 
-            onAddToWatchlist={handleAddToWatchlist}
-            onTrade={handleTradeSymbol}
+          <SmartSearchBar 
+            connectedBrokerages={['robinhood', 'fidelity']} // Mock connected accounts
+            showCompatibilityFilter={true}
+            placeholder="Search stocks, crypto, ETFs..."
             className="max-w-2xl mx-auto"
           />
         </div>

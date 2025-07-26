@@ -20,6 +20,9 @@ import {
 } from 'lucide-react';
 import MobileNav from '@/components/layout/mobile-nav';
 import TradeModal from '@/components/modals/trade-modal';
+import TradingViewChart from '@/components/charts/TradingViewChart';
+import SmartBuyButton from '@/components/trading/SmartBuyButton';
+import { BrokerageCompatibilityEngine, type Asset } from '@shared/brokerage-compatibility';
 import { Link } from 'wouter';
 
 interface StockData {
@@ -184,14 +187,16 @@ export default function StockDetail() {
                 </Badge>
               </div>
               
-              {/* Simple Chart Placeholder */}
-              <div className="bg-gray-800 rounded-lg p-4 h-48 flex items-center justify-center">
-                <div className="text-center">
-                  <BarChart3 className="h-12 w-12 mx-auto mb-2 text-gray-600" />
-                  <p className="text-gray-400">Chart placeholder</p>
-                  <p className="text-sm text-gray-500">Real charts coming soon</p>
-                </div>
-              </div>
+              {/* TradingView Chart */}
+              <TradingViewChart 
+                symbol={BrokerageCompatibilityEngine.getTradingViewSymbol({
+                  symbol: symbol || '',
+                  name: stockData.name,
+                  type: 'stock'
+                })}
+                height={400}
+                className="rounded-lg overflow-hidden"
+              />
             </CardContent>
           </Card>
 

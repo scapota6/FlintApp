@@ -97,7 +97,7 @@ export const watchlist = pgTable("watchlist", {
 export const trades = pgTable("trades", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").references(() => users.id).notNull(),
-  accountId: integer("account_id").references(() => connectedAccounts.id).notNull(),
+  accountId: varchar("account_id").notNull(),
   symbol: varchar("symbol").notNull(),
   assetType: varchar("asset_type").notNull(),
   side: varchar("side").notNull(), // buy, sell
@@ -114,8 +114,8 @@ export const trades = pgTable("trades", {
 export const transfers = pgTable("transfers", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").references(() => users.id).notNull(),
-  fromAccountId: integer("from_account_id").references(() => connectedAccounts.id).notNull(),
-  toAccountId: integer("to_account_id").references(() => connectedAccounts.id).notNull(),
+  fromAccountId: varchar("from_account_id").notNull(),
+  toAccountId: varchar("to_account_id").notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   currency: varchar("currency").default("USD"),
   status: varchar("status").notNull(), // pending, completed, failed
