@@ -34,3 +34,33 @@
 - ✅ Added News Aggregation page with filtering and categorization
 - ✅ Updated navigation to include new pages
 - ✅ Added backend endpoints for profile updates and news data
+- ✅ Reverted Teller.io to simple popup connection method to avoid complex token exchange issues
+- ✅ Added comprehensive Function Testing & Debugging system in Admin panel
+- ✅ Enhanced all connection functions with detailed console logging for debugging
+
+## Function Testing System:
+Created a comprehensive debugging interface accessible via Admin > Debug Functions tab that tests:
+
+### Authentication & User Management:
+1. **Dashboard Data** - Tests main dashboard data fetch
+2. **User Authentication** - Verifies user auth status and data
+3. **Profile Update** - Tests user profile management functionality
+
+### Trading & Brokerage Integration:
+4. **SnapTrade Registration** - Tests SnapTrade user registration process  
+5. **SnapTrade Connect URL** - Tests brokerage connection URL generation
+6. **Symbol Search** - Tests stock/crypto symbol search functionality
+7. **Trade Execution** - Tests simulated trade execution
+8. **Transfer Execution** - Tests money transfer between accounts
+9. **Watchlist Management** - Tests adding/removing symbols from watchlist
+
+### System Features:
+10. **Activity Log** - Tests user activity logging system
+11. **News Feed** - Tests news data aggregation and filtering
+
+Each test includes:
+- Real-time status indicators (running/success/error)
+- Detailed console logging with emoji indicators
+- Error messages and response data display
+- Timestamps for tracking test execution
+- Individual and batch testing capabilities

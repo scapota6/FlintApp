@@ -39,80 +39,55 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
   const hasBankAccount = accounts.some(acc => acc.accountType === 'bank');
   const hasBrokerageAccount = accounts.some(acc => acc.accountType === 'brokerage' || acc.accountType === 'crypto');
 
-  // Teller Connect mutation
+  // Simplified Teller Connect mutation - direct URL approach
   const tellerConnectMutation = useMutation({
     mutationFn: async () => {
-      // Open Teller Connect directly without storyteller
-      const { applicationId } = await TellerAPI.initiateTellerConnect();
-      
-      return new Promise((resolve, reject) => {
-        // @ts-ignore - TellerConnect is loaded via CDN
-        if (typeof TellerConnect === 'undefined') {
-          reject(new Error('Teller Connect SDK not loaded'));
-          return;
-        }
-        
-        const tellerConnect = TellerConnect.setup({
-          applicationId,
-          environment: 'sandbox',
-          onSuccess: (enrollment: any) => {
-            resolve(enrollment);
-          },
-          onExit: () => {
-            reject(new Error('User cancelled connection'));
-          }
-        });
-        
-        tellerConnect.open();
-      });
+      console.log('🏦 Teller Connect: Initiating bank connection');
+      const connectUrl = 'https://app.teller.io/connect/qxwJ6E9JJEeFNgmH';
+      window.open(connectUrl, '_blank', 'width=500,height=600');
+      return { success: true };
     },
-    onSuccess: async (enrollment: any) => {
-      try {
-        await TellerAPI.exchangeToken(enrollment.accessToken);
-        toast({
-          title: "Bank Account Connected",
-          description: "Your bank account has been successfully connected!",
-        });
-        queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
-      } catch (error) {
-        toast({
-          title: "Connection Error",
-          description: "Failed to complete bank account connection.",
-          variant: "destructive",
-        });
-      }
+    onSuccess: () => {
+      console.log('🏦 Teller Connect: Success callback triggered');
+      toast({
+        title: "Bank Connection Initiated",
+        description: "Complete the connection in the new window, then refresh this page.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
     },
     onError: (error: any) => {
-      if (error.message !== 'User cancelled connection') {
-        toast({
-          title: "Connection Failed",
-          description: error.message || "Unable to connect bank account.",
-          variant: "destructive",
-        });
-      }
+      console.error('🏦 Teller Connect Error:', error);
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Unable to connect bank account.",
+        variant: "destructive",
+      });
     },
   });
 
-  // SnapTrade Connect mutation
+  // SnapTrade Connect mutation with debugging
   const snapTradeConnectMutation = useMutation({
     mutationFn: async () => {
-      const { url } = await SnapTradeAPI.getConnectionUrl();
-      
-      // Redirect to SnapTrade OAuth in same window
-      window.location.href = url;
-      
-      return new Promise((resolve) => {
-        // This will resolve when user returns to dashboard
-        resolve(true);
-      });
+      console.log('📈 SnapTrade Connect: Starting brokerage connection');
+      try {
+        const { url } = await SnapTradeAPI.getConnectionUrl();
+        console.log('📈 SnapTrade Connect: Got connection URL:', url.substring(0, 50) + '...');
+        window.location.href = url;
+        return { success: true };
+      } catch (error) {
+        console.error('📈 SnapTrade Connect Error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
+      console.log('📈 SnapTrade Connect: Success callback triggered');
       toast({
         title: "Brokerage Account Connected",
         description: "Your brokerage account has been successfully connected!",
       });
     },
     onError: (error: any) => {
+      console.error('📈 SnapTrade Connect Error:', error);
       toast({
         title: "Connection Failed",
         description: error.message || "Unable to connect brokerage account.",

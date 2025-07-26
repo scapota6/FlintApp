@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Trash2, Users, DollarSign, Database, RefreshCw } from 'lucide-react';
+import { Trash2, Users, DollarSign, Database, RefreshCw, Bug } from 'lucide-react';
+import FunctionTester from '@/components/debug/function-tester';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -25,6 +26,7 @@ interface SnapTradeUser {
 export default function AdminPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
 
   const { data: users, isLoading: usersLoading, refetch: refetchUsers } = useQuery({
     queryKey: ['/api/admin/users'],
@@ -104,16 +106,33 @@ export default function AdminPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
           <div className="flex gap-2">
+            <Button 
+              variant={activeTab === 'overview' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('overview')}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Database className="h-4 w-4 mr-2" />
+              Overview
+            </Button>
+            <Button 
+              variant={activeTab === 'debug' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('debug')}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Bug className="h-4 w-4 mr-2" />
+              Debug Functions
+            </Button>
             <Button onClick={() => refetchUsers()} variant="outline">
               <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh Users
-            </Button>
-            <Button onClick={() => refetchSnapTrade()} variant="outline">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh SnapTrade
+              Refresh
             </Button>
           </div>
         </div>
+
+        {activeTab === 'debug' && <FunctionTester />}
+        
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -247,6 +266,8 @@ export default function AdminPage() {
             )}
           </CardContent>
         </Card>
+          </div>
+        )}
       </div>
     </div>
   );
