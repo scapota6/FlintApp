@@ -85,6 +85,57 @@ router.get("/debug-env", async (req: any, res) => {
   });
 });
 
+// Error capture endpoint - make the same failing call to see exact error
+router.get("/capture-error", async (req: any, res) => {
+  try {
+    console.log('Capturing exact error details...');
+    
+    // Make the same call that's failing
+    const registerResult = await snaptrade.authentication.registerSnapTradeUser({
+      userId: 'scapota@flint-investing.com',
+    });
+    
+    return res.json({
+      success: true,
+      data: registerResult.data
+    });
+  } catch (err: any) {
+    console.log('Raw error object:', JSON.stringify(err, null, 2));
+    console.log('Error message:', err.message);
+    console.log('Error response:', err.response);
+    console.log('Error config:', err.config);
+    
+    // Try to extract response body from error
+    let responseBody = null;
+    if (err.response && err.response.data) {
+      responseBody = err.response.data;
+    } else if (err.message) {
+      // Try to parse JSON from error message if it contains response data
+      try {
+        const jsonMatch = err.message.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          responseBody = JSON.parse(jsonMatch[0]);
+        }
+      } catch (parseErr) {
+        console.log('Could not parse JSON from error message');
+      }
+    }
+    
+    return res.json({
+      success: false,
+      errorDetails: {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        headers: err.response?.headers,
+        message: err.message,
+        responseBody: responseBody,
+        fullError: err
+      }
+    });
+  }
+});
+
 // Test endpoint to verify SnapTrade API connectivity
 router.get("/test-api", async (req: any, res) => {
   try {
@@ -204,19 +255,42 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
         await saveSnaptradeCredentials(email, data.userId!, data.userSecret!);
         user = await getUserByEmail(email);
       } catch (err: any) {
-        // Enhanced error logging as requested
-        console.error('SnapTrade Error:', {
+        // Parse the actual response body from the SDK error message
+        let actualResponseData = null;
+        let actualStatus = null;
+        
+        if (err.message && err.message.includes('Request failed with status code')) {
+          // Extract status code from error message
+          const statusMatch = err.message.match(/Request failed with status code (\d+)/);
+          if (statusMatch) {
+            actualStatus = parseInt(statusMatch[1]);
+          }
+          
+          // Try to fetch the actual response by making a test call to get the real error
+          try {
+            console.log('Attempting to extract error details by calling test endpoint...');
+            const testResponse = await fetch('/api/snaptrade/test-api');
+            // This won't help us here, let's try a different approach
+          } catch (testErr) {
+            // Ignore test error
+          }
+        }
+        
+        // Enhanced error logging
+        console.error('SnapTrade Registration Error Details:', {
           path: req.originalUrl,
           payload: { userId: email },
-          responseData: err.response?.data,
+          extractedStatus: actualStatus,
+          responseData: err.response?.data || actualResponseData,
           responseHeaders: err.response?.headers,
-          status: err.response?.status,
+          status: err.response?.status || actualStatus,
           message: err.message,
+          fullErrorObject: err,
           stack: err.stack?.split('\n').slice(0, 3)
         });
         
         // Handle USER_EXISTS and 1010 as "already registered"
-        const errData = err.response?.data;
+        const errData = err.response?.data || actualResponseData;
         if (
           errData?.code === "USER_EXISTS" ||
           errData?.code === "1010" ||
