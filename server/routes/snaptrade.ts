@@ -23,31 +23,67 @@ if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CONSUMER_KEY) {
   console.log('SnapTrade environment variables missing - SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY required');
 }
 
-// SnapTrade user registration - no try/catch
+// SnapTrade user registration with proper error handling
 router.post("/register", isAuthenticated, async (req: any, res, next) => {
-  const email = req.user.claims.email?.toLowerCase();
-  const flintUserId = req.user.claims.sub;
-  
-  if (!email) {
-    return res.status(400).json({ error: "User email required" });
+  try {
+    const email = req.user.claims.email?.toLowerCase();
+    const flintUserId = req.user.claims.sub;
+    
+    if (!email) {
+      return res.status(400).json({ error: "User email required" });
+    }
+
+    // Check if already registered
+    const existingUser = await storage.getSnapTradeUser(flintUserId);
+    if (existingUser && existingUser.snaptradeUserId && existingUser.userSecret) {
+      return res.json({ registered: true, userId: existingUser.snaptradeUserId });
+    }
+
+    // SnapTrade call with error handling
+    const { data } = await snapTradeClient!.authentication.registerSnapTradeUser({
+      userId: email
+    });
+
+    // Save plaintext secret
+    await storage.createSnapTradeUser(flintUserId, data.userId!, data.userSecret!);
+
+    // Return success
+    return res.json({ registered: true, userId: data.userId });
+  } catch (error: any) {
+    console.error("SnapTrade registration error:", error);
+    
+    // Handle the case where user already exists
+    if (error.responseBody && error.responseBody.detail && error.responseBody.detail.includes("already exist")) {
+      console.log("User already exists in SnapTrade, fetching existing user...");
+      
+      try {
+        // Try to find existing user in our storage first
+        const flintUserId = req.user.claims.sub;
+        const existingUser = await storage.getSnapTradeUser(flintUserId);
+        
+        if (existingUser && existingUser.snaptradeUserId) {
+          return res.json({ registered: true, userId: existingUser.snaptradeUserId });
+        }
+        
+        // If not in our storage, return error asking to use fresh account
+        return res.status(409).json({ 
+          error: "User already registered", 
+          message: "This email is already registered with SnapTrade. Please use the 'Fresh Account' option to create a new account.",
+          code: "USER_EXISTS"
+        });
+      } catch (storageError) {
+        console.error("Error checking existing user:", storageError);
+        return res.status(500).json({ error: "Failed to check existing registration" });
+      }
+    }
+    
+    // Handle other errors
+    return res.status(500).json({ 
+      error: "Registration failed", 
+      message: error.message || "Unknown error occurred",
+      details: error.responseBody || error
+    });
   }
-
-  // Check if already registered
-  const existingUser = await storage.getSnapTradeUser(flintUserId);
-  if (existingUser && existingUser.snaptradeUserId && existingUser.userSecret) {
-    return res.json({ registered: true, userId: existingUser.snaptradeUserId });
-  }
-
-  // SnapTrade call—no try/catch here
-  const { data } = await snapTradeClient!.authentication.registerSnapTradeUser({
-    userId: email
-  });
-
-  // Save plaintext secret
-  await storage.createSnapTradeUser(flintUserId, data.userId!, data.userSecret!);
-
-  // Return success
-  return res.json({ registered: true, userId: data.userId });
 });
 
 // SnapTrade connection URL generator
@@ -73,12 +109,24 @@ router.get("/connect-url", isAuthenticated, async (req: any, res) => {
     let snapTradeUser = await storage.getSnapTradeUser(flintUserId);
     
     if (!snapTradeUser?.snaptradeUserId) {
-      // Register user first
-      const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
-        userId: email
-      });
-      await storage.createSnapTradeUser(flintUserId, data.userId!, data.userSecret!);
-      snapTradeUser = { snaptradeUserId: data.userId!, userSecret: data.userSecret! };
+      // Register user first with error handling
+      try {
+        const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
+          userId: email
+        });
+        await storage.createSnapTradeUser(flintUserId, data.userId!, data.userSecret!);
+        snapTradeUser = { snaptradeUserId: data.userId!, userSecret: data.userSecret! };
+      } catch (regError: any) {
+        // Handle case where user already exists
+        if (regError.responseBody && regError.responseBody.detail && regError.responseBody.detail.includes("already exist")) {
+          return res.status(409).json({
+            error: "User already registered",
+            message: "This email is already registered with SnapTrade. Please contact support to link your existing account.",
+            code: "USER_EXISTS"
+          });
+        }
+        throw regError; // Re-throw other errors to be caught by outer try-catch
+      }
     }
 
     // Minimal SDK call—no redirect params

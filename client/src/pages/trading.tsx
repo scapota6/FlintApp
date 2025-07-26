@@ -29,11 +29,14 @@ export default function Trading() {
     refetchInterval: 30000,
   });
 
-  const { data: trades, isLoading: tradesLoading } = useQuery({
+  const { data: tradesResponse, isLoading: tradesLoading } = useQuery({
     queryKey: ["/api/trades"],
     queryFn: FinancialAPI.getTrades,
     refetchInterval: 10000,
   });
+
+  // Safely extract trades array from response
+  const trades = Array.isArray(tradesResponse?.trades) ? tradesResponse.trades : [];
 
   // Handle unauthorized errors
   useEffect(() => {
@@ -246,7 +249,7 @@ export default function Trading() {
                 <TabsTrigger value="filled">Filled</TabsTrigger>
               </TabsList>
               <TabsContent value="all" className="space-y-3 mt-4">
-                {(Array.isArray(trades) ? trades : []).slice(0, 10).map((trade: any, index: number) => (
+                {trades.slice(0, 10).map((trade: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <Badge variant={trade.side === 'buy' ? 'default' : 'destructive'}>
@@ -267,7 +270,7 @@ export default function Trading() {
                 )}
               </TabsContent>
               <TabsContent value="pending" className="space-y-3 mt-4">
-                {(Array.isArray(trades) ? trades : []).filter((trade: any) => trade.status === 'pending').map((trade: any, index: number) => (
+                {trades.filter((trade: any) => trade.status === 'pending').map((trade: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <Badge variant="outline">{trade.side.toUpperCase()}</Badge>
@@ -286,7 +289,7 @@ export default function Trading() {
                 )}
               </TabsContent>
               <TabsContent value="filled" className="space-y-3 mt-4">
-                {(Array.isArray(trades) ? trades : []).filter((trade: any) => trade.status === 'filled').map((trade: any, index: number) => (
+                {trades.filter((trade: any) => trade.status === 'filled').map((trade: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <Badge variant={trade.side === 'buy' ? 'default' : 'destructive'}>
