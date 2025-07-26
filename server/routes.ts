@@ -564,12 +564,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "SnapTrade not configured." });
       }
       
-      // Check if user is registered, if not register them automatically
+      // Check if user credentials exist and are valid format
       let snapTradeUser = await storage.getSnapTradeUser(flintUserId);
-      if (!snapTradeUser) {
-        console.log('SnapTrade user not found, registering automatically...');
+      
+      // Delete old credentials and re-register if they're from the manual API era
+      if (snapTradeUser && snapTradeUser.userSecret.startsWith('secret_')) {
+        console.log('Found old SnapTrade credentials, deleting and re-registering...');
         
-        // Auto-register the user
+        // Delete old SnapTrade user
+        try {
+          await snapTradeClient.authentication.deleteSnapTradeUser({
+            userId: snapTradeUser.snaptradeUserId
+          });
+        } catch (deleteError) {
+          console.log('Old SnapTrade user deletion failed (may not exist):', deleteError);
+        }
+        
+        // Remove from database
+        await storage.deleteSnapTradeUser(flintUserId);
+        snapTradeUser = null;
+      }
+      
+      if (!snapTradeUser) {
+        console.log('SnapTrade user not found, registering with official SDK...');
+        
+        // Create unique userId for SnapTrade
         const snapTradeUserId = `flint_user_${flintUserId}_${Date.now()}`;
         
         const registrationResponse = await snapTradeClient.authentication.registerSnapTradeUser({
@@ -577,6 +596,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         const registrationData = registrationResponse.data;
+        console.log('SnapTrade registration successful:', {
+          userId: registrationData.userId,
+          hasSecret: !!registrationData.userSecret
+        });
         
         // Store SnapTrade credentials in database
         await storage.createSnapTradeUser(
@@ -592,7 +615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           createdAt: new Date()
         };
         
-        console.log('SnapTrade user auto-registered:', registrationData.userId);
+        console.log('SnapTrade user registered with SDK:', registrationData.userId);
       }
       
       // Create redirect URI for post-connection
