@@ -5,6 +5,7 @@ import { db } from "../db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { Snaptrade } from "snaptrade-typescript-sdk";
+import { v4 as uuidv4 } from 'uuid';
 
 // Initialize SnapTrade client
 const snaptrade = new Snaptrade({
@@ -61,30 +62,33 @@ router.post("/", isAuthenticated, async (req: any, res) => {
     // Get user credentials
     const credentials = await getUserSnapTradeCredentials(email);
 
-    // Place order via SnapTrade
+    // Place order via SnapTrade using placeForceOrder - no tradeId needed
     const orderPayload = {
       userId: credentials.userId,
       userSecret: credentials.userSecret,
-      accountId,
-      orderRequest: {
-        symbol,
-        action: action.toLowerCase(),
-        quantity: Number(quantity),
-        order_type: orderType,
-        ...(orderType === 'LIMIT' && { price: Number(price) })
-      }
+      account_id: accountId, // SnapTrade expects account_id
+      action: action.toUpperCase(), // BUY or SELL
+      symbol: symbol.toUpperCase(),
+      order_type: orderType === 'MARKET' ? 'Market' : 'Limit', // Capitalize first letter
+      time_in_force: 'Day', // Default time in force
+      units: Number(quantity), // SnapTrade uses 'units' for quantity
+      ...(orderType === 'LIMIT' && price && { price: Number(price) })
     };
 
-    console.log('Placing order:', orderPayload);
+    console.log('Placing order:', {
+      userId: credentials.userId,
+      userSecret: '***',
+      ...orderPayload
+    });
 
-    const { data: orderResult } = await snaptrade.trading.placeOrder(orderPayload);
+    const { data: orderResult } = await snaptrade.trading.placeForceOrder(orderPayload);
 
     console.log('Order placed successfully:', orderResult);
 
     res.json({
       success: true,
       order: orderResult,
-      message: "Order placed successfully"
+      message: `Order placed successfully for ${quantity} shares of ${symbol}`
     });
 
   } catch (err: any) {
@@ -117,13 +121,20 @@ router.get("/", isAuthenticated, async (req: any, res) => {
     const { accountId } = req.query;
     const credentials = await getUserSnapTradeCredentials(email);
 
+    if (!accountId) {
+      return res.status(400).json({ error: "accountId is required" });
+    }
+
+    // Get order history using getAccountActivities
     const ordersPayload = {
       userId: credentials.userId,
       userSecret: credentials.userSecret,
-      ...(accountId && { accountId: accountId as string })
+      accountId: accountId as string,
+      type: "BUY,SELL,OPTION_BUY,OPTION_SELL", // Filter for order types
+      limit: 100 // Limit to last 100 orders
     };
 
-    const { data: orders } = await snaptrade.trading.getUserOrders(ordersPayload);
+    const { data: orders } = await snaptrade.accountInformation.getAccountActivities(ordersPayload);
 
     res.json(orders);
 
