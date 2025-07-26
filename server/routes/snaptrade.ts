@@ -37,61 +37,62 @@ const router = Router();
 
 // Single POST /api/snaptrade/register (protected by isAuthenticated)
 router.post("/register", isAuthenticated, async (req: any, res) => {
-  // Check DB for existing snaptradeUserId & userSecret
-  const email = req.user.claims.email?.toLowerCase();
-  if (!email) {
-    return res.status(400).json({
-      error: "User email required",
-      details: "Authenticated user email is missing",
-    });
-  }
-
-  let user = await getUserByEmail(email);
-  if (!user) {
-    return res.status(404).json({ error: "User not found" });
-  }
-
-  // If missing, call registerSnapTradeUser
-  if (!user.snaptradeUserId || !user.snaptradeUserSecret) {
-    try {
-      const { data } = await snaptrade.authentication.registerSnapTradeUser({
-        userId: email,
+  try {
+    const email = req.user.claims.email?.toLowerCase();
+    if (!email) {
+      return res.status(400).json({
+        error: "User email required",
+        details: "Authenticated user email is missing",
       });
-      await saveSnaptradeCredentials(email, data.userId, data.userSecret);
-      user = await getUserByEmail(email);
-    } catch (err: any) {
-      // Handle USER_EXISTS and 1010 errors by loading existing record
-      const errData = err.response?.data;
-      if (
-        errData?.code === "USER_EXISTS" ||
-        errData?.code === "1010" ||
-        /already exist/i.test(errData?.detail || errData?.message || "")
-      ) {
+    }
+
+    let user = await getUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // If missing credentials, register with SnapTrade
+    if (!user.snaptradeUserId || !user.snaptradeUserSecret) {
+      try {
+        const { data } = await snaptrade.authentication.registerSnapTradeUser({
+          userId: email,
+        });
+        await saveSnaptradeCredentials(email, data.userId!, data.userSecret!);
         user = await getUserByEmail(email);
-        if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
-          return res.status(409).json({
-            error: "User already registered",
-            details: "User exists in SnapTrade but credentials not found in database"
-          });
+      } catch (err: any) {
+        // Handle USER_EXISTS and 1010 as "already registered"
+        const errData = err.response?.data;
+        if (
+          errData?.code === "USER_EXISTS" ||
+          errData?.code === "1010" ||
+          /already exist/i.test(errData?.detail || errData?.message || "")
+        ) {
+          user = await getUserByEmail(email);
+          if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
+            return res.status(409).json({
+              error: "User already registered",
+              details: "User exists in SnapTrade but credentials not found in database"
+            });
+          }
+        } else {
+          // Forward err.response?.status and err.response?.data directly
+          const status = err.response?.status || 500;
+          const body = err.response?.data || { message: err.message };
+          return res.status(status).json(body);
         }
-      } else {
-        // Return raw SnapTrade errors in catch
-        const status = err.response?.status || 500;
-        const body = err.response?.data || { message: err.message };
-        return res.status(status).json(body);
       }
     }
-  }
 
-  // Generate Connection Portal URL
-  try {
+    // Generate connection URL using stored credentials
     const { data: portal } = await snaptrade.authentication.loginSnapTradeUser({
       userId: user.snaptradeUserId!,
       userSecret: user.snaptradeUserSecret!,
     });
+    
     return res.json({ url: (portal as any).redirectURI });
+    
   } catch (err: any) {
-    // Return raw SnapTrade errors in catch
+    // Forward err.response?.status and err.response?.data directly
     const status = err.response?.status || 500;
     const body = err.response?.data || { message: err.message };
     return res.status(status).json(body);
