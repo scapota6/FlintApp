@@ -1,0 +1,56 @@
+We need to replace our static/hard-coded stock price with a live quote from SnapTrade (or another market data API) and switch our TradingView embed to dark mode.
+
+1) **New quote endpoint**  
+   - In `server/routes/snaptrade.ts`, add:
+     ```ts
+     // GET /api/snaptrade/quote?symbol=AAPL
+     router.get('/quote', isAuthenticated, async (req, res, next) => {
+       try {
+         const sym = (req.query.symbol as string).toUpperCase();
+         // Use SnapTrade referenceData to fetch a real-time quote
+         const { data } = await snapTradeClient.referenceData.getRealTimeQuote({
+           symbol: sym
+         });
+         // Return { symbol: string; price: number; timestamp: string }
+         res.json({ symbol: sym, price: data.lastPrice, timestamp: data.timestamp });
+       } catch (err) {
+         next(err);
+       }
+     });
+     ```
+   - Ensure your SDK import supports `.referenceData.getRealTimeQuote` (or use `listInstruments` / `getQuote` per docs).
+
+2) **Wire up front-end**  
+   - In your stock detail component (e.g. `StockDetail.tsx`), replace any static price with a fetch to `/api/snaptrade/quote?symbol=${symbol}` on mount, store in state, and render that.  
+   - Fall back to “—” while loading.
+
+3) **TradingView dark mode**  
+   - When you initialize the TradingView widget, pass `theme: "dark"` and matching dark CSS class. For example:
+     ```js
+     new TradingView.widget({
+       symbol: "NASDAQ:AAPL",
+       interval: "D",
+       container_id: "tv_chart",
+       theme: "dark",
+       style: "1",
+       toolbar_bg: "#2b2b43",
+       withdateranges: true,
+       hide_side_toolbar: false,
+       allow_symbol_change: true,
+       details: true,
+       studies: ["MACD@tv-basicstudies"],
+       locale: "en"
+     });
+     ```
+   - Update your embed script to include those properties and test.
+
+4) **Verify**  
+   - Deploy, open `/stock/AAPL`, confirm the price under “Current Price” matches your quote endpoint and the TradingView chart is in dark mode.  
+   - Make sure the quote endpoint returns the same lastPrice that TradingView’s data panel shows (e.g. $213.88), not your old $173.
+
+Commit with messages like:  
+- `feat(snaptrade): add real-time quote endpoint`  
+- `feat(ui): fetch live quote in StockDetail`  
+- `feat(chart): enable dark theme on TradingView widget`
+
+That will align your site’s prices with TradingView and give you a true dark-mode chart.

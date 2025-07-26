@@ -11,6 +11,7 @@ import { TradeModal } from "@/components/modals/trade-modal";
 import { SnapTradeAPI } from "@/lib/snaptrade-api";
 import { apiRequest } from "@/lib/queryClient";
 import { QuoteAPI, useRealTimeQuote } from "@/lib/quote-api";
+import { LiveQuoteAPI, useLiveQuote } from "@/lib/live-quote-api";
 
 interface StockData {
   symbol: string;
@@ -35,8 +36,8 @@ export function StockDetailPage() {
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
 
-  // Use real-time quotes with 10-second updates
-  const { quote: realTimeQuote, loading: quoteLoading, error: quoteError } = useRealTimeQuote(symbol || '', 10000);
+  // Use live quotes from SnapTrade with 10-second updates
+  const { quote: liveQuote, loading: quoteLoading, error: quoteError } = useLiveQuote(symbol || '', 10000);
 
   useEffect(() => {
     if (symbol) {
@@ -45,21 +46,21 @@ export function StockDetailPage() {
     }
   }, [symbol]);
 
-  // Update stock data when real-time quote changes
+  // Update stock data when live quote changes
   useEffect(() => {
-    if (realTimeQuote && !quoteError) {
-      setStockData({
-        symbol: realTimeQuote.symbol,
-        name: realTimeQuote.name,
-        price: realTimeQuote.price,
-        change: realTimeQuote.change,
-        changePercent: realTimeQuote.changePercent,
-        volume: realTimeQuote.volume,
-        marketCap: realTimeQuote.marketCap
-      });
+    if (liveQuote && !quoteError) {
+      setStockData(prevData => ({
+        symbol: liveQuote.symbol,
+        name: prevData?.name || `${liveQuote.symbol} Inc.`,
+        price: liveQuote.price,
+        change: 0, // SnapTrade doesn't provide change in quotes
+        changePercent: 0, // SnapTrade doesn't provide change percent
+        volume: prevData?.volume || 0,
+        marketCap: prevData?.marketCap
+      }));
       setIsLoading(false);
     }
-  }, [realTimeQuote, quoteError]);
+  }, [liveQuote, quoteError]);
 
   const loadStockData = async () => {
     if (!symbol) return;
@@ -77,11 +78,11 @@ export function StockDetailPage() {
 
       if (stockResult) {
         setStockData({
-          symbol: typeof stockResult.symbol === 'string' ? stockResult.symbol : stockResult.symbol?.symbol || symbol.toUpperCase(),
-          name: stockResult.name || (typeof stockResult.symbol === 'object' ? stockResult.symbol.description : `${symbol.toUpperCase()} Inc.`),
+          symbol: stockResult.symbol,
+          name: stockResult.name,
           price: stockResult.price,
           change: stockResult.change || 0,
-          changePercent: stockResult.changePercent,
+          changePercent: stockResult.changePercent || 0,
           volume: stockResult.volume,
           marketCap: stockResult.marketCap
         });

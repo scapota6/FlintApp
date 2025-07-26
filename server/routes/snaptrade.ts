@@ -524,6 +524,88 @@ router.post("/sync", isAuthenticated, async (req: any, res) => {
   }
 });
 
+// GET /api/snaptrade/quote?symbol=AAPL - Real-time quote endpoint
+router.get("/quote", isAuthenticated, async (req: any, res) => {
+  try {
+    const email = req.user.claims.email?.toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: "User email required" });
+    }
+
+    const symbol = (req.query.symbol as string)?.toUpperCase();
+    if (!symbol) {
+      return res.status(400).json({ error: "Symbol query parameter required" });
+    }
+
+    // Get user from database
+    const user = await getUserByEmail(email);
+    
+    if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
+      return res.status(400).json({ error: "SnapTrade user not registered" });
+    }
+
+    const credentials = {
+      userId: user.snaptradeUserId,
+      userSecret: user.snaptradeUserSecret
+    };
+
+    // Get user's accounts to use for quotes
+    const { data: userAccounts } = await snaptrade.accountInformation.listUserAccounts({
+      userId: credentials.userId,
+      userSecret: credentials.userSecret
+    });
+
+    if (!userAccounts.length) {
+      return res.status(400).json({ 
+        error: "No connected accounts found. Please connect a brokerage account first." 
+      });
+    }
+
+    // Use the first account for quotes
+    const accountId = userAccounts[0].id;
+
+    // Get real-time quote from SnapTrade
+    const { data: quotes } = await snaptrade.trading.getUserAccountQuotes({
+      userId: credentials.userId,
+      userSecret: credentials.userSecret,
+      symbols: symbol,
+      accountId: accountId,
+      useTicker: true
+    });
+
+    if (!quotes.length) {
+      return res.status(404).json({ error: `Quote not found for symbol: ${symbol}` });
+    }
+
+    const quote = quotes[0];
+    const price = quote.last_trade_price || quote.ask_price || quote.bid_price || 0;
+
+    // Return simplified quote format
+    res.json({ 
+      symbol: symbol, 
+      price: price, 
+      timestamp: new Date().toISOString() 
+    });
+
+  } catch (err: any) {
+    console.error('Quote fetch error:', {
+      path: req.originalUrl,
+      symbol: req.query.symbol,
+      responseData: err.response?.data,
+      responseHeaders: err.response?.headers,
+      status: err.response?.status,
+      message: err.message
+    });
+    
+    const status = err.response?.status || 500;
+    const body = err.response?.data || { 
+      message: err.message,
+      error: "Quote fetch failed"
+    };
+    return res.status(status).json(body);
+  }
+});
+
 // Search endpoint (mock data)
 router.get("/search", isAuthenticated, async (req: any, res) => {
   try {

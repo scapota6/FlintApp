@@ -37,21 +37,24 @@ export function TradingViewChart({
       symbol: symbol.toUpperCase(),
       interval: interval,
       timezone: 'Etc/UTC',
-      theme: theme,
+      theme: 'dark',
       style: '1',
       locale: 'en',
+      toolbar_bg: '#2b2b43',
       enable_publishing: false,
       withdateranges: true,
       hide_side_toolbar: false,
-      allow_symbol_change: false,
+      allow_symbol_change: true,
       save_image: false,
       details: true,
       hotlist: true,
       calendar: false,
       studies: [
         'Volume@tv-basicstudies',
-        'MASimple@tv-basicstudies'
+        'MACD@tv-basicstudies'
       ],
+      background_color: '#1e1e1e',
+      gridlines_color: '#2b2b43',
       support_host: 'https://www.tradingview.com'
     });
 
