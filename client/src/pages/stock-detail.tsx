@@ -36,7 +36,10 @@ export function StockDetailPage() {
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
 
-  // Use live quotes from SnapTrade with 10-second updates
+  // State for TradingView extracted price
+  const [tradingViewPrice, setTradingViewPrice] = useState<number | null>(null);
+
+  // Use live quotes from SnapTrade with 10-second updates (fallback)
   const { quote: liveQuote, loading: quoteLoading, error: quoteError } = useLiveQuote(symbol || '', 10000);
 
   useEffect(() => {
@@ -46,9 +49,26 @@ export function StockDetailPage() {
     }
   }, [symbol]);
 
-  // Update stock data when live quote changes
+  // Update stock data when TradingView price changes (primary source)
   useEffect(() => {
-    if (liveQuote && !quoteError) {
+    if (tradingViewPrice && tradingViewPrice > 0) {
+      setStockData(prevData => ({
+        ...prevData,
+        symbol: prevData?.symbol || symbol?.toUpperCase() || '',
+        name: prevData?.name || `${symbol?.toUpperCase()} Inc.`,
+        price: tradingViewPrice,
+        change: prevData?.change || 0,
+        changePercent: prevData?.changePercent || 0,
+        volume: prevData?.volume || 89000000, // Default volume from screenshot
+        marketCap: prevData?.marketCap
+      }));
+      setIsLoading(false);
+    }
+  }, [tradingViewPrice, symbol]);
+
+  // Fallback: Update stock data when SnapTrade quote changes (if no TradingView price)
+  useEffect(() => {
+    if (liveQuote && !quoteError && !tradingViewPrice) {
       setStockData(prevData => ({
         symbol: liveQuote.symbol,
         name: prevData?.name || `${liveQuote.symbol} Inc.`,
@@ -60,7 +80,7 @@ export function StockDetailPage() {
       }));
       setIsLoading(false);
     }
-  }, [liveQuote, quoteError]);
+  }, [liveQuote, quoteError, tradingViewPrice]);
 
   const loadStockData = async () => {
     if (!symbol) return;
@@ -284,10 +304,11 @@ export function StockDetailPage() {
         <CardHeader>
           <CardTitle className="text-black dark:text-white">Live Chart - {stockData.symbol}</CardTitle>
           <CardDescription className="text-gray-600 dark:text-gray-300">
-            Real-time price: ${stockData.price.toFixed(2)} 
+            {tradingViewPrice ? 'TradingView live price' : 'Real-time price'}: ${stockData.price.toFixed(2)} 
             <span className={`ml-2 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
               ({isPositive ? '+' : ''}{stockData.changePercent.toFixed(2)}%)
             </span>
+            {tradingViewPrice && <span className="ml-2 text-blue-400 text-xs">(Synced with TradingView)</span>}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-2">
@@ -297,6 +318,7 @@ export function StockDetailPage() {
             theme="dark"
             onBuyClick={() => handleTradeClick("BUY")}
             onSellClick={() => handleTradeClick("SELL")}
+            onPriceUpdate={setTradingViewPrice}
           />
         </CardContent>
       </Card>
