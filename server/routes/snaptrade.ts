@@ -50,11 +50,9 @@ router.post("/register", async (req, res, next) => {
 
   try {
     // 2) Register new SnapTrade user
-    const { data } = await snapTradeClient.authentication.registerSnapTradeUser(
-      {
-        snapTradeRegisterUserRequestBody: { userId: email },
-      },
-    );
+    const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
+      userId: email,
+    });
 
     // 3) Save the userId & plaintext userSecret
     await saveSnaptradeCredentials(email, data.userId, data.userSecret);
@@ -107,7 +105,8 @@ router.get("/connect-url", isAuthenticated, async (req: any, res) => {
 
     // 4) Generate the connection URL
     const { data } = await snapTradeClient.authentication.loginSnapTradeUser({
-      snapTradeLoginRequestBody: { userId, userSecret },
+      userId,
+      userSecret,
     });
 
     // 5) Return the one-time redirectURI
