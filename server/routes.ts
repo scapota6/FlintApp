@@ -511,6 +511,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SnapTrade debug configuration route  
+  app.get('/api/snaptrade/debug-config', isAuthenticated, async (req: any, res) => {
+    try {
+      // Instantiate SnapTrade SDK with process.env keys
+      const clientId = process.env.SNAPTRADE_CLIENT_ID;
+      const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET;
+      
+      let testClient = null;
+      let initError = null;
+      
+      try {
+        testClient = new Snaptrade({
+          clientId: clientId || '',
+          consumerKey: consumerKey || '',
+        });
+      } catch (error: any) {
+        initError = error.message;
+      }
+      
+      res.json({
+        clientId: clientId || 'missing',
+        consumerKey: consumerKey ? 'loaded' : 'missing',
+        baseUrl: testClient?.basePath || 'unknown',
+        initError: initError,
+        envVarLengths: {
+          clientId: clientId?.length || 0,
+          consumerKey: consumerKey?.length || 0
+        }
+      });
+      
+    } catch (error: any) {
+      res.status(500).json({
+        error: 'Debug config failed',
+        details: error.message
+      });
+    }
+  });
+
   // SnapTrade user registration with robust error handling
   app.post('/api/snaptrade/register', isAuthenticated, async (req: any, res) => {
     try {
@@ -545,10 +583,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Registering SnapTrade user with email:', userEmail);
 
       try {
-        // Call snaptrade.authentication.registerSnapTradeUser with correct request body structure
-        console.log('Calling SnapTrade registerSnapTradeUser with userId:', userEmail);
+        // Use registerSnapTradeUser exactly as specified: snaptrade.account.registerSnapTradeUser
+        console.log('Calling SnapTrade account.registerSnapTradeUser with userId:', userEmail);
         
-        const registrationResponse = await snapTradeClient.authentication.registerSnapTradeUser({
+        const registrationResponse = await snapTradeClient.account.registerSnapTradeUser({
           userId: userEmail
         });
 
@@ -577,20 +615,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
       } catch (snapTradeError: any) {
+        // Always log the full error from SnapTrade (err.response.data)
         console.error('SnapTrade registration failed with detailed error:');
         console.error('Error message:', snapTradeError.message);
-        console.error('Error response:', snapTradeError.response?.data);
+        console.error('Error response data:', JSON.stringify(snapTradeError.response?.data, null, 2));
         console.error('Error status:', snapTradeError.response?.status);
-        console.error('Error headers:', snapTradeError.response?.headers);
+        console.error('Error headers:', JSON.stringify(snapTradeError.response?.headers, null, 2));
         
-        const errorDetails = snapTradeError.response?.data || snapTradeError.message || 'Unknown SnapTrade error';
+        // Return the full err.response.data if it fails, so we see the exact cause
+        const fullErrorData = snapTradeError.response?.data || { message: snapTradeError.message };
         return res.status(502).json({ 
           error: 'SnapTrade registration failed', 
-          details: errorDetails,
+          details: fullErrorData,
+          fullResponse: snapTradeError.response?.data,
           debug: {
             message: snapTradeError.message,
             status: snapTradeError.response?.status,
-            responseData: snapTradeError.response?.data
+            url: snapTradeError.config?.url,
+            method: snapTradeError.config?.method
           }
         });
       }
@@ -639,8 +681,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         try {
-          // Call snaptrade.authentication.registerSnapTradeUser with email as userId
-          const registrationResponse = await snapTradeClient.authentication.registerSnapTradeUser({
+          // Use registerSnapTradeUser exactly as specified: snaptrade.account.registerSnapTradeUser
+          console.log('Connect-URL: Calling SnapTrade account.registerSnapTradeUser with userId:', userEmail);
+          
+          const registrationResponse = await snapTradeClient.account.registerSnapTradeUser({
             userId: userEmail
           });
 
@@ -659,11 +703,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log('SnapTrade user registered successfully:', savedUserId);
 
         } catch (snapTradeError: any) {
-          console.error('SnapTrade registration failed:', snapTradeError);
+          // Always log the error from SnapTrade (err.response.data)
+          console.error('Connect-URL: SnapTrade registration failed:', snapTradeError.message);
+          console.error('Connect-URL: Full error response data:', JSON.stringify(snapTradeError.response?.data, null, 2));
+          
           const errorDetails = snapTradeError.response?.data || snapTradeError.message || 'Unknown SnapTrade error';
           return res.status(502).json({ 
             error: 'SnapTrade registration failed', 
-            details: errorDetails
+            details: errorDetails,
+            fullResponse: snapTradeError.response?.data
           });
         }
       }
