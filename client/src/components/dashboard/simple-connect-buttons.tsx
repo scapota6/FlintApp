@@ -142,14 +142,21 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
   // SnapTrade Connect mutation - simplified flow with auto-registration
   const snapTradeConnectMutation = useMutation({
     mutationFn: async () => {
-      console.log('📈 SnapTrade Connect: Starting brokerage connection');
+      console.log('📈 SnapTrade Connect: Starting brokerage connection process');
       try {
+        console.log('📈 SnapTrade Connect: Calling backend for connection URL...');
         // The backend now handles registration automatically
         const { url } = await SnapTradeAPI.getConnectionUrl();
-        console.log('📈 SnapTrade Connect: Got connection URL, opening in new window');
+        console.log('📈 SnapTrade Connect: Successfully got connection URL:', url);
         
         // Open SnapTrade portal in new window (user will complete connection there)
-        window.open(url, '_blank', 'width=500,height=600,scrollbars=yes,resizable=yes');
+        const popup = window.open(url, '_blank', 'width=500,height=600,scrollbars=yes,resizable=yes');
+        
+        if (!popup) {
+          throw new Error('Popup blocked. Please allow popups and try again.');
+        }
+        
+        console.log('📈 SnapTrade Connect: Opened connection popup successfully');
         return { success: true };
       } catch (error) {
         console.error('📈 SnapTrade Connect Error:', error);

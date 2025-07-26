@@ -49,8 +49,11 @@ export class SnapTradeAPI {
   }
 
   static async getConnectionUrl(): Promise<{ url: string }> {
+    console.log('SnapTrade: Requesting connection URL from backend...');
     const response = await apiRequest("GET", "/api/snaptrade/connect-url");
-    return response.json();
+    const data = await response.json();
+    console.log('SnapTrade: Received connection URL response:', data);
+    return data;
   }
 
   static async getAccounts(): Promise<SnapTradeAccount[]> {

@@ -194,9 +194,19 @@ router.get('/connect-url', isAuthenticated, async (req: any, res) => {
     const frontendCallbackUrl = `https://${req.get('host')}/dashboard?connected=true`;
     
     console.log('Generating SnapTrade connection URL for user:', savedUserId);
+    console.log('Frontend callback URL:', frontendCallbackUrl);
 
     try {
       // Call SnapTrade login method for connection URL using correct SDK interface
+      console.log('Calling SnapTrade loginSnapTradeUser with params:', {
+        userId: savedUserId,
+        userSecret: savedUserSecret ? 'SECRET_PROVIDED' : 'NO_SECRET',
+        broker: undefined,
+        immediateRedirect: true,
+        customRedirect: frontendCallbackUrl,
+        connectionType: 'read'
+      });
+      
       const connectResponse = await snapTradeClient.authentication.loginSnapTradeUser({
         userId: savedUserId!,
         userSecret: savedUserSecret!,
@@ -205,14 +215,22 @@ router.get('/connect-url', isAuthenticated, async (req: any, res) => {
         customRedirect: frontendCallbackUrl,
         connectionType: 'read'
       });
+      
+      console.log('SnapTrade connect response status:', connectResponse.status);
+      console.log('SnapTrade connect response data structure:', Object.keys(connectResponse.data || {}));
 
       console.log('SnapTrade connection URL generated successfully');
       
       // Return JSON { url } - the response should contain redirectURI
       const responseData = connectResponse.data;
+      console.log('Full SnapTrade response data:', JSON.stringify(responseData, null, 2));
+      
       if (responseData && typeof responseData === 'object' && 'redirectURI' in responseData) {
-        res.json({ url: (responseData as any).redirectURI });
+        const connectionUrl = (responseData as any).redirectURI;
+        console.log('Returning connection URL:', connectionUrl);
+        res.json({ url: connectionUrl });
       } else {
+        console.error('No redirectURI found in response:', responseData);
         throw new Error('No redirectURI in SnapTrade response');
       }
 
