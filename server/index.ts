@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import snaptradeDebugRouter from "./routes/snaptrade-debug";
 import snaptradeRouter from "./routes/snaptrade";
+import snaptradeDebugSecretRouter from "./routes/snaptrade-debug-secret";
 
 const app = express();
 app.use(express.json());
@@ -46,6 +47,9 @@ app.use((req, res, next) => {
 
   // Mount SnapTrade API router
   app.use("/api/snaptrade", snaptradeRouter);
+
+  // Mount debug secret router
+  app.use("/api/snaptrade-debug-secret", snaptradeDebugSecretRouter);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
