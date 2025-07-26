@@ -319,7 +319,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                             window.open(data.url, '_blank', 'width=800,height=600');
                             toast({
                               title: "SnapTrade Connection Portal",
-                              description: "Complete the brokerage connection in the new window",
+                              description: "Complete the brokerage connection in the new window, then click 'Sync Accounts'",
                             });
                           } else {
                             throw new Error(data.message || 'Failed to generate portal URL');
@@ -341,21 +341,25 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                     <Button
                       onClick={async () => {
                         try {
-                          const response = await apiRequest('GET', '/api/snaptrade/accounts');
-                          const data = await response.json();
-                          if (data.error) {
-                            throw new Error(data.error);
+                          // First sync accounts from SnapTrade to database
+                          const syncResponse = await apiRequest('POST', '/api/snaptrade/sync');
+                          const syncData = await syncResponse.json();
+                          
+                          if (syncData.success) {
+                            toast({
+                              title: "Accounts Synced",
+                              description: `Successfully synced ${syncData.syncedCount} account(s) from SnapTrade`,
+                            });
+                            // Refresh dashboard to show the new accounts
+                            await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+                          } else {
+                            throw new Error(syncData.message || 'Failed to sync accounts');
                           }
-                          toast({
-                            title: "Success",
-                            description: `Found ${data.length || 0} SnapTrade account(s)`,
-                          });
-                          await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
                         } catch (error: any) {
-                          console.error('List accounts error:', error);
+                          console.error('Sync accounts error:', error);
                           toast({
                             title: "Error", 
-                            description: error.message || "Failed to list accounts. Please try again.",
+                            description: error.message || "Failed to sync accounts. Please try again.",
                             variant: "destructive",
                           });
                         }
@@ -363,7 +367,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                       variant="outline"
                       className="text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
                     >
-                      List Accounts
+                      Sync Accounts
                     </Button>
 
                   </div>

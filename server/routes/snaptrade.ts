@@ -6,8 +6,8 @@ import { Snaptrade } from "snaptrade-typescript-sdk";
 import { storage } from "../storage";
 import { isAuthenticated } from "../replitAuth";
 import { db } from "../db";
-import { users } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { users, connectedAccounts } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 
 // Validate environment variables
 const clientId = process.env.SNAPTRADE_CLIENT_ID?.trim();
@@ -405,6 +405,111 @@ router.get("/accounts", isAuthenticated, async (req: any, res) => {
     return res.json(data);
   } catch (err: any) {
     console.error('SnapTrade Error:', {
+      path: req.originalUrl,
+      payload: { email: req.user?.claims?.email },
+      responseData: err.response?.data,
+      responseHeaders: err.response?.headers,
+      status: err.response?.status,
+      message: err.message
+    });
+    
+    const status = err.response?.status || 500;
+    const body = err.response?.data || { message: err.message };
+    return res.status(status).json(body);
+  }
+});
+
+// POST /api/snaptrade/sync → sync SnapTrade accounts to database
+router.post("/sync", isAuthenticated, async (req: any, res) => {
+  try {
+    const email = req.user.claims.email?.toLowerCase();
+    const userId = req.user.claims.sub;
+    
+    if (!email) {
+      return res.status(400).json({ error: "User email required" });
+    }
+    
+    const user = await getUserByEmail(email);
+    
+    if (!user?.snaptradeUserSecret) {
+      return res.status(401).json({ error: "Please connect your brokerage first" });
+    }
+
+    console.log('SnapTrade Sync: Fetching accounts for user:', email);
+
+    // Fetch accounts from SnapTrade
+    const { data: snapTradeAccounts } = await snaptrade.accountInformation.listUserAccounts({
+      userId: user.snaptradeUserId!,
+      userSecret: user.snaptradeUserSecret!,
+    });
+
+    console.log('SnapTrade Sync: Found accounts:', snapTradeAccounts.length);
+
+    // Sync each account to the database
+    const syncedAccounts = [];
+    for (const account of snapTradeAccounts) {
+      try {
+        // Calculate total balance from account data
+        const totalBalance = account.balance?.total?.amount || 0;
+        
+        // Create or update connected account in database
+        const connectedAccount = {
+          userId,
+          provider: 'snaptrade' as const,
+          providerAccountId: account.id,
+          accountType: account.type || 'investment',
+          accountName: account.name || account.institution_name || 'Investment Account',
+          institutionName: account.institution_name || 'SnapTrade Brokerage',
+          balance: totalBalance.toString(),
+          currency: account.balance?.total?.currency || 'USD',
+          isActive: true,
+          lastSynced: new Date(),
+        };
+
+        // Check if account already exists
+        const existingAccounts = await db
+          .select()
+          .from(connectedAccounts)
+          .where(and(
+            eq(connectedAccounts.userId, userId),
+            eq(connectedAccounts.providerAccountId, account.id)
+          ));
+
+        if (existingAccounts.length > 0) {
+          // Update existing account
+          await db
+            .update(connectedAccounts)
+            .set({
+              balance: connectedAccount.balance,
+              lastSynced: connectedAccount.lastSynced,
+              isActive: true,
+            })
+            .where(eq(connectedAccounts.id, existingAccounts[0].id));
+          
+          syncedAccounts.push({ ...existingAccounts[0], ...connectedAccount });
+        } else {
+          // Create new account
+          const [newAccount] = await db
+            .insert(connectedAccounts)
+            .values(connectedAccount)
+            .returning();
+          
+          syncedAccounts.push(newAccount);
+        }
+      } catch (accountErr: any) {
+        console.error('SnapTrade Sync: Error syncing account:', account.id, accountErr);
+      }
+    }
+
+    console.log('SnapTrade Sync: Successfully synced accounts:', syncedAccounts.length);
+
+    return res.json({ 
+      success: true, 
+      syncedCount: syncedAccounts.length,
+      accounts: syncedAccounts 
+    });
+  } catch (err: any) {
+    console.error('SnapTrade Sync Error:', {
       path: req.originalUrl,
       payload: { email: req.user?.claims?.email },
       responseData: err.response?.data,
