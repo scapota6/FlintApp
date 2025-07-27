@@ -11,7 +11,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { ArrowRightLeft, Building, TrendingUp, Clock, CheckCircle, XCircle, Plus } from "lucide-react";
-// Mobile navigation is handled by global navbar
+import Navigation from "@/components/layout/navigation";
+import { TransferSkeleton } from "@/components/ui/skeleton-placeholder";
+import { ErrorRetryCard } from "@/components/ui/error-retry-card";
 
 export default function Transfers() {
   const { user } = useAuth();

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Navigation from "@/components/layout/navigation";
-import MobileNav from "@/components/layout/mobile-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -11,6 +10,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { PageTransition } from "@/components/auth/page-transition";
+import { ActivitySkeleton } from "@/components/ui/skeleton-placeholder";
+import { ErrorRetryCard } from "@/components/ui/error-retry-card";
 import { 
   Search, 
   TrendingUp, 

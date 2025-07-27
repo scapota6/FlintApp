@@ -1,0 +1,35 @@
+Title: chore(ui): refine header, dashboard & stock widget layouts
+
+1. Global Navbar Cleanup  
+   • Remove duplicate “Dashboard” in header—only one set of links.  
+   • Keep FLINT logo on left, fixed top bar (#121212).  
+   • Links: Dashboard, Trading, Transfers, Watchlist, News, Activity; user avatar dropdown on right.  
+   • Underline active link in purple #8e44ad; hover glow (text-shadow: 0 0 6px rgba(142,68,173,0.6)).  
+   • Collapse into hamburger on mobile.
+
+2. Dashboard Layout Adjustments  
+   • Remove “Welcome back” from header; keep only on Dashboard page, using user’s first name.  
+   • Total Balance / Bank Accounts / Investments cards: add tiny inline sparkline overlays.  
+   • Ensure “Connect Bank/Credit Card” (blue) and “Connect Brokerage/Crypto Wallet” (purple) buttons sit above a responsive 3-column grid (cards 30% width, min-width 240px, 1% gutter).  
+   • Cards: 16px radius, purple glow border (0 0 8px rgba(142,68,173,0.4)), hover lift & scale (translateY(-4px) scale(1.03), 200ms).  
+   • Move Quick Buy/Sell/Transfer bar immediately below accounts grid; full-width buttons with icons.
+
+3. Stock Widget & Watchlist Styling  
+   • On Dashboard: remove individual AAPL widget; move stock details to /stock/[symbol] pages only.  
+   • Show Watchlist entries with their real-time prices (from backend aggregate), not 0 mock values; add company logo icons.  
+   • Enforce consistent card styling across Dashboard, Trading, Watchlist, Activity, Transfers, News pages—dark #121212 background, purple borders, Inter font.
+
+4. Account Details Modal Fix  
+   • Change “Details” button to open in-page modal, not navigate away.  
+   • Modal: Overview / Holdings / Transactions tabs with purple underline animations, fadeIn/slideUp.
+
+5. TradingView Chart Embedding  
+   • Use simple line chart embed (dark theme, theme: “dark”) with correct symbol / exchange code.  
+   • Ensure live price shown in chart header matches backend SnapTrade data (sync every 5s).
+
+6. Responsive & Accessibility  
+   • All pages: stack grid full-width on mobile; modals full-screen.  
+   • Keyboard focus states on buttons (outline: 2px solid #8e44ad).  
+   • Tooltips on hover for buttons (200ms fade-in).
+
+Commit as PR “chore(ui): refine header, dashboard & stock widget layouts”  
