@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import Navigation from "@/components/layout/navigation";
-import MobileNav from "@/components/layout/mobile-nav";
+import { PageTransition } from "@/components/auth/page-transition";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,7 +89,7 @@ export default function Trading() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#121212] text-white">
+      <PageTransition className="min-h-screen bg-[#121212] text-white">
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6 pt-20">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-800 rounded w-1/4 mb-6"></div>
@@ -101,15 +100,15 @@ export default function Trading() {
             </div>
           </div>
         </main>
-      </div>
+      </PageTransition>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white">
+    <PageTransition className="min-h-screen bg-[#121212] text-white">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6 pt-20">
         <div className="mb-8">
-          <h2 className="text-2xl sm:text-3xl font-semibold mb-2 text-white font-inter font-semibold">Trading</h2>
+          <h2 className="text-2xl sm:text-3xl font-semibold mb-2 text-white font-inter sparkle-title">Trading</h2>
           <p className="text-[#CCCCCC] text-sm font-inter">Execute trades and monitor your positions</p>
         </div>
 
@@ -309,14 +308,12 @@ export default function Trading() {
           </CardContent>
         </Card>
       </main>
-
-      <MobileNav />
       
       <TradeModal
         isOpen={isTradeModalOpen}
         onClose={() => setIsTradeModalOpen(false)}
         asset={selectedAsset}
       />
-    </div>
+    </PageTransition>
   );
 }

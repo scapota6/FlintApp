@@ -327,7 +327,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
                   ) : (
                     <>
                       <ExternalLink className="h-4 w-4 mr-2" />
-                      Connect Bank Account
+                      Connect Bank/Credit Card
                     </>
                   )}
                 </Button>

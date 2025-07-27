@@ -134,7 +134,7 @@ export default function ConnectedAccounts({
               ) : (
                 <Plus className="h-4 w-4 mr-2" />
               )}
-              Connect Bank
+              Connect Bank/Credit Card
             </Button>
           </Tooltip>
           
@@ -149,7 +149,7 @@ export default function ConnectedAccounts({
               ) : (
                 <Plus className="h-4 w-4 mr-2" />
               )}
-              Connect Brokerage
+              Connect Brokerage/Crypto Wallet
             </Button>
           </Tooltip>
         </div>

@@ -175,7 +175,7 @@ export default function Dashboard() {
           <h1 className="text-4xl font-bold mb-2 font-mono">
             <SparkleTitle>Dashboard</SparkleTitle>
           </h1>
-          <p className="text-gray-400">Welcome back, {user?.email?.split('@')[0] || 'Trader'}</p>
+          <p className="text-gray-400">Welcome back, {user?.firstName || user?.email?.split('@')[0] || 'Trader'}</p>
         </div>
 
         {/* Summary Cards */}

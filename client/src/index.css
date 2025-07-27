@@ -566,3 +566,139 @@ a:focus-visible,
   from { opacity: 0; transform: translateX(-50%) translateY(5px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+/* Enhanced Button System with Purple Glow Effects */
+.btn-standard {
+  @apply h-12 px-4 rounded-lg font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50;
+}
+
+.btn-primary {
+  @apply bg-purple-600 text-white hover:bg-purple-700;
+  box-shadow: 0 0 0 rgba(142, 68, 173, 0);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 12px rgba(142, 68, 173, 0.6);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  @apply border border-purple-500 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300;
+}
+
+.btn-glow-hover:hover {
+  box-shadow: 0 0 12px rgba(142, 68, 173, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Enhanced Typography with Inter Font */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 400;
+  color: #CCCCCC;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 600;
+  color: white;
+}
+
+/* Sparkle Animation Enhancement */
+.sparkle-title {
+  position: relative;
+  display: inline-block;
+}
+
+.sparkle-title::after {
+  content: '✨';
+  position: absolute;
+  top: -8px;
+  right: -16px;
+  font-size: 0.9rem;
+  animation: sparkle 2s ease-in-out infinite;
+  opacity: 0;
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.8) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.2) rotate(180deg); }
+}
+
+/* Interactive Element Hover Effects */
+.interactive-glow:hover {
+  text-shadow: 0 0 6px rgba(142, 68, 173, 0.6);
+  transition: text-shadow 200ms ease;
+}
+
+/* Page Transition Enhancement */
+.page-transition {
+  animation: pageSlideIn 300ms ease-out;
+}
+
+@keyframes pageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Enhanced Focus Styles for Accessibility */
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #8e44ad;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Tooltip Enhancement */
+.tooltip-enhanced {
+  position: relative;
+}
+
+.tooltip-enhanced::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+.tooltip-enhanced:hover::before {
+  opacity: 1;
+}
+
+/* Micro-interaction Enhancements */
+.micro-bounce:hover {
+  animation: microBounce 400ms ease;
+}
+
+@keyframes microBounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-3px); }
+  60% { transform: translateY(-1px); }
+}
+
+.pulse-glow:hover {
+  animation: pulseGlow 1s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(142, 68, 173, 0.4); }
+  50% { box-shadow: 0 0 16px rgba(142, 68, 173, 0.8); }
+}
