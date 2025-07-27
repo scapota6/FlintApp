@@ -18,6 +18,7 @@ import { StockIcon } from "@/components/ui/stock-icon";
 import { AccountDetailsModal } from "@/components/ui/account-details-modal";
 import { EnhancedConnectedAccounts } from "@/components/dashboard/enhanced-connected-accounts";
 import { QuickActionsBar } from "@/components/ui/quick-actions-bar";
+import { EnhancedTradingViewChart } from "@/components/ui/enhanced-tradingview-chart";
 import { ErrorRetryCard } from "@/components/ui/error-retry-card";
 import { RealTimeAPI } from "@/lib/real-time-api";
 
@@ -220,6 +221,18 @@ export default function Dashboard() {
             accounts={transformedAccounts}
             onConnectBank={handleConnectBank}
             onConnectBrokerage={handleConnectBrokerage}
+          />
+        </div>
+
+        {/* Quick Actions Bar */}
+        <QuickActionsBar className="mb-8" />
+
+        {/* Enhanced TradingView Chart */}
+        <div className="mb-8">
+          <EnhancedTradingViewChart 
+            symbol="AAPL" 
+            height={300}
+            className="w-full"
           />
         </div>
 

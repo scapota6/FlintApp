@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useQuery } from '@tanstack/react-query';
 
 const navLinks = [
-  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/', label: 'Dashboard' },
   { href: '/trading', label: 'Trading' },
   { href: '/transfers', label: 'Transfers' },
   { href: '/watchlist', label: 'Watchlist' },
@@ -70,7 +70,7 @@ export default function GlobalNavbar() {
 
           {/* Navigation Links */}
           <div className="hidden md:flex space-x-8 flex-1 justify-center">
-            {navLinks.filter(link => link.href !== '/admin').map((link) => (
+            {navLinks.map((link) => (
               <Link key={link.href} href={link.href}>
                 <span className={`text-sm font-medium transition-all duration-200 cursor-pointer relative
                   ${isActiveLink(link.href)
@@ -83,27 +83,7 @@ export default function GlobalNavbar() {
             ))}
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-8">
-              {navLinks.filter(link => !link.adminOnly || user?.role === 'admin').map((link) => (
-                <Link key={link.href} href={link.href}>
-                  <span
-                    className={`px-3 py-2 text-sm font-medium transition-all duration-200 relative group cursor-pointer
-                      ${isActiveLink(link.href)
-                        ? 'text-white navbar-link-active'
-                        : 'text-gray-300 hover:text-white navbar-link-hover'
-                      }`}
-                  >
-                    {link.label}
-                    {isActiveLink(link.href) && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#8e44ad] rounded-full" />
-                    )}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
+
 
           {/* User Menu */}
           <div className="hidden md:block">

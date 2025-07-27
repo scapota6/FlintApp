@@ -1,0 +1,33 @@
+Title: chore(ui & integration): polish platform-wide UI, fix data sync & error states
+
+1. **Global Navbar Cleanup**  
+   • Remove duplicate “Dashboard” in header; ensure only one active link underlined in accent purple #8e44ad.  
+   • Keep “FLINT” logo left, links: Dashboard, Trading, Transfers, Watchlist, News, Activity. Remove “Admin” from non-admin views.  
+   • Only show “Welcome back, {FirstName}” on Dashboard itself; remove from navbar on other pages.  
+   • Ensure mobile hamburger menu toggles all links correctly.
+
+2. **Connected Accounts Section**  
+   • Rename buttons to “+ Connect Bank/Credit Card” (blue) and “+ Connect Brokerage/Crypto Wallet” (purple).  
+   • Render cards in a responsive grid (3 per row desktop, full-width mobile). Cards: 16px border-radius, purple glow border, hover lift/scale 1.03.  
+   • Card content: logo icon, account name, provider tag, balance, “Details” opens an in-page modal, “Disconnect” trash icon. Remove external link icon.  
+
+3. **Account Details Modal**  
+   • Implement in-page modal (80% viewport desktop, full-screen mobile). Tabs: Overview, Holdings, Transactions with purple animated underline.  
+   • **Overview**: live total & available balances, mini line chart sparkline for each.  
+   • **Holdings**: table with logo icons, symbol, qty, avg price, live price (from TradeView API), P/L colored badges, sparkline.  
+   • **Transactions**: timeline list with colored buy/sell icons, date/time, symbol, qty, price.  
+   • Animate modal open (fadeIn+slideUp 300ms) & close (fadeOut).
+
+4. **Quick Actions Bar**  
+   • Full-width bar below accounts with Quick Buy (green), Quick Sell (red), Transfer Funds (purple).  
+   • On hover: button glow + icon pulse. Wire up click handlers to open respective modals/forms.
+
+5. **TradingView Chart Integration**  
+   • Replace embed code to use official TradingView Lightweight Charts for performance, default to simple line chart in dark theme.  
+   • Sync live price from our backend/Teller or a reliable market data API—override mock/static values.  
+   • Ensure all pages (Dashboard sparkline, Watchlist, Trading, Stock detail) pull the same live source.
+
+6. **Order Placement & TradeId**  
+   • Generate UUID v4 `tradeId` for each order; include in `placeOrder` payload.  
+   • Validate form inputs (symbol, qty, order type) before submitting.  
+   • Display success/error toasts.
