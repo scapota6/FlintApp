@@ -21,6 +21,7 @@ import { QuickActionsBar } from "@/components/ui/quick-actions-bar";
 import { EnhancedTradingViewChart } from "@/components/ui/enhanced-tradingview-chart";
 import { ErrorRetryCard } from "@/components/ui/error-retry-card";
 import { RealTimeAPI } from "@/lib/real-time-api";
+import { StockDetailModal } from "@/components/modals/stock-detail-modal";
 
 interface DashboardData {
   totalBalance: number;
@@ -38,6 +39,8 @@ export default function Dashboard() {
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [liveQuotes, setLiveQuotes] = useState<Record<string, any>>({});
+  const [selectedStock, setSelectedStock] = useState<string>('');
+  const [isStockModalOpen, setIsStockModalOpen] = useState(false);
 
   // Fetch dashboard data
   const { data: dashboardData, isLoading, error, refetch } = useQuery({
@@ -204,7 +207,7 @@ export default function Dashboard() {
           <h1 className="text-4xl font-bold mb-2 font-mono">
             <SparkleTitle>Dashboard</SparkleTitle>
           </h1>
-          <p className="text-gray-400">Welcome back, {user?.firstName || user?.email?.split('@')[0] || 'Trader'}</p>
+          <p className="text-gray-400">Welcome back, {(user as any)?.firstName || (user as any)?.email?.split('@')[0] || 'Trader'}</p>
         </div>
 
         {/* Summary Cards */}
@@ -277,33 +280,33 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {/* Sample watchlist data with micro-interactions */}
-                {[
-                  { symbol: 'AAPL', name: 'Apple Inc.', price: 189.45, change: 2.34, changePercent: 1.25 },
-                  { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 142.18, change: -1.85, changePercent: -1.28 },
-                  { symbol: 'TSLA', name: 'Tesla Inc.', price: 238.77, change: 5.12, changePercent: 2.19 }
-                ].map((stock, index) => (
+                {/* Real-time watchlist data */}
+                {Object.entries(liveQuotes).map(([symbol, quote], index) => (
                   <div 
-                    key={stock.symbol}
+                    key={symbol}
                     className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30 
                       hover:bg-gray-800/50 cursor-pointer transform hover:scale-[1.02] 
                       transition-all duration-200 group/item relative"
                     style={{ animationDelay: `${index * 100}ms` }}
+                    onClick={() => {
+                      setSelectedStock(symbol);
+                      setIsStockModalOpen(true);
+                    }}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                      <StockIcon symbol={symbol} size="sm" />
                       <div>
-                        <p className="text-white font-medium">{stock.symbol}</p>
-                        <p className="text-xs text-gray-400">{stock.name}</p>
+                        <p className="text-white font-medium">{symbol}</p>
+                        <p className="text-xs text-gray-400">{(quote as any)?.name || `${symbol} Stock`}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-white font-medium">${stock.price}</p>
+                      <p className="text-white font-medium">${(quote as any)?.price?.toFixed(2) || '0.00'}</p>
                       <div className={`text-xs flex items-center gap-1 ${
-                        stock.change >= 0 ? 'text-green-400' : 'text-red-400'
+                        ((quote as any)?.change || 0) >= 0 ? 'text-green-400' : 'text-red-400'
                       }`}>
-                        <span>{stock.change >= 0 ? '↗' : '↘'}</span>
-                        <span>{Math.abs(stock.changePercent)}%</span>
+                        <span>{((quote as any)?.change || 0) >= 0 ? '↗' : '↘'}</span>
+                        <span>{Math.abs((quote as any)?.changePercent || 0).toFixed(2)}%</span>
                       </div>
                     </div>
                     
@@ -313,7 +316,7 @@ export default function Dashboard() {
                       <ChartPlaceholder 
                         data={[45, 52, 48, 61, 59, 67, 71, 68, 74, 78]} 
                         height={32} 
-                        color={stock.change >= 0 ? "#22c55e" : "#ef4444"}
+                        color={((quote as any)?.change || 0) >= 0 ? "#22c55e" : "#ef4444"}
                         animated={true}
                       />
                     </div>
@@ -398,6 +401,24 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Stock Detail Modal */}
+        <StockDetailModal
+          symbol={selectedStock}
+          isOpen={isStockModalOpen}
+          onClose={() => setIsStockModalOpen(false)}
+          onTrade={(symbol, action) => {
+            console.log(`Trading ${symbol} - ${action}`);
+            setIsStockModalOpen(false);
+          }}
+        />
+
+        {/* Account Details Modal */}
+        <AccountDetailsModal
+          account={selectedAccount}
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+        />
       </div>
     </div>
   );

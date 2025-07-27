@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { ArrowRightLeft, Building, TrendingUp, Clock, CheckCircle, XCircle, Plus } from "lucide-react";
-import MobileNav from "@/components/layout/mobile-nav";
+// Mobile navigation is handled by global navbar
 
 export default function Transfers() {
   const { user } = useAuth();
@@ -24,7 +24,7 @@ export default function Transfers() {
     queryFn: FinancialAPI.getAccounts,
   });
 
-  const { data: transfers, isLoading: transfersLoading, error } = useQuery({
+  const { data: transfers, isLoading: transfersLoading, error, refetch } = useQuery({
     queryKey: ["/api/transfers"],
     queryFn: FinancialAPI.getTransfers,
     refetchInterval: 10000,
