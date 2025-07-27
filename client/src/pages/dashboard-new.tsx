@@ -22,6 +22,7 @@ import { QuickActionsBar } from "@/components/ui/quick-actions-bar";
 import { ErrorRetryCard } from "@/components/ui/error-retry-card";
 import { RealTimeAPI } from "@/lib/real-time-api";
 import { StockDetailModal } from "@/components/modals/stock-detail-modal";
+import { useBulkMarketData } from "@/hooks/useMarketData";
 
 interface DashboardData {
   totalBalance: number;
@@ -38,7 +39,6 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [liveQuotes, setLiveQuotes] = useState<Record<string, any>>({});
   const [selectedStock, setSelectedStock] = useState<string>('');
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
 
@@ -53,6 +53,10 @@ export default function Dashboard() {
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
+  // Use unified market data hook for live quotes
+  const watchlistSymbols = dashboardData?.watchlist?.map((item: any) => item.symbol) || ['AAPL', 'GOOGL', 'TSLA'];
+  const { data: marketQuotes } = useBulkMarketData(watchlistSymbols);
+
   // Log user login
   useEffect(() => {
     const logLogin = async () => {
@@ -65,24 +69,7 @@ export default function Dashboard() {
     logLogin();
   }, []);
 
-  // Fetch live quotes for watchlist
-  useEffect(() => {
-    const watchlistSymbols = ['AAPL', 'GOOGL', 'TSLA'];
-    
-    const fetchLiveQuotes = async () => {
-      try {
-        const quotes = await RealTimeAPI.getMultipleQuotes(watchlistSymbols);
-        setLiveQuotes(quotes);
-      } catch (error) {
-        console.error('Failed to fetch live quotes:', error);
-      }
-    };
-
-    fetchLiveQuotes();
-    const interval = setInterval(fetchLiveQuotes, 30000); // Update every 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+  // Note: Live quotes now handled by useBulkMarketData hook above
 
   const handleConnectBank = async () => {
     try {
@@ -119,7 +106,7 @@ export default function Dashboard() {
 
   const handleConnectBrokerage = async () => {
     try {
-      const response = await apiRequest('POST', '/api/snaptrade/register');
+      const response = await fetch('/api/snaptrade/connect-url');
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to initialize brokerage connection');
@@ -134,15 +121,34 @@ export default function Dashboard() {
           'width=800,height=600,scrollbars=yes,resizable=yes'
         );
 
-        // Listen for completion
-        const checkClosed = setInterval(() => {
-          if (popup?.closed) {
-            clearInterval(checkClosed);
+        // Listen for messages from the popup
+        const messageHandler = (event: MessageEvent) => {
+          if (event.origin !== window.location.origin) return;
+          
+          if (event.data.success) {
+            window.removeEventListener('message', messageHandler);
             refetch(); // Refresh dashboard data
             toast({
               title: "Brokerage Connected",
-              description: "Your brokerage account has been connected successfully.",
+              description: event.data.message || "Your brokerage account has been connected successfully.",
             });
+          } else if (event.data.error) {
+            window.removeEventListener('message', messageHandler);
+            toast({
+              title: "Connection Error",
+              description: event.data.error || "Failed to connect brokerage account.",
+              variant: "destructive",
+            });
+          }
+        };
+
+        window.addEventListener('message', messageHandler);
+
+        // Fallback: check if popup is closed manually
+        const checkClosed = setInterval(() => {
+          if (popup?.closed) {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', messageHandler);
           }
         }, 1000);
       } else {
@@ -280,7 +286,7 @@ export default function Dashboard() {
             <CardContent>
               <div className="space-y-3">
                 {/* Real-time watchlist data */}
-                {Object.entries(liveQuotes).map(([symbol, quote], index) => (
+                {Object.entries(marketQuotes || {}).map(([symbol, quote], index) => (
                   <div 
                     key={symbol}
                     className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30 
@@ -302,10 +308,10 @@ export default function Dashboard() {
                     <div className="text-right">
                       <p className="text-white font-medium">${(quote as any)?.price?.toFixed(2) || '0.00'}</p>
                       <div className={`text-xs flex items-center gap-1 ${
-                        ((quote as any)?.change || 0) >= 0 ? 'text-green-400' : 'text-red-400'
+                        ((quote as any)?.changePct || 0) >= 0 ? 'text-green-400' : 'text-red-400'
                       }`}>
-                        <span>{((quote as any)?.change || 0) >= 0 ? '↗' : '↘'}</span>
-                        <span>{Math.abs((quote as any)?.changePercent || 0).toFixed(2)}%</span>
+                        <span>{((quote as any)?.changePct || 0) >= 0 ? '↗' : '↘'}</span>
+                        <span>{Math.abs((quote as any)?.changePct || 0).toFixed(2)}%</span>
                       </div>
                     </div>
                     
@@ -315,7 +321,7 @@ export default function Dashboard() {
                       <ChartPlaceholder 
                         data={[45, 52, 48, 61, 59, 67, 71, 68, 74, 78]} 
                         height={32} 
-                        color={((quote as any)?.change || 0) >= 0 ? "#22c55e" : "#ef4444"}
+                        color={((quote as any)?.changePct || 0) >= 0 ? "#22c55e" : "#ef4444"}
                         animated={true}
                       />
                     </div>
