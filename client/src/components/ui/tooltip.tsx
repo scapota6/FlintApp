@@ -1,30 +1,112 @@
-"use client"
+import { useState, useRef, createContext, useContext } from "react";
 
-import * as React from "react"
-import * as TooltipPrimitive from "@radix-ui/react-tooltip"
+// TooltipProvider for compatibility with existing components
+interface TooltipProviderProps {
+  children: React.ReactNode;
+  delayDuration?: number;
+}
 
-import { cn } from "@/lib/utils"
+const TooltipContext = createContext<{ delay: number }>({ delay: 200 });
 
-const TooltipProvider = TooltipPrimitive.Provider
+export function TooltipProvider({ children, delayDuration = 200 }: TooltipProviderProps) {
+  return (
+    <TooltipContext.Provider value={{ delay: delayDuration }}>
+      {children}
+    </TooltipContext.Provider>
+  );
+}
 
-const Tooltip = TooltipPrimitive.Root
+// Compatibility exports for Radix UI-style components
+export function TooltipTrigger({ children, asChild, ...props }: { children: React.ReactNode; asChild?: boolean; [key: string]: any }) {
+  return <div {...props}>{children}</div>;
+}
 
-const TooltipTrigger = TooltipPrimitive.Trigger
+export function TooltipContent({ children, ...props }: { children: React.ReactNode; [key: string]: any }) {
+  return <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded shadow-lg" {...props}>{children}</div>;
+}
 
-const TooltipContent = React.forwardRef<
-  React.ElementRef<typeof TooltipPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
-  <TooltipPrimitive.Content
-    ref={ref}
-    sideOffset={sideOffset}
-    className={cn(
-      "z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-tooltip-content-transform-origin]",
-      className
-    )}
-    {...props}
-  />
-))
-TooltipContent.displayName = TooltipPrimitive.Content.displayName
+interface TooltipProps {
+  children: React.ReactNode;
+  content: string;
+  delay?: number;
+  position?: 'top' | 'bottom' | 'left' | 'right';
+  className?: string;
+}
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+export function Tooltip({ 
+  children, 
+  content, 
+  delay, 
+  position = 'top',
+  className = ""
+}: TooltipProps) {
+  const context = useContext(TooltipContext);
+  const effectiveDelay = delay ?? context.delay;
+  const [isVisible, setIsVisible] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const showTooltip = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      setIsVisible(true);
+    }, effectiveDelay);
+  };
+
+  const hideTooltip = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    setIsVisible(false);
+  };
+
+  const getPositionClasses = () => {
+    switch (position) {
+      case 'top':
+        return 'bottom-full left-1/2 transform -translate-x-1/2 mb-2';
+      case 'bottom':
+        return 'top-full left-1/2 transform -translate-x-1/2 mt-2';
+      case 'left':
+        return 'right-full top-1/2 transform -translate-y-1/2 mr-2';
+      case 'right':
+        return 'left-full top-1/2 transform -translate-y-1/2 ml-2';
+      default:
+        return 'bottom-full left-1/2 transform -translate-x-1/2 mb-2';
+    }
+  };
+
+  const getArrowClasses = () => {
+    switch (position) {
+      case 'top':
+        return 'top-full left-1/2 transform -translate-x-1/2 border-l-transparent border-r-transparent border-b-transparent border-t-gray-800';
+      case 'bottom':
+        return 'bottom-full left-1/2 transform -translate-x-1/2 border-l-transparent border-r-transparent border-t-transparent border-b-gray-800';
+      case 'left':
+        return 'left-full top-1/2 transform -translate-y-1/2 border-t-transparent border-b-transparent border-r-transparent border-l-gray-800';
+      case 'right':
+        return 'right-full top-1/2 transform -translate-y-1/2 border-t-transparent border-b-transparent border-l-transparent border-r-gray-800';
+      default:
+        return 'top-full left-1/2 transform -translate-x-1/2 border-l-transparent border-r-transparent border-b-transparent border-t-gray-800';
+    }
+  };
+
+  return (
+    <div 
+      className={`relative inline-block ${className}`}
+      onMouseEnter={showTooltip}
+      onMouseLeave={hideTooltip}
+    >
+      {children}
+      
+      {isVisible && (
+        <div className={`absolute z-50 ${getPositionClasses()}`}>
+          <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap tooltip-fade-in shadow-lg border border-gray-700">
+            {content}
+            <div className={`absolute w-0 h-0 border-4 ${getArrowClasses()}`} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

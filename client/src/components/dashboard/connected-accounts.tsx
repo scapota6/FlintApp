@@ -4,6 +4,7 @@ import { Link } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip } from '@/components/ui/tooltip';
 import DisconnectButton from '@/components/ui/disconnect-button';
 import AccountDetailsModal from '@/components/ui/account-details-modal';
 import SkeletonCard from '@/components/ui/skeleton-card';
@@ -120,41 +121,47 @@ export default function ConnectedAccounts({
         <CardTitle className="text-xl text-white font-mono">Connected Accounts</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Connection Buttons */}
+        {/* Enhanced Connection Buttons with Tooltips */}
         <div className="flex gap-4 mb-6">
-          <Button 
-            onClick={handleConnectBank}
-            disabled={loadingConnect === 'bank'}
-            className="flint-btn flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            {loadingConnect === 'bank' ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4 mr-2" />
-            )}
-            Connect Bank
-          </Button>
-          <Button 
-            onClick={handleConnectBrokerage}
-            disabled={loadingConnect === 'brokerage'}
-            className="flint-btn-primary flex-1"
-          >
-            {loadingConnect === 'brokerage' ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4 mr-2" />
-            )}
-            Connect Brokerage
-          </Button>
+          <Tooltip content="Connect your bank account via Teller" position="top">
+            <Button 
+              onClick={handleConnectBank}
+              disabled={loadingConnect === 'bank'}
+              className="btn-standard flex-1 bg-blue-600 hover:bg-blue-700 text-white btn-glow-hover focus-visible:outline-blue-400"
+            >
+              {loadingConnect === 'bank' ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              Connect Bank
+            </Button>
+          </Tooltip>
+          
+          <Tooltip content="Connect your brokerage account via SnapTrade" position="top">
+            <Button 
+              onClick={handleConnectBrokerage}
+              disabled={loadingConnect === 'brokerage'}
+              className="btn-standard flex-1 bg-purple-600 hover:bg-purple-700 text-white btn-glow-hover focus-visible:outline-purple-400"
+            >
+              {loadingConnect === 'brokerage' ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              Connect Brokerage
+            </Button>
+          </Tooltip>
         </div>
 
-        {/* Account List */}
+        {/* Enhanced Account Grid */}
         {accounts.length > 0 ? (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
             {accounts.map((account) => (
               <div 
                 key={account.id}
-                className={`account-card ${account.provider.toLowerCase()} relative`}
+                className={`account-card ${account.provider.toLowerCase()} relative purple-glow-border card-hover-lift`}
+                style={{ borderRadius: '16px', minWidth: '240px' }}
               >
                 {/* Disconnect Button */}
                 <div className="absolute top-3 right-3">
@@ -183,11 +190,13 @@ export default function ConnectedAccounts({
                     <div className="text-lg font-semibold text-white">
                       ${parseFloat(account.balance).toLocaleString()}
                     </div>
-                    <Link href={`/accounts/${account.provider}/${account.id}`}>
-                      <Button variant="ghost" size="sm" className="text-purple-400 hover:text-purple-300">
-                        Details <ExternalLink className="h-3 w-3 ml-1" />
-                      </Button>
-                    </Link>
+                    <Tooltip content="View details" position="top">
+                      <Link href={`/accounts/${account.provider}/${account.id}`}>
+                        <Button variant="ghost" size="sm" className="text-purple-400 hover:text-purple-300 interactive-glow focus-visible:outline-purple-400">
+                          Details <ExternalLink className="h-3 w-3 ml-1" />
+                        </Button>
+                      </Link>
+                    </Tooltip>
                   </div>
                 </div>
               </div>

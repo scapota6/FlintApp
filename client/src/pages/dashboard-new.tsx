@@ -12,6 +12,7 @@ import { SparkleTitle } from "@/components/ui/sparkle-title";
 import { InteractiveTable } from "@/components/ui/interactive-table";
 import { AnimatedBadge } from "@/components/ui/animated-badge";
 import { ChartPlaceholder } from "@/components/ui/chart-placeholder";
+import { Tooltip } from "@/components/ui/tooltip";
 
 interface DashboardData {
   totalBalance: number;
@@ -195,22 +196,30 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Quick Actions Bar */}
+        {/* Enhanced Quick Actions Bar with Tooltips */}
         <div className="mb-8">
           <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-lg p-4 border border-gray-700">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button className="group flex items-center justify-center px-6 py-3 bg-green-600 hover:bg-green-500 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-green-500/25 hover:scale-105">
-                <TrendingUp className="h-5 w-5 mr-2 group-hover:animate-pulse" />
-                <span className="font-semibold text-white">Quick Buy</span>
-              </button>
-              <button className="group flex items-center justify-center px-6 py-3 bg-red-600 hover:bg-red-500 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-red-500/25 hover:scale-105">
-                <Activity className="h-5 w-5 mr-2 group-hover:animate-pulse" />
-                <span className="font-semibold text-white">Quick Sell</span>
-              </button>
-              <button className="group flex items-center justify-center px-6 py-3 bg-purple-600 hover:bg-purple-500 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/25 hover:scale-105">
-                <RefreshCw className="h-5 w-5 mr-2 group-hover:animate-pulse" />
-                <span className="font-semibold text-white">Transfer Funds</span>
-              </button>
+              <Tooltip content="Buy quickly without detailed analysis" position="top">
+                <button className="group flex items-center justify-center px-6 py-3 bg-green-600 hover:bg-green-500 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-green-500/25 hover:scale-105 btn-standard focus-visible:outline-green-400">
+                  <TrendingUp className="h-5 w-5 mr-2 group-hover:animate-pulse" />
+                  <span className="font-semibold text-white">Quick Buy</span>
+                </button>
+              </Tooltip>
+              
+              <Tooltip content="Sell positions quickly" position="top">
+                <button className="group flex items-center justify-center px-6 py-3 bg-red-600 hover:bg-red-500 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-red-500/25 hover:scale-105 btn-standard focus-visible:outline-red-400">
+                  <Activity className="h-5 w-5 mr-2 group-hover:animate-pulse" />
+                  <span className="font-semibold text-white">Quick Sell</span>
+                </button>
+              </Tooltip>
+              
+              <Tooltip content="Move funds between accounts" position="top">
+                <button className="group flex items-center justify-center px-6 py-3 bg-purple-600 hover:bg-purple-500 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/25 hover:scale-105 btn-standard focus-visible:outline-purple-400">
+                  <RefreshCw className="h-5 w-5 mr-2 group-hover:animate-pulse" />
+                  <span className="font-semibold text-white">Transfer Funds</span>
+                </button>
+              </Tooltip>
             </div>
           </div>
         </div>
