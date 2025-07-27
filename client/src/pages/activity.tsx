@@ -138,23 +138,21 @@ export default function Activity() {
   }, {});
 
   const activityStats = {
-    total: activitiesList.length || 0,
-    trades: activitiesList.filter((a: any) => a.action === 'trade_executed').length || 0,
-    transfers: activitiesList.filter((a: any) => a.action === 'transfer_completed').length || 0,
-    logins: activitiesList.filter((a: any) => a.action === 'login').length || 0,
+    total: Array.isArray(activities) ? activities.length : 0,
+    trades: Array.isArray(activities) ? activities.filter((a: any) => a.action === 'trade_executed').length : 0,
+    transfers: Array.isArray(activities) ? activities.filter((a: any) => a.action === 'transfer_completed').length : 0,
+    logins: Array.isArray(activities) ? activities.filter((a: any) => a.action === 'login').length : 0,
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black text-white">
-        <Navigation />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
+      <div className="min-h-screen bg-[#121212] text-white">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6 pt-20">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-800 rounded w-1/4 mb-6"></div>
             <div className="h-64 bg-gray-800 rounded-xl"></div>
           </div>
         </main>
-        <MobileNav />
       </div>
     );
   }

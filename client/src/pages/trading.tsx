@@ -90,9 +90,8 @@ export default function Trading() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black text-white">
-        <Navigation />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
+      <div className="min-h-screen bg-[#121212] text-white">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6 pt-20">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-800 rounded w-1/4 mb-6"></div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -102,7 +101,6 @@ export default function Trading() {
             </div>
           </div>
         </main>
-        <MobileNav />
       </div>
     );
   }
