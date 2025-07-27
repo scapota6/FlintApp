@@ -10,6 +10,7 @@ import { FinancialAPI } from "@/lib/financial-api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { PageTransition } from "@/components/auth/page-transition";
 import { 
   Search, 
   TrendingUp, 
@@ -146,19 +147,19 @@ export default function Activity() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#121212] text-white">
+      <PageTransition className="min-h-screen bg-[#121212] text-white">
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6 pt-20">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-800 rounded w-1/4 mb-6"></div>
             <div className="h-64 bg-gray-800 rounded-xl"></div>
           </div>
         </main>
-      </div>
+      </PageTransition>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white">
+    <PageTransition className="min-h-screen bg-[#121212] text-white">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6 pt-20">
         <div className="mb-8">
           <h2 className="text-2xl sm:text-3xl font-semibold mb-2 text-white font-inter font-semibold">Activity</h2>
@@ -300,7 +301,7 @@ export default function Activity() {
               
               <TabsContent value="trade" className="mt-4">
                 <div className="space-y-2">
-                  {activities?.filter((a: any) => a.action === 'trade_executed').map((activity: any, index: number) => {
+                  {activitiesList.filter((a: any) => a.action === 'trade_executed').map((activity: any, index: number) => {
                     const { icon: Icon, color } = getActivityIcon(activity.action);
                     return (
                       <div key={index} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
@@ -322,7 +323,7 @@ export default function Activity() {
               
               <TabsContent value="transfer" className="mt-4">
                 <div className="space-y-2">
-                  {activities?.filter((a: any) => a.action === 'transfer_completed').map((activity: any, index: number) => {
+                  {activitiesList.filter((a: any) => a.action === 'transfer_completed').map((activity: any, index: number) => {
                     const { icon: Icon, color } = getActivityIcon(activity.action);
                     return (
                       <div key={index} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
@@ -344,7 +345,7 @@ export default function Activity() {
               
               <TabsContent value="watchlist" className="mt-4">
                 <div className="space-y-2">
-                  {activities?.filter((a: any) => a.action.includes('watchlist')).map((activity: any, index: number) => {
+                  {activitiesList.filter((a: any) => a.action.includes('watchlist')).map((activity: any, index: number) => {
                     const { icon: Icon, color } = getActivityIcon(activity.action);
                     return (
                       <div key={index} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
@@ -366,7 +367,7 @@ export default function Activity() {
               
               <TabsContent value="account" className="mt-4">
                 <div className="space-y-2">
-                  {activities?.filter((a: any) => a.action === 'account_connected' || a.action === 'login').map((activity: any, index: number) => {
+                  {activitiesList.filter((a: any) => a.action === 'account_connected' || a.action === 'login').map((activity: any, index: number) => {
                     const { icon: Icon, color } = getActivityIcon(activity.action);
                     return (
                       <div key={index} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
@@ -389,8 +390,6 @@ export default function Activity() {
           </CardContent>
         </Card>
       </main>
-
-      <MobileNav />
-    </div>
+    </PageTransition>
   );
 }

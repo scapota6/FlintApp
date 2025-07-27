@@ -1,0 +1,41 @@
+Title: feat(ui): unify layouts, fix data flows & resolve runtime errors
+
+1. Global Navbar  
+   • Ensure every page uses the same fixed top bar (#121212) with links: Dashboard, Trading, Transfers, Watchlist, News, Activity, Admin, plus user avatar dropdown.  
+   • Underline active link in accent purple #8e44ad; soft glow on hover (text-shadow: 0 0 6px rgba(142,68,173,0.6)).  
+   • Collapse into a hamburger menu on mobile; remove Admin link from non-admin users.
+
+2. Connected Accounts Grid  
+   • Standardize “+ Connect Bank/Credit Card” (blue) and “+ Connect Brokerage/Crypto Wallet” (purple) buttons; remove Sync & Test API.  
+   • Render cards in a responsive 3-column grid (30% width, min-width 240px, 1% gutter).  
+   • Card style: 16px border-radius, subtle purple glow border (box-shadow: 0 0 8px rgba(142,68,173,0.4)).  
+   • On hover: lift & scale (transform: translateY(-4px) scale(1.03)), 200ms transition.
+
+3. Account Details Modal  
+   • “Details” opens a modal (80% viewport, #1e1e1e background, white text).  
+   • Tabs: Overview, Holdings, Transactions with animated purple underline.  
+   • Overview: real-time balances, summary stats.  
+   • Holdings: table with symbol, shares, avg price, live price, P/L; include sparkline.  
+   • Transactions: vertical timeline with colored icons (green buys, red sells).  
+   • Animate open (fadeIn + slideUp 300ms) and close (fadeOut).
+
+4. Quick Actions Bar  
+   • Full-width bar under accounts: Quick Buy (green), Quick Sell (red), Transfer Funds (purple).  
+   • On hover: button glow + icon pulse.
+
+5. Real-time Prices & Charts  
+   • Swap static TradingView embed for simple default line chart with dark theme (`theme: "dark"`) at current market price.  
+   • Sync chart’s current price and metadata exactly with backend/live feed.  
+
+6. Order Placement Fixes  
+   • Generate and pass a UUID v4 `tradeId` to every placeOrder call.  
+   • Ensure Buy/Sell forms capture symbol, qty, order type; call SnapTrade place order API; show success/error toasts.
+
+7. Data & Error Guards  
+   • In Activity & Transfers pages, guard against non-array values before `.filter`, e.g.:  
+     ```ts
+     const list = Array.isArray(activities) ? activities : [];
+     const trades = list.filter(a => a.action === 'trade_executed');
+     ```  
+   • Fix undefined `MobileNav` import in Transfers.  
+   • Remove console errors; show error UI (“Failed to load. Retry?”) with retry click.
