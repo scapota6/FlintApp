@@ -1,0 +1,82 @@
+Hi Replit AI Agent! 🎉 We’ve got solid Teller.io & SnapTrade connections working—now let’s transform Flint into a sleek, techy-but-fun trading MVP. Please implement every feature below in one go, preserving existing integrations:
+
+1. **Brand & Theme**  
+   - Apply a dark-mode theme across the app using CSS variables:  
+     ```css
+     :root {
+       --bg: #121212;
+       --surface: #1e1e1e;
+       --text-primary: #ececec;
+       --text-secondary: #a0a0a0;
+       --accent: #8e44ad;      /* Flint purple */
+       --buy-color: #27ae60;   /* Green buy */
+       --sell-color: #c0392b;  /* Red sell */
+     }
+     ```  
+   - Use a modern, slightly techy font (e.g. “JetBrains Mono” or “Roboto Mono” for headings, “Inter” for body).  
+   - Increase border-radius to 12 px for cards/buttons. Use subtle glassmorphism (semi-transparent surfaces with faint blur).
+
+2. **Onboarding & Auth Funnel**  
+   - Build a three-step signup flow in React:  
+     1. **Account**: Email + Password (show “strong/weak” password meter).  
+     2. **Verify**: Six-digit OTP input.  
+     3. **Profile**: “Display name” + “Pick an avatar” selector.  
+   - Show a progress header: “Step 1 of 3” with animated underline.  
+   - Integrate with Replit Auth OIDC under the hood; after OTP, call `POST /api/auth/complete`, then redirect to `/dashboard`.
+
+3. **Dashboard & Portfolio Overview**  
+   - On `/dashboard`, fetch `GET /api/dashboard` on mount and poll every 30 s.  
+   - Render three summary cards:  
+     - **Total Balance** (icon + value + 24 h% arrow in green/red)  
+     - **Bank Accounts** (icon + sum of Teller accounts)  
+     - **Investments** (icon + sum of SnapTrade accounts)  
+   - Under “Connected Accounts,” automatically list Teller & SnapTrade accounts as purple-bordered cards, each showing:  
+     - Provider name + logo badge  
+     - Account nickname  
+     - Available balance  
+     - A “Details ▶” link to `/accounts/:provider/:id`
+
+4. **Account Connection UX**  
+   - Replace separate “Sync” tests with:  
+     - A single “Connect Brokerage” button (purple).  
+     - A single “Connect Bank” button (blue).  
+   - When popup closes or fires a postMessage event, auto-refresh `GET /api/teller/accounts` or `/api/snaptrade/accounts` and re-render cards—no manual sync.
+
+5. **Symbol Detail & TradingView Charts**  
+   - On `/symbols/:symbol`, embed the TradingView Charting Library in dark mode. Default to a **clean line chart** showing only price over time.  
+   - Above the chart, display the real-time quote badge from `GET /api/market/quote?symbol=`. Sync that badge every 5 s.  
+   - Provide toggles: Candlestick, Volume, Indicators—but keep line chart as default. Ensure colors match theme.
+
+6. **Order Entry Modal**  
+   - “Buy” and “Sell” buttons open a slide-up modal:  
+     1. Select Market vs. Limit  
+     2. Enter Quantity (with “All in” quick button) and Price (for Limit)  
+     3. Show preview: “Qty × Price = $Total (+$Fees)”  
+   - On confirm:  
+     - Call `POST /api/orders/initiate` → returns `tradeId`.  
+     - Call `POST /api/orders/place` with `{ tradeId, qty, price, side }`.  
+   - Display success toast or error banner with the returned message.
+
+7. **Account Detail Pages**  
+   - `/accounts/:provider/:id`: fetch `GET /api/accounts/:provider/:id`.  
+   - Show tabs: **Overview** (balance, holdings summary), **Transactions** (infinite scroll), **Positions** (table).  
+   - Include a “⟳ Refresh” icon to re-fetch current tab.
+
+8. **Watchlist & Search**  
+   - At top nav, add a search bar with auto-complete via `GET /api/market/search?q=`.  
+   - On any symbol, an “Add to Watchlist” button calls `POST /api/watchlist`.  
+   - Sidebar “Watchlist” section renders watchlist items with live prices, fetched every 15 s.
+
+9. **Notifications & Alerts**  
+   - Implement in-app Snackbar notifications for:  
+     - Order fills  
+     - Price alerts (when user sets a price target)  
+     - Account connection successes/errors.
+
+10. **Styling Polishes**  
+    - All buttons: 2 xl rounded, 16 px vertical padding, uppercase labels, slight hover glow.  
+    - Cards: soft drop shadow, consistent 16 px spacing.  
+    - Use accent purple for primary CTAs, green/red for buy/sell.  
+    - Ensure responsive design: collapse sidebar into hamburger on < 768 px.
+
+Please complete **all** above in a single pass, preserving existing Teller.io & SnapTrade integrations, and deliver a fully dark-mode, cohesive, MVP-ready front-to-back implementation. Thanks! 🚀  

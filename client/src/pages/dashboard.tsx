@@ -1,21 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import Navigation from "@/components/layout/navigation";
-import MobileNav from "@/components/layout/mobile-nav";
-import BalanceCards from "@/components/dashboard/balance-cards";
+import SummaryCards from "@/components/dashboard/summary-cards";
+import ConnectedAccounts from "@/components/dashboard/connected-accounts";
 import WatchlistCard from "@/components/dashboard/watchlist-card";
 import QuickTrade from "@/components/dashboard/quick-trade";
-import SimpleConnectButtons from "@/components/dashboard/simple-connect-buttons";
 import ActivityFeed from "@/components/dashboard/activity-feed";
 import { HoldingsCard } from "@/components/dashboard/holdings-card";
-import QuickTransfer from "@/components/dashboard/quick-transfer";
-import AccountDetailModal from "@/components/dashboard/account-detail-modal";
-import AccountCard from "@/components/dashboard/account-card";
-import SmartSearchBar from "@/components/search/SmartSearchBar";
 import { FinancialAPI } from "@/lib/financial-api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function Dashboard() {
   const { user } = useAuth();

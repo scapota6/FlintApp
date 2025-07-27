@@ -1,164 +1,94 @@
-import React, { useState, useEffect } from "react";
-import { Search, Plus, TrendingUp, TrendingDown, Eye } from "lucide-react";
-import { Input } from "./input";
-import { Button } from "./button";
-import { Card, CardContent } from "./card";
-import { Badge } from "./badge";
-import { SnapTradeAPI, SnapTradeQuote } from "@/lib/snaptrade-api";
-import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
+import { useState, useRef, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Search, TrendingUp } from 'lucide-react';
+import { Link } from 'wouter';
+import { apiRequest } from '@/lib/queryClient';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+
+interface SearchResult {
+  symbol: string;
+  name: string;
+}
 
 interface SearchBarProps {
-  onAddToWatchlist?: (symbol: string, name: string) => void;
-  onTrade?: (symbol: string, name: string) => void;
   className?: string;
 }
 
-export default function SearchBar({ onAddToWatchlist, onTrade, className }: SearchBarProps) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SnapTradeQuote[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showResults, setShowResults] = useState(false);
-  const { toast } = useToast();
+export default function SearchBar({ className = '' }: SearchBarProps) {
+  const [query, setQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  const { data: results = [], isLoading } = useQuery({
+    queryKey: ['/api/snaptrade/search', query],
+    queryFn: async () => {
+      if (!query.trim()) return [];
+      const response = await apiRequest('GET', `/api/snaptrade/search?q=${encodeURIComponent(query)}`);
+      if (!response.ok) throw new Error('Search failed');
+      return response.json();
+    },
+    enabled: query.length > 0,
+    staleTime: 30000,
+  });
 
   useEffect(() => {
-    const searchSymbols = async () => {
-      if (query.length < 1) {
-        setResults([]);
-        setShowResults(false);
-        return;
-      }
-
-      setIsSearching(true);
-      try {
-        const searchResults = await SnapTradeAPI.searchSymbols(query);
-        setResults(searchResults);
-        setShowResults(true);
-      } catch (error) {
-        console.error("Search error:", error);
-        toast({
-          title: "Search Error",
-          description: "Unable to search symbols. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsSearching(false);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
       }
     };
-
-    const debounceTimer = setTimeout(searchSymbols, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [query, toast]);
-
-  const handleAddToWatchlist = (symbol: string, name: string) => {
-    if (onAddToWatchlist) {
-      onAddToWatchlist(symbol, name);
-    }
-    setShowResults(false);
-    setQuery("");
-  };
-
-  const handleTrade = (symbol: string, name: string) => {
-    if (onTrade) {
-      onTrade(symbol, name);
-    }
-    setShowResults(false);
-    setQuery("");
-  };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <div className={`relative ${className}`}>
+    <div ref={searchRef} className={`relative ${className}`}>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
         <Input
           type="text"
-          placeholder="Search stocks, ETFs, crypto..."
+          placeholder="Search stocks, ETFs..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="pl-10 bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500"
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          className="pl-10 pr-4 py-2 bg-gray-800 border-gray-700 text-white placeholder-gray-400 focus:ring-purple-500 focus:border-purple-500 rounded-xl w-full"
         />
-        {isSearching && (
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-          </div>
-        )}
       </div>
 
-      {showResults && results.length > 0 && (
-        <Card className="absolute z-50 w-full mt-1 bg-gray-800 border-gray-600 shadow-lg">
-          <CardContent className="p-2">
-            <div className="max-h-96 overflow-y-auto">
-              {results.map((result) => (
-                <Link key={result.symbol} href={`/stock/${result.symbol}`}>
-                  <div className="p-3 hover:bg-gray-700 rounded-lg cursor-pointer transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-semibold text-white">{result.symbol}</span>
-                        <span className="text-gray-400 text-sm truncate">{result.name}</span>
+      {isOpen && query && (
+        <Card className="absolute top-full left-0 right-0 mt-2 z-50 flint-card">
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="p-4 text-center text-gray-400">Searching...</div>
+            ) : results.length > 0 ? (
+              <div className="max-h-64 overflow-y-auto">
+                {results.slice(0, 8).map((result: SearchResult) => (
+                  <Link key={result.symbol} href={`/stock/${result.symbol}`}>
+                    <div 
+                      className="flex items-center gap-3 p-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-0 transition-colors"
+                      onClick={() => {
+                        setIsOpen(false);
+                        setQuery('');
+                      }}
+                    >
+                      <div className="flex items-center justify-center w-8 h-8 bg-purple-600 rounded-lg">
+                        <TrendingUp className="h-4 w-4 text-white" />
                       </div>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <span className="text-lg font-bold text-white">
-                          ${result.price.toFixed(2)}
-                        </span>
-                        <div className={`flex items-center space-x-1 ${
-                          result.changePercent >= 0 ? 'text-green-400' : 'text-red-400'
-                        }`}>
-                          {result.changePercent >= 0 ? (
-                            <TrendingUp className="h-3 w-3" />
-                          ) : (
-                            <TrendingDown className="h-3 w-3" />
-                          )}
-                          <span className="text-sm">
-                            {result.changePercent >= 0 ? '+' : ''}
-                            {result.changePercent.toFixed(2)}%
-                          </span>
-                        </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-white">{result.symbol}</div>
+                        <div className="text-sm text-gray-400">{result.name}</div>
                       </div>
                     </div>
-                    <div className="flex space-x-2">
-                      {onAddToWatchlist && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleAddToWatchlist(result.symbol, result.name);
-                          }}
-                          className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Watch
-                        </Button>
-                      )}
-                      {onTrade && (
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleTrade(result.symbol, result.name);
-                          }}
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          Trade
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {showResults && results.length === 0 && !isSearching && query.length >= 2 && (
-        <Card className="absolute z-50 w-full mt-1 bg-gray-800 border-gray-600 shadow-lg">
-          <CardContent className="p-4 text-center">
-            <p className="text-gray-400">No results found for "{query}"</p>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-gray-400">No results found</div>
+            )}
           </CardContent>
         </Card>
       )}
