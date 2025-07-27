@@ -18,6 +18,8 @@ import { StockIcon } from "@/components/ui/stock-icon";
 import { AccountDetailsModal } from "@/components/ui/account-details-modal";
 import { EnhancedConnectedAccounts } from "@/components/dashboard/enhanced-connected-accounts";
 import { QuickActionsBar } from "@/components/ui/quick-actions-bar";
+import { ErrorRetryCard } from "@/components/ui/error-retry-card";
+import { RealTimeAPI } from "@/lib/real-time-api";
 
 interface DashboardData {
   totalBalance: number;
@@ -34,6 +36,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [liveQuotes, setLiveQuotes] = useState<Record<string, any>>({});
 
   // Fetch dashboard data
   const { data: dashboardData, isLoading, error, refetch } = useQuery({
@@ -56,6 +59,25 @@ export default function Dashboard() {
       }
     };
     logLogin();
+  }, []);
+
+  // Fetch live quotes for watchlist
+  useEffect(() => {
+    const watchlistSymbols = ['AAPL', 'GOOGL', 'TSLA'];
+    
+    const fetchLiveQuotes = async () => {
+      try {
+        const quotes = await RealTimeAPI.getMultipleQuotes(watchlistSymbols);
+        setLiveQuotes(quotes);
+      } catch (error) {
+        console.error('Failed to fetch live quotes:', error);
+      }
+    };
+
+    fetchLiveQuotes();
+    const interval = setInterval(fetchLiveQuotes, 30000); // Update every 30 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleConnectBank = async () => {

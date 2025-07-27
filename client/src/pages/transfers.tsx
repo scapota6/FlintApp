@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { ArrowRightLeft, Building, TrendingUp, Clock, CheckCircle, XCircle, Plus } from "lucide-react";
+import MobileNav from "@/components/layout/mobile-nav";
 
 export default function Transfers() {
   const { user } = useAuth();

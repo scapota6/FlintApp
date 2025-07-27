@@ -2,12 +2,14 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import Stripe from "stripe";
 import crypto from "crypto";
+import { v4 as uuidv4 } from 'uuid';
 import { Snaptrade } from "snaptrade-typescript-sdk";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { rateLimits } from "./middleware/rateLimiter";
 import { WalletService } from "./services/WalletService";
 import { TradingAggregator } from "./services/TradingAggregator";
+import { marketDataService } from "./services/market-data";
 import { 
   insertConnectedAccountSchema,
   insertWatchlistItemSchema,
@@ -292,9 +294,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       
+      // Generate UUID v4 for tradeId
+      const tradeId = uuidv4();
+      
       const validatedData = insertTradeSchema.parse({
         ...req.body,
-        userId
+        userId,
+        tradeId
       });
       
       const trade = await storage.createTrade(validatedData);
@@ -305,6 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         action: 'trade',
         description: 'Trade executed',
         metadata: {
+          tradeId,
           symbol: validatedData.symbol,
           side: validatedData.side,
           quantity: validatedData.quantity,
@@ -312,10 +319,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      res.json({ trade });
+      res.json({ trade, tradeId });
     } catch (error: any) {
       console.error("Error creating trade:", error);
       res.status(500).json({ message: "Failed to create trade: " + error.message });
+    }
+  });
+
+  // Enhanced SnapTrade order placement with UUID
+  app.post('/api/snaptrade/place-order', rateLimits.trading, isAuthenticated, async (req: any, res) => {
+    try {
+      if (!snapTradeClient) {
+        return res.status(500).json({ message: 'SnapTrade client not initialized' });
+      }
+
+      const userId = req.user.claims.sub;
+      const { accountId, symbol, quantity, action, orderType, price } = req.body;
+
+      // Validate required fields
+      if (!accountId || !symbol || !quantity || !action || !orderType) {
+        return res.status(400).json({ 
+          message: 'Missing required fields: accountId, symbol, quantity, action, orderType' 
+        });
+      }
+
+      const userRecord = await storage.getUser(userId);
+      if (!userRecord?.snaptradeUserSecret) {
+        return res.status(404).json({ message: 'SnapTrade credentials not found' });
+      }
+
+      const credentials = {
+        userId: userRecord.email,
+        userSecret: userRecord.snaptradeUserSecret
+      };
+
+      // Generate UUID v4 for this trade
+      const tradeId = uuidv4();
+
+      // Place order using SnapTrade API
+      const orderResponse = await snapTradeClient.trading.placeForceOrder({
+        userId: credentials.userId,
+        userSecret: credentials.userSecret,
+        accountId,
+        action: action.toUpperCase(), // BUY or SELL
+        orderType: orderType, // Market, Limit, etc.
+        symbol,
+        units: quantity,
+        price: price || undefined,
+        timeInForce: 'DAY'
+      });
+
+      // Log successful order
+      await storage.createActivityLog({
+        userId,
+        action: 'order_placed',
+        description: `${action.toUpperCase()} order placed for ${symbol}`,
+        metadata: {
+          tradeId,
+          symbol,
+          quantity,
+          action,
+          orderType,
+          price,
+          snapTradeResponse: orderResponse.data
+        }
+      });
+
+      res.json({ 
+        success: true, 
+        tradeId,
+        orderId: orderResponse.data?.id,
+        message: `${action.toUpperCase()} order placed successfully`,
+        orderDetails: orderResponse.data
+      });
+
+    } catch (error: any) {
+      console.error('SnapTrade order placement error:', error);
+      
+      // Log failed order attempt
+      const userId = req.user?.claims?.sub;
+      if (userId) {
+        await storage.createActivityLog({
+          userId,
+          action: 'order_failed',
+          description: 'Order placement failed',
+          metadata: {
+            error: error.message,
+            requestBody: req.body
+          }
+        });
+      }
+
+      res.status(500).json({ 
+        success: false,
+        message: error.message || 'Failed to place order',
+        error: error.response?.data || error.message
+      });
     }
   });
 
@@ -708,6 +807,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('❌ Account disconnect error:', error);
       res.status(500).json({ message: 'Failed to disconnect account' });
+    }
+  });
+
+  // Live stock quotes endpoint
+  app.get('/api/quotes/:symbol', rateLimits.data, async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      
+      if (!symbol || typeof symbol !== 'string') {
+        return res.status(400).json({ message: 'Valid symbol required' });
+      }
+
+      const quote = await marketDataService.getQuote(symbol.toUpperCase());
+      
+      if (!quote) {
+        return res.status(404).json({ message: `Quote not found for symbol ${symbol}` });
+      }
+
+      res.json(quote);
+    } catch (error) {
+      console.error('Error fetching quote:', error);
+      res.status(500).json({ message: 'Failed to fetch quote' });
+    }
+  });
+
+  // Multiple quotes endpoint
+  app.post('/api/quotes', rateLimits.data, async (req, res) => {
+    try {
+      const { symbols } = req.body;
+      
+      if (!Array.isArray(symbols) || symbols.length === 0) {
+        return res.status(400).json({ message: 'Valid symbols array required' });
+      }
+
+      if (symbols.length > 10) {
+        return res.status(400).json({ message: 'Maximum 10 symbols allowed per request' });
+      }
+
+      const quotes = await marketDataService.getMultipleQuotes(symbols.map(s => s.toUpperCase()));
+      res.json(quotes);
+    } catch (error) {
+      console.error('Error fetching multiple quotes:', error);
+      res.status(500).json({ message: 'Failed to fetch quotes' });
     }
   });
 
