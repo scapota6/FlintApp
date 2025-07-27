@@ -106,54 +106,27 @@ export default function Dashboard() {
 
   const handleConnectBrokerage = async () => {
     try {
-      const response = await fetch('/api/snaptrade/connect-url');
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to initialize brokerage connection');
-      }
+      const response = await apiRequest('POST', '/api/snaptrade/register');
+      if (!response.ok) throw new Error('Failed to initialize brokerage connection');
       
       const data = await response.json();
-      
-      if (data.url) {
-        const popup = window.open(
-          data.url,
-          'snaptrade_connect',
-          'width=800,height=600,scrollbars=yes,resizable=yes'
-        );
+      const popup = window.open(
+        data.url,
+        'snaptrade_connect',
+        'width=800,height=600,scrollbars=yes,resizable=yes'
+      );
 
-        // Listen for messages from the popup
-        const messageHandler = (event: MessageEvent) => {
-          if (event.origin !== window.location.origin) return;
-          
-          if (event.data.success) {
-            window.removeEventListener('message', messageHandler);
-            refetch(); // Refresh dashboard data
-            toast({
-              title: "Brokerage Connected",
-              description: event.data.message || "Your brokerage account has been connected successfully.",
-            });
-          } else if (event.data.error) {
-            window.removeEventListener('message', messageHandler);
-            toast({
-              title: "Connection Error",
-              description: event.data.error || "Failed to connect brokerage account.",
-              variant: "destructive",
-            });
-          }
-        };
-
-        window.addEventListener('message', messageHandler);
-
-        // Fallback: check if popup is closed manually
-        const checkClosed = setInterval(() => {
-          if (popup?.closed) {
-            clearInterval(checkClosed);
-            window.removeEventListener('message', messageHandler);
-          }
-        }, 1000);
-      } else {
-        throw new Error('No connection URL received from server');
-      }
+      // Listen for completion
+      const checkClosed = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkClosed);
+          refetch(); // Refresh dashboard data
+          toast({
+            title: "Brokerage Connected",
+            description: "Your brokerage account has been connected successfully.",
+          });
+        }
+      }, 1000);
     } catch (error) {
       console.error('Brokerage connection error:', error);
       toast({
