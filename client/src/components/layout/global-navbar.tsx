@@ -19,7 +19,6 @@ const navLinks = [
   { href: '/watchlist', label: 'Watchlist' },
   { href: '/news', label: 'News' },
   { href: '/activity', label: 'Activity' },
-  { href: '/admin', label: 'Admin', adminOnly: true },
 ];
 
 export default function GlobalNavbar() {
@@ -52,7 +51,7 @@ export default function GlobalNavbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50" style={{ background: 'var(--bg)' }}>
+    <nav className="fixed top-0 left-0 right-0 z-[100]" style={{ background: 'var(--bg)' }}>
       <div className="border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
@@ -69,11 +68,19 @@ export default function GlobalNavbar() {
             </Link>
           </div>
 
-          {/* Welcome Message */}
-          <div className="hidden md:block text-center flex-1">
-            <span className="text-white text-sm font-medium">
-              Welcome back, {user?.firstName || user?.email?.split('@')[0] || 'Trader'}
-            </span>
+          {/* Navigation Links */}
+          <div className="hidden md:flex space-x-8 flex-1 justify-center">
+            {navLinks.filter(link => link.href !== '/admin').map((link) => (
+              <Link key={link.href} href={link.href}>
+                <span className={`text-sm font-medium transition-all duration-200 cursor-pointer relative
+                  ${isActiveLink(link.href)
+                    ? 'text-white after:absolute after:bottom-[-4px] after:left-0 after:right-0 after:h-0.5 after:bg-[#8e44ad] after:rounded-full'
+                    : 'text-gray-300 hover:text-white hover:drop-shadow-[0_0_8px_rgba(142,68,173,0.6)]'
+                  }`}>
+                  {link.label}
+                </span>
+              </Link>
+            ))}
           </div>
 
           {/* Desktop Navigation */}

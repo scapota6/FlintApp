@@ -14,6 +14,10 @@ import { InteractiveTable } from "@/components/ui/interactive-table";
 import { AnimatedBadge } from "@/components/ui/animated-badge";
 import { ChartPlaceholder } from "@/components/ui/chart-placeholder";
 import { Tooltip } from "@/components/ui/tooltip";
+import { StockIcon } from "@/components/ui/stock-icon";
+import { AccountDetailsModal } from "@/components/ui/account-details-modal";
+import { EnhancedConnectedAccounts } from "@/components/dashboard/enhanced-connected-accounts";
+import { QuickActionsBar } from "@/components/ui/quick-actions-bar";
 
 interface DashboardData {
   totalBalance: number;
@@ -28,6 +32,8 @@ interface DashboardData {
 export default function Dashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [selectedAccount, setSelectedAccount] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch dashboard data
   const { data: dashboardData, isLoading, error, refetch } = useQuery({
