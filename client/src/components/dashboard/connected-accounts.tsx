@@ -4,6 +4,8 @@ import { Link } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import DisconnectButton from '@/components/ui/disconnect-button';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Account {
   id: string;
@@ -27,6 +29,7 @@ export default function ConnectedAccounts({
   onConnectBrokerage 
 }: ConnectedAccountsProps) {
   const [loadingConnect, setLoadingConnect] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const handleConnectBank = async () => {
     setLoadingConnect('bank');
@@ -44,6 +47,11 @@ export default function ConnectedAccounts({
     } finally {
       setLoadingConnect(null);
     }
+  };
+
+  const handleAccountDisconnected = () => {
+    // Refresh dashboard data after account disconnection
+    queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
   };
 
   const getProviderIcon = (provider: string) => {
@@ -108,9 +116,19 @@ export default function ConnectedAccounts({
             {accounts.map((account) => (
               <div 
                 key={account.id}
-                className={`account-card ${account.provider.toLowerCase()}`}
+                className={`account-card ${account.provider.toLowerCase()} relative`}
               >
-                <div className="flex items-center justify-between">
+                {/* Disconnect Button */}
+                <div className="absolute top-3 right-3">
+                  <DisconnectButton
+                    accountId={account.id}
+                    provider={account.provider}
+                    accountName={account.accountName}
+                    onDisconnected={handleAccountDisconnected}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pr-12">
                   <div className="flex items-center gap-3">
                     {getProviderIcon(account.provider)}
                     <div>

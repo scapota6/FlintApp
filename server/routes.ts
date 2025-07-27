@@ -445,7 +445,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/admin/snaptrade-users', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
-      const { data } = await snaptrade.authentication.listSnapTradeUsers();
+      if (!snapTradeClient) {
+        return res.status(500).json({ message: 'SnapTrade client not initialized' });
+      }
+      const { data } = await snapTradeClient.authentication.listSnapTradeUsers();
       res.json({ users: data });
     } catch (error: any) {
       console.error("Error listing SnapTrade users:", error);
@@ -455,8 +458,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/admin/snaptrade-user/:userId', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
+      if (!snapTradeClient) {
+        return res.status(500).json({ message: 'SnapTrade client not initialized' });
+      }
       const { userId } = req.params;
-      await snaptrade.authentication.deleteSnapTradeUser({
+      await snapTradeClient.authentication.deleteSnapTradeUser({
         userId
       });
       
@@ -632,6 +638,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error exchanging Teller token:", error);
       res.status(500).json({ message: "Failed to exchange token: " + error.message });
+    }
+  });
+
+  // DELETE account disconnect route
+  app.delete('/api/accounts/:provider/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { provider, id: accountId } = req.params;
+      const user = req.user;
+
+      if (!user?.claims?.sub) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+
+      const userId = user.claims.sub;
+
+      // Validate provider
+      if (!['teller', 'snaptrade'].includes(provider)) {
+        return res.status(400).json({ message: 'Invalid provider' });
+      }
+
+      console.log(`🔌 Disconnecting ${provider} account ${accountId} for user ${userId}`);
+
+      if (provider === 'teller') {
+        // Handle Teller disconnect
+        // Note: Teller doesn't require explicit disconnection - we just remove credentials
+        const deletedAccounts = await storage.deleteConnectedAccount(userId, provider, accountId);
+        
+        if (deletedAccounts === 0) {
+          return res.status(404).json({ message: 'Account not found' });
+        }
+        
+        console.log(`✅ Teller account ${accountId} disconnected`);
+      } else if (provider === 'snaptrade') {
+        // Handle SnapTrade disconnect
+        const userRecord = await storage.getUser(userId);
+        if (!userRecord?.snaptradeUserSecret) {
+          return res.status(404).json({ message: 'SnapTrade credentials not found' });
+        }
+
+        const credentials = {
+          userId: userRecord.email,
+          userSecret: userRecord.snaptradeUserSecret
+        };
+
+        try {
+          // Delete SnapTrade user (this revokes all access)
+          if (snapTradeClient) {
+            await snapTradeClient.authentication.deleteSnapTradeUser({
+              userId: credentials.userId,
+              userSecret: credentials.userSecret
+            });
+            console.log(`✅ SnapTrade user ${credentials.userId} deleted`);
+          }
+        } catch (snapError) {
+          console.warn(`⚠️ SnapTrade deletion failed (continuing with local cleanup):`, snapError);
+        }
+
+        // Remove credentials from database
+        await storage.updateUser(userId, { snaptradeUserSecret: null });
+
+        // Remove connected accounts
+        await storage.deleteConnectedAccount(userId, provider, accountId);
+        
+        console.log(`✅ SnapTrade account ${accountId} disconnected`);
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      console.error('❌ Account disconnect error:', error);
+      res.status(500).json({ message: 'Failed to disconnect account' });
     }
   });
 

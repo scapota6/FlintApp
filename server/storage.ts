@@ -44,6 +44,7 @@ export interface IStorage {
   createConnectedAccount(account: InsertConnectedAccount): Promise<ConnectedAccount>;
   updateAccountBalance(accountId: number, balance: string): Promise<void>;
   getConnectedAccount(accountId: number): Promise<ConnectedAccount | undefined>;
+  deleteConnectedAccount(userId: string, provider: string, accountId: string): Promise<number>;
   
   // Holdings
   getHoldings(userId: string): Promise<Holding[]>;
@@ -72,6 +73,9 @@ export interface IStorage {
   // Market data
   getMarketData(symbols: string[]): Promise<MarketData[]>;
   updateMarketData(data: InsertMarketData): Promise<MarketData>;
+  
+  // User updates
+  updateUser(userId: string, updates: Partial<User>): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -183,6 +187,17 @@ export class DatabaseStorage implements IStorage {
       .from(connectedAccounts)
       .where(eq(connectedAccounts.id, accountId));
     return account;
+  }
+
+  async deleteConnectedAccount(userId: string, provider: string, accountId: string): Promise<number> {
+    const result = await db
+      .delete(connectedAccounts)
+      .where(and(
+        eq(connectedAccounts.userId, userId),
+        eq(connectedAccounts.provider, provider),
+        eq(connectedAccounts.externalAccountId, accountId)
+      ));
+    return result.rowCount || 0;
   }
 
   // Holdings
@@ -376,6 +391,15 @@ export class DatabaseStorage implements IStorage {
         subscriptionTier: tier,
         updatedAt: new Date() 
       })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async updateUser(userId: string, updates: Partial<User>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ ...updates, updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
     return user;

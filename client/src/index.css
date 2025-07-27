@@ -236,3 +236,30 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--dark-quinary);
 }
+
+/* Disconnect Button & Popover Styling */
+.disconnect-button {
+  @apply text-gray-400 hover:text-red-400 hover:bg-red-900/20 transition-colors;
+}
+
+.disconnect-popover {
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.disconnect-popover h3 {
+  @apply text-sm font-medium text-white;
+}
+
+.disconnect-popover p {
+  @apply text-sm text-gray-300;
+}
+
+.disconnect-popover .btn-cancel {
+  @apply bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600;
+}
+
+.disconnect-popover .btn-confirm {
+  @apply bg-red-600 hover:bg-red-700 text-white border-0;
+}
