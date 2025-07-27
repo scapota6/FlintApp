@@ -102,9 +102,9 @@ class MarketDataService {
         return null;
       }
 
-      // Get real-time quote from Polygon
-      const quoteUrl = `https://api.polygon.io/v2/last/nbbo/${symbol}?apikey=${process.env.POLYGON_API_KEY}`;
-      const response = await fetch(quoteUrl);
+      // Use Polygon's free aggregates endpoint for previous day data
+      const prevDayUrl = `https://api.polygon.io/v2/aggs/ticker/${symbol}/prev?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`;
+      const response = await fetch(prevDayUrl);
 
       if (!response.ok) {
         throw new Error(`Polygon API error: ${response.status} ${response.statusText}`);
@@ -112,39 +112,25 @@ class MarketDataService {
 
       const data = await response.json();
       
-      if (data.status === 'OK' && data.results) {
-        const result = data.results;
+      if (data.status === 'OK' && data.results?.[0]) {
+        const result = data.results[0];
         
-        // Use mid price between bid and ask
-        const bidPrice = result.p || 0; // bid price
-        const askPrice = result.P || 0; // ask price  
-        const currentPrice = askPrice > 0 && bidPrice > 0 ? (askPrice + bidPrice) / 2 : (askPrice || bidPrice);
+        // Use closing price as current price (delayed)
+        const currentPrice = result.c; // closing price
+        const openPrice = result.o; // opening price
+        const volume = result.v; // volume
+        
+        // Calculate change percentage from open to close
+        const changePct = openPrice ? ((currentPrice - openPrice) / openPrice) * 100 : 0;
 
         if (currentPrice > 0) {
-          // Get previous day's close for change calculation
-          const prevCloseUrl = `https://api.polygon.io/v2/aggs/ticker/${symbol}/prev?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`;
-          let changePct = 0;
-          
-          try {
-            const prevResponse = await fetch(prevCloseUrl);
-            if (prevResponse.ok) {
-              const prevData = await prevResponse.json();
-              if (prevData.status === 'OK' && prevData.results?.[0]) {
-                const prevClose = prevData.results[0].c;
-                changePct = ((currentPrice - prevClose) / prevClose) * 100;
-              }
-            }
-          } catch (err) {
-            console.log(`Could not fetch previous close for ${symbol}`);
-          }
-
-          console.log(`Successfully fetched ${symbol} from Polygon: $${currentPrice.toFixed(2)}`);
+          console.log(`Successfully fetched ${symbol} from Polygon (delayed): $${currentPrice.toFixed(2)}`);
 
           return {
             symbol: symbol.toUpperCase(),
             price: parseFloat(currentPrice.toFixed(2)),
             changePct: parseFloat(changePct.toFixed(2)),
-            volume: result.s || 0, // size/volume
+            volume,
             marketCap: this.getMarketCapEstimate(symbol),
             company_name: this.getCompanyName(symbol),
             logo_url: undefined

@@ -285,7 +285,7 @@ export default function Dashboard() {
                     }}
                   >
                     <div className="flex items-center gap-3">
-                      <StockIcon symbol={symbol} size="sm" />
+                      <StockIcon symbol={symbol} />
                       <div>
                         <p className="text-white font-medium">{symbol}</p>
                         <p className="text-xs text-gray-400">{(quote as any)?.name || `${symbol} Stock`}</p>
