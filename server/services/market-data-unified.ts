@@ -39,52 +39,37 @@ class UnifiedMarketDataService {
   }
 
   async getMarketData(symbol: string): Promise<MarketQuote | null> {
-    // Check cache first
+    // Check cache first (5s to avoid throttling)
     const cached = this.getCachedQuote(symbol);
     if (cached) {
       return cached;
     }
 
-    try {
-      // Try SnapTrade first with proper credentials
-      if (this.snapTradeClient) {
-        const quote = await this.getSnapTradeQuote(symbol);
-        if (quote) {
-          this.setCachedQuote(symbol, quote);
-          return quote;
-        }
-      }
-
-      // Fallback to IEX Cloud (not Alpha Vantage/Polygon to avoid rate limits)
-      const iexQuote = await this.getIEXQuote(symbol);
-      if (iexQuote) {
-        this.setCachedQuote(symbol, iexQuote);
-        return iexQuote;
-      }
-
-      // Final fallback to realistic market prices
-      const fallbackQuote = this.getFallbackQuote(symbol);
-      this.setCachedQuote(symbol, fallbackQuote);
-      return fallbackQuote;
-
-    } catch (error) {
-      console.error(`Error fetching market data for ${symbol}:`, error);
-      return this.getFallbackQuote(symbol);
+    // Use only SnapTrade's referenceData.getQuotes() for live quotes
+    const snapTradeQuote = await this.getSnapTradeReferenceDataQuote(symbol);
+    if (snapTradeQuote) {
+      this.setCachedQuote(symbol, snapTradeQuote);
+      return snapTradeQuote;
     }
+
+    // Final fallback when SnapTrade unavailable
+    return this.getFallbackQuote(symbol);
   }
 
-  private async getSnapTradeQuote(symbol: string): Promise<MarketQuote | null> {
+  private async getSnapTradeReferenceDataQuote(symbol: string): Promise<MarketQuote | null> {
     try {
-      // For testing, use a default user - in production this would be user-specific
-      const userId = 'scapota@flint-investing.com';
-      const userSecret = 'test_secret'; // This should come from database
+      if (!this.snapTradeClient) return null;
 
-      // Use the correct SnapTrade API endpoint for quotes
-      const response = await this.snapTradeClient!.referenceData.getSymbols({
-        userId,
-        userSecret,
-        substring: symbol,
+      console.log(`Getting SnapTrade referenceData quote for ${symbol}...`);
+      console.log('Method: snapTradeClient.referenceData.getQuotes');
+      console.log('Payload:', { symbols: [symbol] });
+
+      // Use referenceData.getQuotes() for live quotes as instructed
+      const response = await this.snapTradeClient.referenceData.getQuotes({
+        symbols: [symbol]
       });
+
+      console.log(`SnapTrade referenceData raw response for ${symbol}:`, response);
 
       if (response.data && response.data.length > 0) {
         const quote = response.data[0];
@@ -98,7 +83,10 @@ class UnifiedMarketDataService {
         };
       }
     } catch (error: any) {
-      console.error(`SnapTrade quote error for ${symbol}:`, error.message);
+      console.error(`SnapTrade referenceData quote error for ${symbol}:`, error.message);
+      if (error.response) {
+        console.error('RESPONSE HEADERS:', JSON.stringify(error.response.headers, null, 2));
+      }
     }
     return null;
   }

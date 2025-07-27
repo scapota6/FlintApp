@@ -116,22 +116,22 @@ export default function Dashboard() {
         'width=800,height=600,scrollbars=yes,resizable=yes'
       );
 
-      // Listen for messages from the popup
+      // Listen for messages from the popup - simplified message format
       const messageHandler = (event: MessageEvent) => {
         if (event.origin !== window.location.origin) return;
         
-        if (event.data.type === 'snaptrade_connected' && event.data.success) {
+        if (event.data === 'snaptrade_connected') {
           window.removeEventListener('message', messageHandler);
           refetch(); // Refresh dashboard data
           toast({
             title: "Brokerage Connected",
-            description: event.data.message || "Your brokerage account has been connected successfully.",
+            description: "Your brokerage account has been connected successfully.",
           });
-        } else if (event.data.type === 'snaptrade_error') {
+        } else if (event.data === 'snaptrade_error') {
           window.removeEventListener('message', messageHandler);
           toast({
             title: "Connection Error",
-            description: event.data.error || "Failed to connect brokerage account.",
+            description: "Failed to connect brokerage account.",
             variant: "destructive",
           });
         }
