@@ -9,6 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, Activity, RefreshCw } from "lucide-react";
 import { SparkleTitle } from "@/components/ui/sparkle-title";
+import { InteractiveTable } from "@/components/ui/interactive-table";
+import { AnimatedBadge } from "@/components/ui/animated-badge";
+import { ChartPlaceholder } from "@/components/ui/chart-placeholder";
 
 interface DashboardData {
   totalBalance: number;
@@ -172,7 +175,7 @@ export default function Dashboard() {
               Dashboard
             </h1>
           </SparkleTitle>
-          <p className="text-gray-400">Welcome back, {user?.firstName || user?.email?.split('@')[0] || 'Trader'}</p>
+          <p className="text-gray-400">Welcome back, {user?.email?.split('@')[0] || 'Trader'}</p>
         </div>
 
         {/* Summary Cards */}
@@ -212,62 +215,126 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Watchlist & Holdings */}
+        {/* Enhanced Watchlist & Holdings with Micro-interactions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card className="flint-card">
+          {/* Watchlist with Interactive Elements */}
+          <Card className="flint-card group hover:border-purple-500/50 transition-all duration-300">
             <CardHeader>
               <CardTitle className="text-white font-mono flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-purple-400" />
+                <TrendingUp className="h-5 w-5 text-purple-400 group-hover:scale-110 transition-transform duration-200" />
                 Watchlist
+                <AnimatedBadge variant="info" className="ml-auto">3 items</AnimatedBadge>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-gray-400">
-                <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Your watchlist is empty.</p>
-                <p className="text-sm">Use the search bar to add stocks to track.</p>
+              <div className="space-y-3">
+                {/* Sample watchlist data with micro-interactions */}
+                {[
+                  { symbol: 'AAPL', name: 'Apple Inc.', price: 189.45, change: 2.34, changePercent: 1.25 },
+                  { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 142.18, change: -1.85, changePercent: -1.28 },
+                  { symbol: 'TSLA', name: 'Tesla Inc.', price: 238.77, change: 5.12, changePercent: 2.19 }
+                ].map((stock, index) => (
+                  <div 
+                    key={stock.symbol}
+                    className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30 
+                      hover:bg-gray-800/50 cursor-pointer transform hover:scale-[1.02] 
+                      transition-all duration-200 group/item relative"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                      <div>
+                        <p className="text-white font-medium">{stock.symbol}</p>
+                        <p className="text-xs text-gray-400">{stock.name}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-white font-medium">${stock.price}</p>
+                      <div className={`text-xs flex items-center gap-1 ${
+                        stock.change >= 0 ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        <span>{stock.change >= 0 ? '↗' : '↘'}</span>
+                        <span>{Math.abs(stock.changePercent)}%</span>
+                      </div>
+                    </div>
+                    
+                    {/* Mini chart on hover */}
+                    <div className="absolute right-4 top-1/2 transform -translate-y-1/2 w-16 h-8 
+                      opacity-0 group-hover/item:opacity-100 transition-opacity duration-300 pointer-events-none">
+                      <ChartPlaceholder 
+                        data={[45, 52, 48, 61, 59, 67, 71, 68, 74, 78]} 
+                        height={32} 
+                        color={stock.change >= 0 ? "#22c55e" : "#ef4444"}
+                        animated={true}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="flint-card">
+          {/* Holdings with Interactive Table */}
+          <Card className="flint-card group hover:border-green-500/50 transition-all duration-300">
             <CardHeader>
               <CardTitle className="text-white font-mono flex items-center gap-2">
-                <Activity className="h-5 w-5 text-green-400" />
+                <Activity className="h-5 w-5 text-green-400 group-hover:scale-110 transition-transform duration-200" />
                 Holdings
+                <AnimatedBadge variant="success" className="ml-auto">2 positions</AnimatedBadge>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-gray-400">
-                <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No holdings found.</p>
-                <p className="text-sm">Connect your brokerage to see your positions.</p>
-              </div>
+              <InteractiveTable
+                data={[
+                  { symbol: 'AAPL', shares: 50, avgPrice: 175.32, currentPrice: 189.45, value: 9472.50, pl: 706.50 },
+                  { symbol: 'MSFT', shares: 25, avgPrice: 342.18, currentPrice: 338.11, value: 8452.75, pl: -101.75 }
+                ]}
+                columns={[
+                  { 
+                    key: 'symbol', 
+                    header: 'Symbol', 
+                    sortable: true,
+                    render: (value) => (
+                      <div className="font-medium text-white flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-400" />
+                        {value}
+                      </div>
+                    )
+                  },
+                  { 
+                    key: 'shares', 
+                    header: 'Shares', 
+                    sortable: true,
+                    render: (value) => <span className="text-gray-300">{value}</span>
+                  },
+                  { 
+                    key: 'currentPrice', 
+                    header: 'Price', 
+                    sortable: true,
+                    render: (value) => <span className="text-white">${value}</span>
+                  },
+                  { 
+                    key: 'pl', 
+                    header: 'P/L', 
+                    sortable: true,
+                    render: (value) => (
+                      <AnimatedBadge 
+                        variant={value >= 0 ? 'success' : 'error'}
+                        glow={Math.abs(value) > 100}
+                      >
+                        {value >= 0 ? '+' : ''}${value.toFixed(2)}
+                      </AnimatedBadge>
+                    )
+                  }
+                ]}
+                hoverable={true}
+                className="bg-transparent"
+              />
             </CardContent>
           </Card>
         </div>
 
-        {/* Quick Actions */}
-        <Card className="flint-card mb-8">
-          <CardHeader>
-            <CardTitle className="text-white font-mono">Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <button className="flint-btn-buy text-sm">
-                Quick Buy
-              </button>
-              <button className="flint-btn-sell text-sm">
-                Quick Sell
-              </button>
-            </div>
-            <div className="text-center">
-              <button className="flint-btn-primary text-sm w-full">
-                Transfer Funds
-              </button>
-            </div>
-          </CardContent>
-        </Card>
+
 
         {/* Recent Activity */}
         <Card className="flint-card">
