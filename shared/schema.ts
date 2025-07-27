@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { sql } from 'drizzle-orm';
 
 // Session storage table for Replit Auth
 export const sessions = pgTable(
@@ -136,6 +137,74 @@ export const activityLog = pgTable("activity_log", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// SnapTrade brokerage connections
+export const brokerageConnections = pgTable("brokerage_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  snaptradeConnectionId: varchar("snaptrade_connection_id").notNull(),
+  brokerageName: varchar("brokerage_name").notNull(),
+  brokerageSlug: varchar("brokerage_slug"),
+  accountType: varchar("account_type"),
+  isActive: boolean("is_active").default(true),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Brokerage accounts within connections  
+export const brokerageAccounts = pgTable("brokerage_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  connectionId: varchar("connection_id").notNull().references(() => brokerageConnections.id, { onDelete: "cascade" }),
+  snaptradeAccountId: varchar("snaptrade_account_id").notNull(),
+  accountNumber: varchar("account_number"),
+  accountName: varchar("account_name"),
+  accountType: varchar("account_type"),
+  balance: decimal("balance", { precision: 15, scale: 2 }),
+  buyingPower: decimal("buying_power", { precision: 15, scale: 2 }),
+  currency: varchar("currency").default("USD"),
+  isActive: boolean("is_active").default(true),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Bank accounts from Teller
+export const bankAccounts = pgTable("bank_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  tellerAccountId: varchar("teller_account_id").notNull(),
+  institutionName: varchar("institution_name"),
+  accountName: varchar("account_name"),
+  accountType: varchar("account_type"),
+  lastFour: varchar("last_four"),
+  balance: decimal("balance", { precision: 15, scale: 2 }),
+  currency: varchar("currency").default("USD"),
+  routingNumber: varchar("routing_number"),
+  accountNumber: varchar("account_number"),
+  isActive: boolean("is_active").default(true),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Trading orders
+export const tradingOrders = pgTable("trading_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  accountId: varchar("account_id").notNull().references(() => brokerageAccounts.id),
+  snaptradeOrderId: varchar("snaptrade_order_id"),
+  symbol: varchar("symbol").notNull(),
+  side: varchar("side").notNull(), // BUY, SELL
+  orderType: varchar("order_type").notNull(), // Market, Limit
+  quantity: decimal("quantity", { precision: 15, scale: 6 }),
+  price: decimal("price", { precision: 15, scale: 2 }),
+  status: varchar("status").default("PENDING"),
+  executedAt: timestamp("executed_at"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Market data cache
 export const marketData = pgTable("market_data", {
   id: serial("id").primaryKey(),
@@ -173,6 +242,15 @@ export type ActivityLog = typeof activityLog.$inferSelect;
 
 export type InsertMarketData = typeof marketData.$inferInsert;
 export type MarketData = typeof marketData.$inferSelect;
+
+export type BrokerageConnection = typeof brokerageConnections.$inferSelect;
+export type InsertBrokerageConnection = typeof brokerageConnections.$inferInsert;
+export type BrokerageAccount = typeof brokerageAccounts.$inferSelect;
+export type InsertBrokerageAccount = typeof brokerageAccounts.$inferInsert;
+export type BankAccount = typeof bankAccounts.$inferSelect;
+export type InsertBankAccount = typeof bankAccounts.$inferInsert;
+export type TradingOrder = typeof tradingOrders.$inferSelect;
+export type InsertTradingOrder = typeof tradingOrders.$inferInsert;
 
 // Insert schemas
 export const insertConnectedAccountSchema = createInsertSchema(connectedAccounts).omit({

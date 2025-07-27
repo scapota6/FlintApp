@@ -7,6 +7,7 @@ import { Snaptrade } from "snaptrade-typescript-sdk";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { rateLimits } from "./middleware/rateLimiter";
+import snaptradeEnhancedRoutes from "./routes/snaptrade-enhanced";
 import { WalletService } from "./services/WalletService";
 import { TradingAggregator } from "./services/TradingAggregator";
 import { marketDataService } from "./services/market-data";
@@ -850,6 +851,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching multiple quotes:', error);
       res.status(500).json({ message: 'Failed to fetch quotes' });
+    }
+  });
+
+  // Register enhanced SnapTrade routes
+  app.use('/api/snaptrade', snaptradeEnhancedRoutes);
+  
+  // Register market data routes directly
+  app.get('/api/polygon/test', async (req, res) => {
+    try {
+      const response = await fetch(`https://api.polygon.io/v2/aggs/ticker/AAPL/prev?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`);
+      if (response.ok) {
+        const data = await response.json();
+        res.json({ success: true, message: 'Polygon.io API connected successfully', data: data.results?.[0] });
+      } else {
+        res.status(503).json({ success: false, message: 'Polygon.io API error' });
+      }
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.get('/api/polygon/quote/:symbol', async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      const response = await fetch(`https://api.polygon.io/v2/aggs/ticker/${symbol}/prev?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`);
+      
+      if (!response.ok) {
+        return res.status(500).json({ error: 'Failed to fetch quote' });
+      }
+      
+      const data = await response.json();
+      if (data.results && data.results[0]) {
+        const result = data.results[0];
+        res.json({
+          symbol: symbol.toUpperCase(),
+          price: result.c,
+          change: result.c - result.o,
+          changePct: ((result.c - result.o) / result.o) * 100,
+          volume: result.v,
+          source: 'polygon.io'
+        });
+      } else {
+        res.status(404).json({ error: 'No data found' });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 

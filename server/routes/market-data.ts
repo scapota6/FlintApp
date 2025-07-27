@@ -1,152 +1,196 @@
 import { Router } from "express";
-import { marketDataService } from "../services/market-data";
 import { isAuthenticated } from "../replitAuth";
+import { rateLimits } from "../middleware/rateLimiter";
+import { polygonMarketDataService } from "../services/polygon-market-data";
 
 const router = Router();
 
-// Get market data for a single symbol
-router.get("/", isAuthenticated, async (req: any, res) => {
+// Get single quote
+router.get("/quote/:symbol", rateLimits.data, async (req, res) => {
   try {
-    const { symbol } = req.query;
-
-    if (!symbol || typeof symbol !== 'string') {
-      return res.status(400).json({ 
-        error: "Symbol parameter is required" 
-      });
-    }
-
-    // Get user's SnapTrade credentials for real market data
-    const userId = req.user.claims.sub;
-    const { storage } = await import("../storage");
-    const user = await storage.getUser(userId);
+    const { symbol } = req.params;
     
-    let snaptradeUserId: string | undefined;
-    let snaptradeUserSecret: string | undefined;
+    if (!symbol) {
+      return res.status(400).json({ message: "Symbol is required" });
+    }
+
+    const quote = await polygonMarketDataService.getQuote(symbol);
+    res.json(quote);
     
-    if (user?.snaptradeUserId && user?.snaptradeUserSecret) {
-      snaptradeUserId = user.snaptradeUserId;
-      snaptradeUserSecret = user.snaptradeUserSecret;
-    }
-
-    const marketData = await marketDataService.getMarketData(symbol, snaptradeUserId, snaptradeUserSecret);
-
-    if (!marketData) {
-      return res.status(404).json({ 
-        error: `No market data found for symbol: ${symbol}` 
-      });
-    }
-
-    res.json(marketData);
-  } catch (error) {
-    console.error("Error fetching market data:", error);
+  } catch (error: any) {
+    console.error(`Error fetching quote for ${req.params.symbol}:`, error);
     res.status(500).json({ 
-      error: "Failed to fetch market data" 
+      message: "Failed to fetch quote",
+      error: error.message
     });
   }
 });
 
-// Get market data for multiple symbols
-router.post("/bulk", isAuthenticated, async (req: any, res) => {
+// Get real-time quote
+router.get("/realtime/:symbol", rateLimits.data, async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    
+    if (!symbol) {
+      return res.status(400).json({ message: "Symbol is required" });
+    }
+
+    const quote = await polygonMarketDataService.getRealTimeQuote(symbol);
+    res.json(quote);
+    
+  } catch (error: any) {
+    console.error(`Error fetching real-time quote for ${req.params.symbol}:`, error);
+    res.status(500).json({ 
+      message: "Failed to fetch real-time quote",
+      error: error.message
+    });
+  }
+});
+
+// Get multiple quotes
+router.post("/quotes", rateLimits.data, async (req, res) => {
   try {
     const { symbols } = req.body;
-
+    
     if (!Array.isArray(symbols) || symbols.length === 0) {
-      return res.status(400).json({ 
-        error: "Symbols array is required" 
-      });
+      return res.status(400).json({ message: "Valid symbols array required" });
     }
 
-    // Limit to 50 symbols to prevent abuse
-    if (symbols.length > 50) {
-      return res.status(400).json({ 
-        error: "Maximum 50 symbols allowed per request" 
-      });
+    if (symbols.length > 10) {
+      return res.status(400).json({ message: "Maximum 10 symbols allowed per request" });
     }
 
-    // Get user's SnapTrade credentials
-    const userId = req.user.claims.sub;
-    const { storage } = await import("../storage");
-    const user = await storage.getUser(userId);
+    const quotes = await polygonMarketDataService.getMultipleQuotes(symbols);
+    res.json(quotes);
     
-    let snaptradeUserId: string | undefined;
-    let snaptradeUserSecret: string | undefined;
-    
-    if (user?.snaptradeUserId && user?.snaptradeUserSecret) {
-      snaptradeUserId = user.snaptradeUserId;
-      snaptradeUserSecret = user.snaptradeUserSecret;
-    }
-
-    // Update getBulkMarketData to accept credentials
-    const results: {[symbol: string]: any} = {};
-    
-    // Process symbols in parallel with user credentials
-    const promises = symbols.map(async (symbol: string) => {
-      const data = await marketDataService.getMarketData(symbol, snaptradeUserId, snaptradeUserSecret);
-      return { symbol: symbol.toUpperCase(), data };
+  } catch (error: any) {
+    console.error("Error fetching multiple quotes:", error);
+    res.status(500).json({ 
+      message: "Failed to fetch quotes",
+      error: error.message
     });
+  }
+});
 
-    const responses = await Promise.all(promises);
+// Search symbols
+router.get("/search", rateLimits.data, async (req, res) => {
+  try {
+    const { q: query } = req.query;
     
-    responses.forEach(({ symbol, data }) => {
-      results[symbol] = data;
-    });
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ message: "Search query is required" });
+    }
 
+    const results = await polygonMarketDataService.searchSymbols(query);
     res.json(results);
-  } catch (error) {
+    
+  } catch (error: any) {
+    console.error(`Error searching symbols for "${req.query.q}":`, error);
+    res.status(500).json({ 
+      message: "Failed to search symbols",
+      error: error.message
+    });
+  }
+});
+
+// Get historical data
+router.get("/historical/:symbol", rateLimits.data, async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const { 
+      timespan = 'day', 
+      multiplier = '1', 
+      from, 
+      to 
+    } = req.query;
+    
+    if (!symbol) {
+      return res.status(400).json({ message: "Symbol is required" });
+    }
+
+    if (!from || !to) {
+      return res.status(400).json({ message: "From and to dates are required (YYYY-MM-DD format)" });
+    }
+
+    const data = await polygonMarketDataService.getHistoricalData(
+      symbol, 
+      timespan as string, 
+      parseInt(multiplier as string), 
+      from as string, 
+      to as string
+    );
+    
+    res.json(data);
+    
+  } catch (error: any) {
+    console.error(`Error fetching historical data for ${req.params.symbol}:`, error);
+    res.status(500).json({ 
+      message: "Failed to fetch historical data",
+      error: error.message
+    });
+  }
+});
+
+// Test API connection
+router.get("/test", async (req, res) => {
+  try {
+    const result = await polygonMarketDataService.testConnection();
+    
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(503).json(result);
+    }
+    
+  } catch (error: any) {
+    console.error("Error testing API connection:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Connection test failed",
+      error: error.message
+    });
+  }
+});
+
+// Bulk market data endpoint for dashboard
+router.get("/bulk", rateLimits.data, async (req, res) => {
+  try {
+    const { symbols: symbolsParam } = req.query;
+    
+    let symbols: string[];
+    if (typeof symbolsParam === 'string') {
+      symbols = symbolsParam.split(',').map(s => s.trim().toUpperCase());
+    } else {
+      // Default symbols for dashboard
+      symbols = ['AAPL', 'GOOGL', 'TSLA', 'MSFT', 'AMZN', 'NVDA', 'META', 'NFLX'];
+    }
+
+    if (symbols.length > 20) {
+      return res.status(400).json({ message: "Maximum 20 symbols allowed for bulk request" });
+    }
+
+    const quotes = await polygonMarketDataService.getMultipleQuotes(symbols);
+    
+    // Format for frontend consumption
+    const formattedQuotes = quotes.reduce((acc: any, quote) => {
+      acc[quote.symbol] = quote;
+      return acc;
+    }, {});
+
+    res.json({
+      success: true,
+      data: formattedQuotes,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error: any) {
     console.error("Error fetching bulk market data:", error);
     res.status(500).json({ 
-      error: "Failed to fetch bulk market data" 
+      success: false,
+      message: "Failed to fetch bulk market data",
+      error: error.message
     });
   }
-});
-
-// Get watchlist with market data (authenticated endpoint)
-router.get("/watchlist", isAuthenticated, async (req: any, res) => {
-  try {
-    const userId = req.user.claims.sub;
-    
-    // Get user's watchlist symbols from database
-    const { db } = await import("../db");
-    const { watchlist } = await import("@shared/schema");
-    const { eq } = await import("drizzle-orm");
-
-    const userWatchlist = await db
-      .select()
-      .from(watchlist)
-      .where(eq(watchlist.userId, userId));
-
-    if (userWatchlist.length === 0) {
-      return res.json({ watchlist: [] });
-    }
-
-    // Get market data for all watchlist symbols
-    const symbols = userWatchlist.map(item => item.symbol);
-    const marketData = await marketDataService.getBulkMarketData(symbols);
-
-    // Combine watchlist items with market data
-    const enrichedWatchlist = userWatchlist.map(item => ({
-      ...item,
-      marketData: marketData[item.symbol]
-    }));
-
-    res.json({ watchlist: enrichedWatchlist });
-  } catch (error) {
-    console.error("Error fetching watchlist with market data:", error);
-    res.status(500).json({ 
-      error: "Failed to fetch watchlist market data" 
-    });
-  }
-});
-
-// Cache management endpoints (for debugging)
-router.get("/cache/stats", (req, res) => {
-  const stats = marketDataService.getCacheStats();
-  res.json(stats);
-});
-
-router.post("/cache/clear", (req, res) => {
-  marketDataService.clearCache();
-  res.json({ message: "Cache cleared successfully" });
 });
 
 export default router;

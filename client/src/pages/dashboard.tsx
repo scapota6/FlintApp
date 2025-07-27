@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PolygonMarketDataTest } from "@/components/PolygonMarketDataTest";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -159,6 +160,11 @@ export default function Dashboard() {
 
         {/* Balance Cards */}
         <BalanceCards data={dashboardData} />
+
+        {/* Real-Time Market Data Section */}
+        <div className="mb-8">
+          <PolygonMarketDataTest />
+        </div>
 
         <div className="grid gap-6 md:grid-cols-2">
           <HoldingsCard data={dashboardData?.holdings || []}/>

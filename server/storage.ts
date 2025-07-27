@@ -7,6 +7,10 @@ import {
   transfers,
   activityLog,
   marketData,
+  brokerageConnections,
+  brokerageAccounts,
+  bankAccounts,
+  tradingOrders,
   type User,
   type UpsertUser,
   type ConnectedAccount,
@@ -23,6 +27,14 @@ import {
   type InsertActivityLog,
   type MarketData,
   type InsertMarketData,
+  type BrokerageConnection,
+  type InsertBrokerageConnection,
+  type BrokerageAccount,
+  type InsertBrokerageAccount,
+  type BankAccount,
+  type InsertBankAccount,
+  type TradingOrder,
+  type InsertTradingOrder,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, isNotNull } from "drizzle-orm";
@@ -73,6 +85,28 @@ export interface IStorage {
   // Market data
   getMarketData(symbols: string[]): Promise<MarketData[]>;
   updateMarketData(data: InsertMarketData): Promise<MarketData>;
+  
+  // Brokerage connections (SnapTrade)
+  getBrokerageConnections(userId: string): Promise<BrokerageConnection[]>;
+  createBrokerageConnection(connection: InsertBrokerageConnection): Promise<BrokerageConnection>;
+  updateBrokerageConnection(connectionId: string, data: Partial<BrokerageConnection>): Promise<BrokerageConnection>;
+  deleteBrokerageConnection(connectionId: string): Promise<void>;
+  
+  // Brokerage accounts
+  getBrokerageAccounts(connectionId: string): Promise<BrokerageAccount[]>;
+  getAllBrokerageAccounts(userId: string): Promise<BrokerageAccount[]>;
+  createBrokerageAccount(account: InsertBrokerageAccount): Promise<BrokerageAccount>;
+  updateBrokerageAccount(accountId: string, data: Partial<BrokerageAccount>): Promise<BrokerageAccount>;
+  
+  // Bank accounts (Teller)
+  getBankAccounts(userId: string): Promise<BankAccount[]>;
+  createBankAccount(account: InsertBankAccount): Promise<BankAccount>;
+  updateBankAccount(accountId: string, data: Partial<BankAccount>): Promise<BankAccount>;
+  
+  // Trading orders
+  getTradingOrders(userId: string, limit?: number): Promise<TradingOrder[]>;
+  createTradingOrder(order: InsertTradingOrder): Promise<TradingOrder>;
+  updateTradingOrder(orderId: string, data: Partial<TradingOrder>): Promise<TradingOrder>;
   
   // User updates
   updateUser(userId: string, updates: Partial<User>): Promise<User>;
@@ -369,6 +403,27 @@ export class DatabaseStorage implements IStorage {
   async createActivityLog(activity: InsertActivityLog): Promise<ActivityLog> {
     return this.logActivity(activity);
   }
+
+  // SnapTrade user methods required by enhanced routes
+  async getSnapTradeUser(userId: string): Promise<{ snaptradeUserId: string | null; userSecret: string | null } | null> {
+    const [user] = await db.select({
+      snaptradeUserId: users.snaptradeUserId,
+      userSecret: users.snaptradeUserSecret
+    }).from(users).where(eq(users.id, userId));
+    
+    return user || null;
+  }
+
+  async createSnapTradeUser(userId: string, snaptradeUserId: string, userSecret: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ 
+        snaptradeUserId,
+        snaptradeUserSecret: userSecret,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId));
+  }
   
   async createWatchlistItem(item: InsertWatchlistItem): Promise<WatchlistItem> {
     return this.addToWatchlist(item);
@@ -403,6 +458,115 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  // Brokerage connections implementation
+  async getBrokerageConnections(userId: string): Promise<BrokerageConnection[]> {
+    return db.select().from(brokerageConnections).where(eq(brokerageConnections.userId, userId));
+  }
+
+  async createBrokerageConnection(connection: InsertBrokerageConnection): Promise<BrokerageConnection> {
+    const [result] = await db.insert(brokerageConnections).values(connection).returning();
+    return result;
+  }
+
+  async updateBrokerageConnection(connectionId: string, data: Partial<BrokerageConnection>): Promise<BrokerageConnection> {
+    const [result] = await db
+      .update(brokerageConnections)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(brokerageConnections.id, connectionId))
+      .returning();
+    return result;
+  }
+
+  async deleteBrokerageConnection(connectionId: string): Promise<void> {
+    await db.delete(brokerageConnections).where(eq(brokerageConnections.id, connectionId));
+  }
+
+  // Brokerage accounts implementation
+  async getBrokerageAccounts(connectionId: string): Promise<BrokerageAccount[]> {
+    return db.select().from(brokerageAccounts).where(eq(brokerageAccounts.connectionId, connectionId));
+  }
+
+  async getAllBrokerageAccounts(userId: string): Promise<BrokerageAccount[]> {
+    const results = await db
+      .select({
+        id: brokerageAccounts.id,
+        connectionId: brokerageAccounts.connectionId,
+        snaptradeAccountId: brokerageAccounts.snaptradeAccountId,
+        accountNumber: brokerageAccounts.accountNumber,
+        accountName: brokerageAccounts.accountName,
+        accountType: brokerageAccounts.accountType,
+        balance: brokerageAccounts.balance,
+        buyingPower: brokerageAccounts.buyingPower,
+        currency: brokerageAccounts.currency,
+        isActive: brokerageAccounts.isActive,
+        metadata: brokerageAccounts.metadata,
+        createdAt: brokerageAccounts.createdAt,
+        updatedAt: brokerageAccounts.updatedAt,
+      })
+      .from(brokerageAccounts)
+      .innerJoin(brokerageConnections, eq(brokerageAccounts.connectionId, brokerageConnections.id))
+      .where(eq(brokerageConnections.userId, userId));
+    
+    return results;
+  }
+
+  async createBrokerageAccount(account: InsertBrokerageAccount): Promise<BrokerageAccount> {
+    const [result] = await db.insert(brokerageAccounts).values(account).returning();
+    return result;
+  }
+
+  async updateBrokerageAccount(accountId: string, data: Partial<BrokerageAccount>): Promise<BrokerageAccount> {
+    const [result] = await db
+      .update(brokerageAccounts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(brokerageAccounts.id, accountId))
+      .returning();
+    return result;
+  }
+
+  // Bank accounts implementation
+  async getBankAccounts(userId: string): Promise<BankAccount[]> {
+    return db.select().from(bankAccounts).where(eq(bankAccounts.userId, userId));
+  }
+
+  async createBankAccount(account: InsertBankAccount): Promise<BankAccount> {
+    const [result] = await db.insert(bankAccounts).values(account).returning();
+    return result;
+  }
+
+  async updateBankAccount(accountId: string, data: Partial<BankAccount>): Promise<BankAccount> {
+    const [result] = await db
+      .update(bankAccounts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(bankAccounts.id, accountId))
+      .returning();
+    return result;
+  }
+
+  // Trading orders implementation
+  async getTradingOrders(userId: string, limit: number = 50): Promise<TradingOrder[]> {
+    return db
+      .select()
+      .from(tradingOrders)
+      .where(eq(tradingOrders.userId, userId))
+      .orderBy(desc(tradingOrders.createdAt))
+      .limit(limit);
+  }
+
+  async createTradingOrder(order: InsertTradingOrder): Promise<TradingOrder> {
+    const [result] = await db.insert(tradingOrders).values(order).returning();
+    return result;
+  }
+
+  async updateTradingOrder(orderId: string, data: Partial<TradingOrder>): Promise<TradingOrder> {
+    const [result] = await db
+      .update(tradingOrders)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(tradingOrders.id, orderId))
+      .returning();
+    return result;
   }
 }
 
