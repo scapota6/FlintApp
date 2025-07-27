@@ -43,15 +43,20 @@ class MarketDataService {
     }
 
     try {
-      // Use SnapTrade (which connects to Alpaca) as primary source for real-time data
+      // Primary: Use SnapTrade (which connects to Alpaca) for authenticated real-time data
       let marketData = await this.fetchFromSnapTrade(symbol, userId, userSecret);
       
-      // Fallback to direct Alpaca if SnapTrade fails and we have keys
+      // Fallback 1: Polygon.io for high-quality real-time data
+      if (!marketData && process.env.POLYGON_API_KEY) {
+        marketData = await this.fetchFromPolygon(symbol);
+      }
+      
+      // Fallback 2: Direct Alpaca if we have keys
       if (!marketData && process.env.ALPACA_API_KEY) {
         marketData = await this.fetchFromAlpaca(symbol);
       }
       
-      // Fallback to Alpha Vantage (hit rate limits)
+      // Fallback 3: Alpha Vantage (hit rate limits)
       if (!marketData && this.alphaVantageKey) {
         marketData = await this.fetchFromAlphaVantage(symbol);
       }
@@ -86,6 +91,73 @@ class MarketDataService {
 
     console.log(`No market data available for ${symbol} - all sources failed`);
     return null;
+  }
+
+  private async fetchFromPolygon(symbol: string): Promise<MarketData | null> {
+    try {
+      console.log(`Fetching real-time data for ${symbol} from Polygon.io`);
+      
+      if (!process.env.POLYGON_API_KEY) {
+        console.log('Polygon API key not available');
+        return null;
+      }
+
+      // Get real-time quote from Polygon
+      const quoteUrl = `https://api.polygon.io/v2/last/nbbo/${symbol}?apikey=${process.env.POLYGON_API_KEY}`;
+      const response = await fetch(quoteUrl);
+
+      if (!response.ok) {
+        throw new Error(`Polygon API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.status === 'OK' && data.results) {
+        const result = data.results;
+        
+        // Use mid price between bid and ask
+        const bidPrice = result.p || 0; // bid price
+        const askPrice = result.P || 0; // ask price  
+        const currentPrice = askPrice > 0 && bidPrice > 0 ? (askPrice + bidPrice) / 2 : (askPrice || bidPrice);
+
+        if (currentPrice > 0) {
+          // Get previous day's close for change calculation
+          const prevCloseUrl = `https://api.polygon.io/v2/aggs/ticker/${symbol}/prev?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`;
+          let changePct = 0;
+          
+          try {
+            const prevResponse = await fetch(prevCloseUrl);
+            if (prevResponse.ok) {
+              const prevData = await prevResponse.json();
+              if (prevData.status === 'OK' && prevData.results?.[0]) {
+                const prevClose = prevData.results[0].c;
+                changePct = ((currentPrice - prevClose) / prevClose) * 100;
+              }
+            }
+          } catch (err) {
+            console.log(`Could not fetch previous close for ${symbol}`);
+          }
+
+          console.log(`Successfully fetched ${symbol} from Polygon: $${currentPrice.toFixed(2)}`);
+
+          return {
+            symbol: symbol.toUpperCase(),
+            price: parseFloat(currentPrice.toFixed(2)),
+            changePct: parseFloat(changePct.toFixed(2)),
+            volume: result.s || 0, // size/volume
+            marketCap: this.getMarketCapEstimate(symbol),
+            company_name: this.getCompanyName(symbol),
+            logo_url: undefined
+          };
+        }
+      }
+
+      console.log(`No valid quote data from Polygon for ${symbol}`);
+      return null;
+    } catch (error: any) {
+      console.log(`Polygon fetch failed for ${symbol}:`, error?.message || 'Unknown error');
+      return null;
+    }
   }
 
   private async fetchFromAlpaca(symbol: string): Promise<MarketData | null> {
