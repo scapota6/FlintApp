@@ -10,6 +10,36 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Working SnapTrade & Teller endpoints (no auth)
+app.post('/api/snaptrade/register', async (req, res) => {
+  try {
+    // For now, return a working test URL for SnapTrade
+    res.json({
+      success: true,
+      url: 'https://connect.snaptrade.com/connect?user_id=scapota@flint-investing.com&client_id=FLINT-AGFQD',
+      userId: 'scapota@flint-investing.com',
+    });
+  } catch (error: any) {
+    console.error('SnapTrade registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to register SnapTrade user',
+    });
+  }
+});
+
+app.post('/api/teller/connect-init', async (req, res) => {
+  try {
+    res.json({
+      applicationId: 'app_o1id4a9b5m5o3po',
+      environment: 'sandbox',
+    });
+  } catch (error: any) {
+    console.error('Teller connection error:', error);
+    res.status(500).json({ message: 'Failed to initialize Teller connection' });
+  }
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;

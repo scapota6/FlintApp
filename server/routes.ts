@@ -854,6 +854,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Working SnapTrade registration endpoint (no auth for testing)
+  app.post('/api/snaptrade/register', async (req: any, res) => {
+    try {
+      if (!snapTradeClient) {
+        return res.status(500).json({ message: 'SnapTrade client not initialized' });
+      }
+
+      const testEmail = 'scapota@flint-investing.com';
+      
+      // Try to register user
+      const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
+        userId: testEmail,
+      });
+
+      console.log('SnapTrade register response:', registerResponse.data);
+
+      if (!registerResponse.data?.userSecret) {
+        throw new Error('Failed to register SnapTrade user - no userSecret returned');
+      }
+
+      // Generate connection portal URL
+      const portalResponse = await snapTradeClient.authentication.loginSnapTradeUser({
+        userId: testEmail,
+        userSecret: registerResponse.data.userSecret,
+      });
+
+      console.log('SnapTrade portal response:', portalResponse.data);
+
+      if (!portalResponse.data?.redirectURI) {
+        throw new Error('Failed to generate connection portal URL');
+      }
+
+      res.json({
+        success: true,
+        url: portalResponse.data.redirectURI,
+        userId: testEmail,
+      });
+
+    } catch (error: any) {
+      console.error('SnapTrade registration error:', error.message || error);
+      if (error.response) {
+        console.error('RESPONSE DATA:', error.response.data);
+        console.error('RESPONSE STATUS:', error.response.status);
+        console.error('RESPONSE HEADERS:', JSON.stringify(error.response.headers, null, 2));
+      }
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to register SnapTrade user',
+      });
+    }
+  });
+
+  // Working Teller connection endpoint (no auth for testing)
+  app.post('/api/teller/connect-init', async (req: any, res) => {
+    try {
+      res.json({
+        applicationId: 'app_o1id4a9b5m5o3po',
+        environment: 'sandbox',
+      });
+    } catch (error: any) {
+      console.error('Teller connection error:', error);
+      res.status(500).json({ message: 'Failed to initialize Teller connection' });
+    }
+  });
+
   // Register enhanced SnapTrade routes
   app.use('/api/snaptrade', snaptradeEnhancedRoutes);
   
