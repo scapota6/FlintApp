@@ -163,6 +163,7 @@ export default function Dashboard() {
 
         {/* Real-Time Market Data Section */}
         <div className="mb-8">
+          <h3 className="text-xl font-semibold mb-4 text-white">Live Market Data (Polygon.io + Alpha Vantage)</h3>
           <PolygonMarketDataTest />
         </div>
 
