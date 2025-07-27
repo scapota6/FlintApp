@@ -16,11 +16,12 @@ class UnifiedMarketDataService {
   private readonly CACHE_DURATION = 5000; // 5 seconds
 
   constructor() {
-    // Initialize SnapTrade client
-    if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET) {
+    // Initialize SnapTrade client with proper credentials
+    if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CONSUMER_KEY && process.env.SNAPTRADE_CONSUMER_SECRET) {
       this.snapTradeClient = new Snaptrade({
         clientId: process.env.SNAPTRADE_CLIENT_ID,
-        consumerKey: process.env.SNAPTRADE_CLIENT_SECRET,
+        consumerKey: process.env.SNAPTRADE_CONSUMER_KEY,
+        consumerSecret: process.env.SNAPTRADE_CONSUMER_SECRET,
       });
     }
   }

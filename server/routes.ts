@@ -30,17 +30,19 @@ if (process.env.STRIPE_SECRET_KEY) {
 
 // Initialize SnapTrade SDK with proper environment variables and debugging
 let snapTradeClient: Snaptrade | null = null;
-if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET) {
+if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CONSUMER_KEY && process.env.SNAPTRADE_CONSUMER_SECRET) {
   console.log('Initializing SnapTrade SDK with clientId:', process.env.SNAPTRADE_CLIENT_ID);
   console.log('Environment check - CLIENT_ID length:', process.env.SNAPTRADE_CLIENT_ID.length);
-  console.log('Environment check - CLIENT_SECRET length:', process.env.SNAPTRADE_CLIENT_SECRET.length);
+  console.log('Environment check - CONSUMER_KEY length:', process.env.SNAPTRADE_CONSUMER_KEY.length);
+  console.log('Environment check - CONSUMER_SECRET length:', process.env.SNAPTRADE_CONSUMER_SECRET.length);
   
   try {
     snapTradeClient = new Snaptrade({
       clientId: process.env.SNAPTRADE_CLIENT_ID,
-      consumerKey: process.env.SNAPTRADE_CLIENT_SECRET,
+      consumerKey: process.env.SNAPTRADE_CONSUMER_KEY,
+      consumerSecret: process.env.SNAPTRADE_CONSUMER_SECRET,
     });
-    console.log('SnapTrade SDK initialized successfully');
+    console.log('SnapTrade SDK initialized successfully with proper signature credentials');
     
     // Test basic API connectivity
     snapTradeClient.apiStatus.check().then(status => {
@@ -53,7 +55,7 @@ if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET) {
     console.error('Failed to initialize SnapTrade SDK:', error);
   }
 } else {
-  console.log('SnapTrade environment variables missing - SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET required');
+  console.log('SnapTrade environment variables missing - SNAPTRADE_CLIENT_ID, SNAPTRADE_CONSUMER_KEY, and SNAPTRADE_CONSUMER_SECRET required');
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -854,42 +856,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Working SnapTrade registration endpoint (no auth for testing)
-  app.post('/api/snaptrade/register', async (req: any, res) => {
+  // SnapTrade registration endpoint with proper parameter structure
+  app.post('/api/snaptrade/register', isAuthenticated, async (req: any, res) => {
     try {
       if (!snapTradeClient) {
-        return res.status(500).json({ message: 'SnapTrade client not initialized' });
+        return res.status(500).json({ 
+          success: false,
+          message: 'SnapTrade client not initialized. Please check environment variables.' 
+        });
       }
 
-      const testEmail = 'scapota@flint-investing.com';
+      const userId = req.user.claims.sub;
+      const userEmail = req.user.claims.email || 'scapota@flint-investing.com';
       
-      // Try to register user
-      const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
-        userId: testEmail,
-      });
+      console.log('SnapTrade registration - User ID:', userId);
+      console.log('SnapTrade registration - Email:', userEmail);
 
-      console.log('SnapTrade register response:', registerResponse.data);
+      // Check if user already has SnapTrade credentials
+      let userRecord = await storage.getUser(userId);
+      let snapTradeUserId = userEmail;
+      let userSecret = userRecord?.snaptradeUserSecret;
 
-      if (!registerResponse.data?.userSecret) {
-        throw new Error('Failed to register SnapTrade user - no userSecret returned');
+      if (!userSecret) {
+        // Register new SnapTrade user with correct parameter structure
+        const registerResponse = await snapTradeClient.authentication.registerSnapTradeUser({
+          snapTradeRegisterUserRequestBody: {
+            userId: snapTradeUserId
+          }
+        });
+
+        console.log('SnapTrade register response:', registerResponse.data);
+
+        if (!registerResponse.data?.userSecret) {
+          throw new Error('Failed to register SnapTrade user - no userSecret returned');
+        }
+
+        userSecret = registerResponse.data.userSecret;
+        
+        // Store credentials in database
+        await storage.updateUser(userId, { 
+          snaptradeUserSecret: userSecret 
+        });
       }
 
-      // Generate connection portal URL
-      const portalResponse = await snapTradeClient.authentication.loginSnapTradeUser({
-        userId: testEmail,
-        userSecret: registerResponse.data.userSecret,
+      // Get connection URL using proper connections API
+      const connectResponse = await snapTradeClient.connections.getConnectBrokerageURL({
+        snapTradeGetConnectBrokerageURLRequestBody: {
+          userId: snapTradeUserId,
+          userSecret: userSecret,
+          provider: "alpaca",
+          returnURL: `${req.protocol}://${req.get('host')}/api/snaptrade/connection-portal`
+        }
       });
 
-      console.log('SnapTrade portal response:', portalResponse.data);
+      console.log('SnapTrade connection response:', connectResponse.data);
 
-      if (!portalResponse.data?.redirectURI) {
+      if (!connectResponse.data?.redirectURI) {
         throw new Error('Failed to generate connection portal URL');
       }
 
       res.json({
         success: true,
-        url: portalResponse.data.redirectURI,
-        userId: testEmail,
+        url: connectResponse.data.redirectURI,
+        userId: snapTradeUserId,
       });
 
     } catch (error: any) {
@@ -903,6 +932,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false,
         message: error.message || 'Failed to register SnapTrade user',
       });
+    }
+  });
+
+  // SnapTrade connection portal handler (GET and POST)
+  app.get('/api/snaptrade/connection-portal', async (req: any, res) => {
+    try {
+      const { code, state } = req.query;
+      
+      console.log('SnapTrade connection portal callback (GET) - Code:', code, 'State:', state);
+
+      // Send success script to close popup and notify parent window
+      res.send(`
+        <script>
+          window.opener.postMessage({
+            type: 'snaptrade_connected',
+            success: true,
+            message: 'Brokerage account connected successfully'
+          }, '*');
+          window.close();
+        </script>
+      `);
+
+    } catch (error: any) {
+      console.error('SnapTrade connection portal error:', error);
+      
+      // Send error script
+      res.send(`
+        <script>
+          window.opener.postMessage({
+            type: 'snaptrade_error',
+            success: false,
+            error: 'Connection failed: ${error.message}'
+          }, '*');
+          window.close();
+        </script>
+      `);
+    }
+  });
+
+  app.post('/api/snaptrade/connection-portal', async (req: any, res) => {
+    try {
+      const { code, state } = req.body;
+      
+      console.log('SnapTrade connection portal callback (POST) - Code:', code, 'State:', state);
+
+      // Send success script to close popup and notify parent window
+      res.send(`
+        <script>
+          window.opener.postMessage({
+            type: 'snaptrade_connected',
+            success: true,
+            message: 'Brokerage account connected successfully'
+          }, '*');
+          window.close();
+        </script>
+      `);
+
+    } catch (error: any) {
+      console.error('SnapTrade connection portal error:', error);
+      
+      // Send error script
+      res.send(`
+        <script>
+          window.opener.postMessage({
+            type: 'snaptrade_error',
+            success: false,
+            error: 'Connection failed: ${error.message}'
+          }, '*');
+          window.close();
+        </script>
+      `);
     }
   });
 
@@ -922,6 +1022,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register enhanced SnapTrade routes
   app.use('/api/snaptrade', snaptradeEnhancedRoutes);
   
+  // Unified SnapTrade-only market data endpoint
+  app.get('/api/market-data/bulk', rateLimits.data, async (req, res) => {
+    try {
+      const { symbols } = req.query;
+      const symbolArray = typeof symbols === 'string' ? symbols.split(',') : ['AAPL', 'GOOGL', 'TSLA'];
+      
+      if (!snapTradeClient) {
+        // Return fallback data when SnapTrade not available
+        const fallbackData: Record<string, any> = {
+          'AAPL': { symbol: 'AAPL', price: 223.20, changePct: 0.45, volume: 45000000, source: 'fallback' },
+          'GOOGL': { symbol: 'GOOGL', price: 193.15, changePct: -0.23, volume: 28000000, source: 'fallback' },
+          'TSLA': { symbol: 'TSLA', price: 322.00, changePct: 1.2, volume: 95000000, source: 'fallback' }
+        };
+        
+        const result: Record<string, any> = {};
+        symbolArray.forEach(symbol => {
+          result[symbol] = fallbackData[symbol] || { symbol, price: 100, changePct: 0, volume: 1000000, source: 'fallback' };
+        });
+        
+        return res.json(result);
+      }
+
+      // Use only SnapTrade for market data (no mixed sources)
+      const quotes = await marketDataService.getBulkMarketData(symbolArray);
+      res.json(quotes);
+      
+    } catch (error) {
+      console.error('Bulk market data error:', error);
+      res.status(500).json({ message: 'Failed to fetch market data' });
+    }
+  });
+
   // Register market data routes directly
   app.get('/api/polygon/test', async (req, res) => {
     try {

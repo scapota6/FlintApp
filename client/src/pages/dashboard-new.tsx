@@ -116,17 +116,39 @@ export default function Dashboard() {
         'width=800,height=600,scrollbars=yes,resizable=yes'
       );
 
-      // Listen for completion
-      const checkClosed = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkClosed);
+      // Listen for messages from the popup
+      const messageHandler = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
+        
+        if (event.data.type === 'snaptrade_connected' && event.data.success) {
+          window.removeEventListener('message', messageHandler);
           refetch(); // Refresh dashboard data
           toast({
             title: "Brokerage Connected",
-            description: "Your brokerage account has been connected successfully.",
+            description: event.data.message || "Your brokerage account has been connected successfully.",
+          });
+        } else if (event.data.type === 'snaptrade_error') {
+          window.removeEventListener('message', messageHandler);
+          toast({
+            title: "Connection Error",
+            description: event.data.error || "Failed to connect brokerage account.",
+            variant: "destructive",
           });
         }
+      };
+
+      window.addEventListener('message', messageHandler);
+
+      // Fallback: check if popup is closed manually
+      const checkClosed = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener('message', messageHandler);
+          // Refresh data even if no message received
+          refetch();
+        }
       }, 1000);
+
     } catch (error) {
       console.error('Brokerage connection error:', error);
       toast({

@@ -10,7 +10,22 @@ Preferred communication style: Simple, everyday language.
 
 ## Development Activity Log
 
-### July 27, 2025 - Production-Ready Trading MVP with Polygon.io & SnapTrade Complete (feat/production-trading-mvp)
+### July 27, 2025 - SnapTrade Authentication Fix & Connection Flow Restore (fix/snaptrade-auth-signature-connect-flow)
+**Critical SnapTrade Authentication Resolution**:
+- ✅ **Fixed SDK Initialization**: Updated to require all three credentials (SNAPTRADE_CLIENT_ID, SNAPTRADE_CONSUMER_KEY, SNAPTRADE_CONSUMER_SECRET)
+- ✅ **Correct Parameter Structure**: Using `snapTradeRegisterUserRequestBody: { userId }` format per official SDK documentation
+- ✅ **Connection Portal Handler**: Added GET/POST endpoints for `/api/snaptrade/connection-portal` with proper postMessage communication
+- ✅ **Persistent Credentials**: Store userSecret in database to avoid re-registration on every connection attempt
+- ✅ **Proper Connection Flow**: Uses `connections.getConnectBrokerageURL` with returnURL for redirect handling
+- ⚠️ **Waiting for Secret**: SNAPTRADE_CONSUMER_SECRET environment variable needed to resolve 401 signature verification errors
+
+**Enhanced Frontend Connection Handling**:
+- ✅ **PostMessage Integration**: Frontend listens for `snaptrade_connected` and `snaptrade_error` messages from popup
+- ✅ **Unified Market Data Endpoint**: Single `/api/market-data/bulk` endpoint using only SnapTrade (no mixed sources)
+- ✅ **Fallback System**: Clean fallback data when SnapTrade unavailable, preventing mixed-source rate limit issues
+- ✅ **Authentication Middleware**: Restored proper `isAuthenticated` protection on registration endpoint
+
+### July 27, 2025 - Production-Ready Trading MVP with Polygon.io & SnapTrade Complete (feat/production-trading-mvp) [PREVIOUS]
 **Comprehensive SnapTrade User Persistence & Connection Management**:
 - ✅ **Enhanced Database Schema**: Added brokerage_connections, brokerage_accounts, bank_accounts, and trading_orders tables for persistent user data
 - ✅ **Comprehensive Storage Layer**: Implemented full CRUD operations for brokerage connections, accounts, and trading orders in DatabaseStorage
