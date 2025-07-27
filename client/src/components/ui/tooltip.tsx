@@ -25,6 +25,9 @@ export function TooltipContent({ children, ...props }: { children: React.ReactNo
   return <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded shadow-lg" {...props}>{children}</div>;
 }
 
+// Main component should also be compatible
+export { Tooltip as default };
+
 interface TooltipProps {
   children: React.ReactNode;
   content: string;

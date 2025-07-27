@@ -8,7 +8,8 @@ import ConnectedAccounts from "@/components/dashboard/connected-accounts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, Activity, RefreshCw } from "lucide-react";
-import { SparkleTitle } from "@/components/ui/sparkle-title";
+import { SparkleTitle } from "@/components/auth/sparkle-animation";
+import { PageTransition } from "@/components/auth/page-transition";
 import { InteractiveTable } from "@/components/ui/interactive-table";
 import { AnimatedBadge } from "@/components/ui/animated-badge";
 import { ChartPlaceholder } from "@/components/ui/chart-placeholder";
@@ -171,11 +172,9 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto p-6">
         {/* Dashboard Header */}
         <div className="mb-8">
-          <SparkleTitle>
-            <h1 className="text-4xl font-bold mb-2 font-mono text-transparent bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text">
-              Dashboard
-            </h1>
-          </SparkleTitle>
+          <h1 className="text-4xl font-bold mb-2 font-mono">
+            <SparkleTitle>Dashboard</SparkleTitle>
+          </h1>
           <p className="text-gray-400">Welcome back, {user?.email?.split('@')[0] || 'Trader'}</p>
         </div>
 

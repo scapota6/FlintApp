@@ -1,4 +1,5 @@
 import { Switch, Route } from "wouter";
+import { AnimatePresence } from "framer-motion";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -32,26 +33,28 @@ function Router() {
   return (
     <>
       {isAuthenticated && <GlobalNavbar />}
-      <Switch>
-        {!isAuthenticated ? (
-          <Route path="/" component={Landing} />
-        ) : (
-          <>
-            <Route path="/" component={Dashboard} />
-            <Route path="/dashboard" component={Dashboard} />
-            <Route path="/trading" component={Trading} />
-            <Route path="/transfers" component={Transfers} />
-            <Route path="/watchlist" component={Watchlist} />
-            <Route path="/activity" component={Activity} />
-            <Route path="/subscribe" component={Subscribe} />
-            <Route path="/admin" component={Admin} />
-            <Route path="/profile" component={Profile} />
-            <Route path="/news" component={News} />
-            <Route path="/stock/:symbol" component={StockDetail} />
-          </>
-        )}
-        <Route component={NotFound} />
-      </Switch>
+      <AnimatePresence mode="wait">
+        <Switch>
+          {!isAuthenticated ? (
+            <Route path="/" component={Landing} />
+          ) : (
+            <>
+              <Route path="/" component={Dashboard} />
+              <Route path="/dashboard" component={Dashboard} />
+              <Route path="/trading" component={Trading} />
+              <Route path="/transfers" component={Transfers} />
+              <Route path="/watchlist" component={Watchlist} />
+              <Route path="/activity" component={Activity} />
+              <Route path="/subscribe" component={Subscribe} />
+              <Route path="/admin" component={Admin} />
+              <Route path="/profile" component={Profile} />
+              <Route path="/news" component={News} />
+              <Route path="/stock/:symbol" component={StockDetail} />
+            </>
+          )}
+          <Route component={NotFound} />
+        </Switch>
+      </AnimatePresence>
     </>
   );
 }
