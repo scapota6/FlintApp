@@ -1,0 +1,11 @@
+2. **List Connected Accounts** via `GET /accounts` (using `snaptrade.accountInformation.listUserAccounts`) with the same `userId` and `userSecret` to fetch all brokerage accounts. :contentReference[oaicite:1]{index=1}  
+3. **Retrieve Account Details** via `GET /accounts/{accountId}` (using `snaptrade.accountInformation.getUserAccountDetails`) to display metadata and real-time balances. :contentReference[oaicite:2]{index=2}  
+4. **Fetch Account Positions** via `GET /accounts/{accountId}/positions` (using `snaptrade.accountInformation.getUserAccountPositions`) and render each holding in the dashboard. :contentReference[oaicite:3]{index=3}  
+5. **Map Tickers to Instruments** by calling the Reference Data endpoints (e.g., Search Symbols or Get Symbol Detail) to obtain the SnapTrade universal `symbolId` required for trading. :contentReference[oaicite:4]{index=4}  
+6. **Place Equity Orders** by generating a UUID v4 `tradeId` and calling `trading.placeSimpleOrder({ userId, userSecret, accountId, symbolId, units, orderType, timeInForce, limitPrice, stopPrice, tradeId })`. :contentReference[oaicite:5]{index=5}  
+7. **Place Crypto Orders** similarly via `trading.placeCryptoOrder({ userId, userSecret, accountId, symbolId, units, orderType, timeInForce, tradeId })`. :contentReference[oaicite:6]{index=6}  
+8. **Poll Order Status** by fetching `GET /accounts/{accountId}/orders` (using `snaptrade.accountInformation.getUserAccountOrders`) to update order status in the UI. :contentReference[oaicite:7]{index=7}  
+9. **Enable Order Cancellation** via `trading.cancelOrder({ userId, userSecret, accountId, orderId })` to allow users to cancel pending trades. :contentReference[oaicite:8]{index=8}  
+10. **Sync Real-Time Market Data** by calling the SnapTrade quote endpoints (e.g., `trading.getQuote` or bulk quote) to ensure price consistency across all components. :contentReference[oaicite:9]{index=9}  
+
+Include proper error handling and UI states (loading skeletons, success toasts, retry prompts on failure) for each step, and confirm when all workflows are operational.

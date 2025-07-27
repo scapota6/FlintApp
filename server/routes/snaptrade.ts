@@ -381,43 +381,7 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
   }
 });
 
-// GET /api/snaptrade/accounts → call listUserAccounts using official SDK
-router.get("/accounts", isAuthenticated, async (req: any, res) => {
-  try {
-    const email = req.user.claims.email?.toLowerCase();
-    if (!email) {
-      return res.status(400).json({ error: "User email required" });
-    }
-    
-    const user = await getUserByEmail(email);
-    
-    if (!user?.snaptradeUserSecret) {
-      return res.status(401).json({ error: "Please connect your brokerage first" });
-    }
-
-    const accountsPayload = {
-      userId: user.snaptradeUserId!,
-      userSecret: user.snaptradeUserSecret!,
-    };
-
-    const { data } = await snaptrade.accountInformation.listUserAccounts(accountsPayload);
-    
-    return res.json(data);
-  } catch (err: any) {
-    console.error('SnapTrade Error:', {
-      path: req.originalUrl,
-      payload: { email: req.user?.claims?.email },
-      responseData: err.response?.data,
-      responseHeaders: err.response?.headers,
-      status: err.response?.status,
-      message: err.message
-    });
-    
-    const status = err.response?.status || 500;
-    const body = err.response?.data || { message: err.message };
-    return res.status(status).json(body);
-  }
-});
+// Removed duplicate - using enhanced version below
 
 // POST /api/snaptrade/sync → sync SnapTrade accounts to database
 router.post("/sync", isAuthenticated, async (req: any, res) => {
@@ -770,6 +734,306 @@ router.use((err: any, req: any, res: any, next: any) => {
   const status = err.response?.status || 500;
   const body = err.response?.data || { message: err.message };
   res.status(status).json(body);
+});
+
+// Get connected accounts
+router.get("/accounts", isAuthenticated, async (req: any, res) => {
+  try {
+    console.log('Fetching SnapTrade accounts for user:', req.user.claims.email);
+    
+    const userEmail = req.user.claims.email;
+    const user = await getUserByEmail(userEmail);
+    
+    if (!user || !user.snaptradeUserSecret) {
+      return res.json({ 
+        message: "Please connect your brokerage first",
+        accounts: [] 
+      });
+    }
+
+    const accounts = await snaptrade.accountInformation.listUserAccounts({
+      userId: userEmail,
+      userSecret: user.snaptradeUserSecret
+    });
+
+    console.log('SnapTrade accounts fetched:', accounts.length);
+    res.json({ accounts });
+  } catch (error: any) {
+    console.error('Error fetching SnapTrade accounts:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to fetch accounts' 
+    });
+  }
+});
+
+// Get account details
+router.get("/accounts/:accountId", isAuthenticated, async (req: any, res) => {
+  try {
+    const { accountId } = req.params;
+    const userEmail = req.user.claims.email;
+    const user = await getUserByEmail(userEmail);
+    
+    if (!user || !user.snaptradeUserSecret) {
+      return res.status(401).json({ message: "SnapTrade not connected" });
+    }
+
+    const accountDetails = await snaptrade.accountInformation.getUserAccountDetails({
+      userId: userEmail,
+      userSecret: user.snaptradeUserSecret,
+      accountId
+    });
+
+    console.log(`Account details fetched for ${accountId}`);
+    res.json(accountDetails);
+  } catch (error: any) {
+    console.error('Error fetching account details:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to fetch account details' 
+    });
+  }
+});
+
+// Get account positions
+router.get("/accounts/:accountId/positions", isAuthenticated, async (req: any, res) => {
+  try {
+    const { accountId } = req.params;
+    const userEmail = req.user.claims.email;
+    const user = await getUserByEmail(userEmail);
+    
+    if (!user || !user.snaptradeUserSecret) {
+      return res.status(401).json({ message: "SnapTrade not connected" });
+    }
+
+    const positions = await snaptrade.accountInformation.getUserAccountPositions({
+      userId: userEmail,
+      userSecret: user.snaptradeUserSecret,
+      accountId
+    });
+
+    console.log(`Positions fetched for account ${accountId}:`, positions.length);
+    res.json(positions);
+  } catch (error: any) {
+    console.error('Error fetching account positions:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to fetch positions' 
+    });
+  }
+});
+
+// Get account orders
+router.get("/accounts/:accountId/orders", isAuthenticated, async (req: any, res) => {
+  try {
+    const { accountId } = req.params;
+    const userEmail = req.user.claims.email;
+    const user = await getUserByEmail(userEmail);
+    
+    if (!user || !user.snaptradeUserSecret) {
+      return res.status(401).json({ message: "SnapTrade not connected" });
+    }
+
+    const orders = await snaptrade.accountInformation.getUserAccountOrders({
+      userId: userEmail,
+      userSecret: user.snaptradeUserSecret,
+      accountId
+    });
+
+    console.log(`Orders fetched for account ${accountId}:`, orders.length);
+    res.json(orders);
+  } catch (error: any) {
+    console.error('Error fetching account orders:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to fetch orders' 
+    });
+  }
+});
+
+// Symbol search for trading
+router.get("/symbols/search", isAuthenticated, async (req: any, res) => {
+  try {
+    const { query } = req.query;
+    if (!query) {
+      return res.status(400).json({ message: "Search query required" });
+    }
+
+    const userEmail = req.user.claims.email;
+    const user = await getUserByEmail(userEmail);
+    
+    if (!user || !user.snaptradeUserSecret) {
+      return res.status(401).json({ message: "SnapTrade not connected" });
+    }
+
+    const symbols = await snaptrade.referenceData.getSymbols({
+      userId: userEmail,
+      userSecret: user.snaptradeUserSecret,
+      substring: query.toString()
+    });
+
+    console.log(`Symbol search for "${query}":`, symbols.length, 'results');
+    res.json(symbols);
+  } catch (error: any) {
+    console.error('Error searching symbols:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to search symbols' 
+    });
+  }
+});
+
+// Place simple order (equity)
+router.post("/orders/place", isAuthenticated, async (req: any, res) => {
+  try {
+    const { accountId, symbolId, units, orderType, timeInForce, limitPrice, stopPrice } = req.body;
+    const userEmail = req.user.claims.email;
+    const user = await getUserByEmail(userEmail);
+    
+    if (!user || !user.snaptradeUserSecret) {
+      return res.status(401).json({ message: "SnapTrade not connected" });
+    }
+
+    // Generate UUID v4 trade ID
+    const { v4: uuidv4 } = await import('uuid');
+    const tradeId = uuidv4();
+
+    const orderRequest = {
+      userId: userEmail,
+      userSecret: user.snaptradeUserSecret,
+      accountId,
+      symbolId,
+      units: parseFloat(units),
+      orderType,
+      timeInForce,
+      limitPrice: limitPrice ? parseFloat(limitPrice) : undefined,
+      stopPrice: stopPrice ? parseFloat(stopPrice) : undefined,
+      tradeId
+    };
+
+    console.log('Placing SnapTrade order:', orderRequest);
+
+    const orderResult = await snaptrade.trading.placeSimpleOrder(orderRequest);
+
+    console.log('Order placed successfully:', orderResult.data);
+    res.json({
+      success: true,
+      order: orderResult.data,
+      tradeId
+    });
+  } catch (error: any) {
+    console.error('Error placing order:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to place order' 
+    });
+  }
+});
+
+// Place crypto order
+router.post("/orders/place-crypto", isAuthenticated, async (req: any, res) => {
+  try {
+    const { accountId, symbolId, units, orderType, timeInForce } = req.body;
+    const userEmail = req.user.claims.email;
+    const user = await getUserByEmail(userEmail);
+    
+    if (!user || !user.snaptradeUserSecret) {
+      return res.status(401).json({ message: "SnapTrade not connected" });
+    }
+
+    // Generate UUID v4 trade ID
+    const { v4: uuidv4 } = await import('uuid');
+    const tradeId = uuidv4();
+
+    const orderRequest = {
+      userId: userEmail,
+      userSecret: user.snaptradeUserSecret,
+      accountId,
+      symbolId,
+      units: parseFloat(units),
+      orderType,
+      timeInForce,
+      tradeId
+    };
+
+    console.log('Placing SnapTrade crypto order:', orderRequest);
+
+    const orderResult = await snaptrade.trading.placeCryptoOrder(orderRequest);
+
+    console.log('Crypto order placed successfully:', orderResult.data);
+    res.json({
+      success: true,
+      order: orderResult.data,
+      tradeId
+    });
+  } catch (error: any) {
+    console.error('Error placing crypto order:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to place crypto order' 
+    });
+  }
+});
+
+// Cancel order
+router.delete("/orders/:orderId", isAuthenticated, async (req: any, res) => {
+  try {
+    const { orderId } = req.params;
+    const { accountId } = req.body;
+    const userEmail = req.user.claims.email;
+    const user = await getUserByEmail(userEmail);
+    
+    if (!user || !user.snaptradeUserSecret) {
+      return res.status(401).json({ message: "SnapTrade not connected" });
+    }
+
+    const cancelResult = await snaptrade.trading.cancelOrder({
+      userId: userEmail,
+      userSecret: user.snaptradeUserSecret,
+      accountId,
+      orderId
+    });
+
+    console.log('Order cancelled successfully:', cancelResult.data);
+    res.json({
+      success: true,
+      result: cancelResult.data
+    });
+  } catch (error: any) {
+    console.error('Error cancelling order:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to cancel order' 
+    });
+  }
+});
+
+// Get quotes for symbols
+router.post("/quotes", isAuthenticated, async (req: any, res) => {
+  try {
+    const { symbols } = req.body;
+    const userEmail = req.user.claims.email;
+    const user = await getUserByEmail(userEmail);
+    
+    if (!user || !user.snaptradeUserSecret) {
+      return res.status(401).json({ message: "SnapTrade not connected" });
+    }
+
+    const quotes = await snaptrade.trading.getQuotes({
+      userId: userEmail,
+      userSecret: user.snaptradeUserSecret,
+      symbols: symbols.join(',')
+    });
+
+    console.log(`Quotes fetched for ${symbols.length} symbols`);
+    res.json(quotes);
+  } catch (error: any) {
+    console.error('Error fetching quotes:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to fetch quotes' 
+    });
+  }
 });
 
 export default router;
