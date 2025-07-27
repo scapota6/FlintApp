@@ -1,9 +1,57 @@
 /* Import modern fonts */
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Global Font Family */
+* {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Navbar link hover effects */
+.navbar-link-hover:hover {
+  text-shadow: 0 0 6px rgba(142, 68, 173, 0.6);
+}
+
+.navbar-link-active {
+  position: relative;
+}
+
+.navbar-link-active::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #8e44ad;
+  border-radius: 1px;
+}
+
+/* Enhanced button glow effects */
+.btn-glow-hover:hover {
+  box-shadow: 0 0 12px rgba(142, 68, 173, 0.5);
+  transform: scale(1.02);
+  transition: all 0.2s ease;
+}
+
+/* Consistent card styling */
+.flint-card {
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+
+.flint-card:hover {
+  border-color: rgba(142, 68, 173, 0.4);
+  box-shadow: 0 0 8px rgba(142, 68, 173, 0.4);
+  transform: translateY(-4px) scale(1.03);
+}
 
 :root {
   /* Flint Brand Colors */

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import Navigation from "@/components/layout/navigation";
-import MobileNav from "@/components/layout/mobile-nav";
+import { PageTransition } from "@/components/auth/page-transition";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

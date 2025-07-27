@@ -119,7 +119,7 @@ export default function Activity() {
     });
   };
 
-  // Filter activities based on search and selected filter
+  // Safe array handling to prevent runtime errors
   const activitiesList = Array.isArray(activities) ? activities : [];
   const filteredActivities = activitiesList.filter((activity: any) => {
     const matchesSearch = activity.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -138,10 +138,10 @@ export default function Activity() {
   }, {});
 
   const activityStats = {
-    total: activities?.length || 0,
-    trades: activities?.filter((a: any) => a.action === 'trade_executed').length || 0,
-    transfers: activities?.filter((a: any) => a.action === 'transfer_completed').length || 0,
-    logins: activities?.filter((a: any) => a.action === 'login').length || 0,
+    total: activitiesList.length || 0,
+    trades: activitiesList.filter((a: any) => a.action === 'trade_executed').length || 0,
+    transfers: activitiesList.filter((a: any) => a.action === 'transfer_completed').length || 0,
+    logins: activitiesList.filter((a: any) => a.action === 'login').length || 0,
   };
 
   if (isLoading) {
@@ -160,13 +160,11 @@ export default function Activity() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <Navigation />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
+    <div className="min-h-screen bg-[#121212] text-white">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6 pt-20">
         <div className="mb-8">
-          <h2 className="text-2xl sm:text-3xl font-semibold mb-2">Activity</h2>
-          <p className="text-gray-400 text-sm">Track all your account activities</p>
+          <h2 className="text-2xl sm:text-3xl font-semibold mb-2 text-white font-inter font-semibold">Activity</h2>
+          <p className="text-[#CCCCCC] text-sm font-inter">Track all your account activities</p>
         </div>
 
         {/* Activity Stats */}

@@ -19,6 +19,7 @@ const navLinks = [
   { href: '/watchlist', label: 'Watchlist' },
   { href: '/news', label: 'News' },
   { href: '/activity', label: 'Activity' },
+  { href: '/admin', label: 'Admin', adminOnly: true },
 ];
 
 export default function GlobalNavbar() {
@@ -67,10 +68,17 @@ export default function GlobalNavbar() {
             </Link>
           </div>
 
+          {/* Welcome Message */}
+          <div className="hidden md:block text-center flex-1">
+            <span className="text-white text-sm font-medium">
+              Welcome back, {user?.firstName || user?.email?.split('@')[0] || 'Trader'}
+            </span>
+          </div>
+
           {/* Desktop Navigation */}
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-8">
-              {navLinks.map((link) => (
+              {navLinks.filter(link => !link.adminOnly || user?.role === 'admin').map((link) => (
                 <Link key={link.href} href={link.href}>
                   <span
                     className={`px-3 py-2 text-sm font-medium transition-all duration-200 relative group cursor-pointer

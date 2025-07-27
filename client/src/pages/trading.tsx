@@ -108,13 +108,11 @@ export default function Trading() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <Navigation />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
+    <div className="min-h-screen bg-[#121212] text-white">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6 pt-20">
         <div className="mb-8">
-          <h2 className="text-2xl sm:text-3xl font-semibold mb-2">Trading</h2>
-          <p className="text-gray-400 text-sm">Buy and sell stocks, ETFs, and crypto</p>
+          <h2 className="text-2xl sm:text-3xl font-semibold mb-2 text-white font-inter font-semibold">Trading</h2>
+          <p className="text-[#CCCCCC] text-sm font-inter">Execute trades and monitor your positions</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

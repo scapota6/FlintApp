@@ -1,0 +1,61 @@
+Title: feat(ui): unify UI across all pages, real-time data & fix quick actions
+
+1. Global Navbar & Header  
+   • Ensure the fixed top bar (#121212) appears on every route (Dashboard, Trading, Transfers, Watchlist, News, Activity, Admin) with consistent styling.  
+   • Active link underlined in #8e44ad, soft glow on hover (text-shadow: 0 0 6px rgba(142,68,173,0.6)).  
+   • “Welcome back, {FirstName}” greeting on Dashboard and persists on all pages (extract first name from user.email).  
+   • Collapse into hamburger menu on mobile.
+
+2. Connected Accounts Section  
+   • Replace elongated single card with responsive 3-column grid (cards 30% width, min 240px, 1% gutter).  
+   • Card header: icon + “Alpaca Paper” with label “Brokerage/Crypto Wallet” or “Bank/Credit Card” as appropriate.  
+   • Remove “Test API” and “Sync” buttons—only “+ Connect Bank/Credit Card” (blue) and “+ Connect Brokerage/Crypto” (purple).  
+   • Card style: 16px border-radius, border glow (0 0 8px rgba(142,68,173,0.4)), lift & scale (transform: translateY(-4px) scale(1.03)) on hover.
+
+3. Account Details Modal  
+   • “Details” on each card opens in-app modal (80% viewport, #1e1e1e background) with tabs Overview/Holdings/Transactions.  
+   • Overview: live balances, quick stats.  
+   • Holdings: table with symbol, qty, avg price, live price, P/L.  
+   • Transactions: timeline with green/red icons.  
+   • Animate modal in/out (fadeIn + slideUp 300ms; fadeOut).
+
+4. Quick Actions Bar  
+   • Ensure buttons Quick Buy (green), Quick Sell (red), Transfer Funds (purple) trigger respective flows.  
+   • Wire Buy/Sell to open trade form with pre-filled symbol/quantity; generate UUID v4 tradeId; call placeOrder and show toast.  
+   • Transfer Funds opens money transfer route.  
+   • On hover: glow and icon pulse.
+
+5. Real-time Price Sync & Charts  
+   • Swap in a simple dark-theme line chart (TradingView `theme: "dark"`) that pulls real-time prices from our backend or TradeView API.  
+   • Ensure the chart’s current price matches the price shown in asset list exactly.
+
+6. Stock Search & Listings  
+   • Restore search bar on all pages (e.g. Trading), styled consistently.  
+   • Asset list in Trading: show live price, % change refreshing every 15s.  
+   • “Watch” toggles item in Watchlist; “Trade” opens trade form.
+
+7. Watchlist & Holdings Layout  
+   • Convert Watchlist/Holdings cards to match Dashboard styling (grid cards).  
+   • Show counts badge (“3 items”, “2 positions”).  
+   • On empty state, show centered CTA “Add Symbol” or “Connect Brokerage”.
+
+8. Page-specific UI Consistency  
+   • Use same background (#121212), card styles, fonts, button styles across Trading, Transfers, Watchlist, News, Activity.  
+   • Fix Activity & Transfers runtime errors by guarding arrays:  
+     ```ts
+     const acts = Array.isArray(activities) ? activities : [];
+     const filtered = acts.filter(a => ...);
+     ```  
+   • Ensure no console errors.
+
+9. Routing & Auth Flow  
+   • Confirm all pages protected behind auth; redirect to login/signup as needed.  
+   • Navbar “Admin” only visible to admin users.
+
+10. Styling & Micro-interactions  
+   • Inter font: headings white 600; body #CCCCCC 400.  
+   • Buttons: accent glow, smooth scale on hover, tooltips after 200ms.  
+   • Keyboard-focusable with purple outline.  
+   • Page-load sparkle effect on Dashboard title; smooth page transitions via Framer Motion.
+
+Please implement in one PR “feat(ui): unify UI across pages & enable real-time data” and verify end-to-end that trading, account connections, chart sync, and quick actions function correctly without breaking existing flows.
