@@ -5,7 +5,7 @@ import { isAuthenticated } from "../replitAuth";
 const router = Router();
 
 // Get market data for a single symbol
-router.get("/", async (req, res) => {
+router.get("/", isAuthenticated, async (req: any, res) => {
   try {
     const { symbol } = req.query;
 
@@ -15,7 +15,20 @@ router.get("/", async (req, res) => {
       });
     }
 
-    const marketData = await marketDataService.getMarketData(symbol);
+    // Get user's SnapTrade credentials for real market data
+    const userId = req.user.claims.sub;
+    const { storage } = await import("../storage");
+    const user = await storage.getUser(userId);
+    
+    let snaptradeUserId: string | undefined;
+    let snaptradeUserSecret: string | undefined;
+    
+    if (user?.snaptradeUserId && user?.snaptradeUserSecret) {
+      snaptradeUserId = user.snaptradeUserId;
+      snaptradeUserSecret = user.snaptradeUserSecret;
+    }
+
+    const marketData = await marketDataService.getMarketData(symbol, snaptradeUserId, snaptradeUserSecret);
 
     if (!marketData) {
       return res.status(404).json({ 
@@ -33,7 +46,7 @@ router.get("/", async (req, res) => {
 });
 
 // Get market data for multiple symbols
-router.post("/bulk", async (req, res) => {
+router.post("/bulk", isAuthenticated, async (req: any, res) => {
   try {
     const { symbols } = req.body;
 
@@ -50,8 +63,35 @@ router.post("/bulk", async (req, res) => {
       });
     }
 
-    const marketData = await marketDataService.getBulkMarketData(symbols);
-    res.json(marketData);
+    // Get user's SnapTrade credentials
+    const userId = req.user.claims.sub;
+    const { storage } = await import("../storage");
+    const user = await storage.getUser(userId);
+    
+    let snaptradeUserId: string | undefined;
+    let snaptradeUserSecret: string | undefined;
+    
+    if (user?.snaptradeUserId && user?.snaptradeUserSecret) {
+      snaptradeUserId = user.snaptradeUserId;
+      snaptradeUserSecret = user.snaptradeUserSecret;
+    }
+
+    // Update getBulkMarketData to accept credentials
+    const results: {[symbol: string]: any} = {};
+    
+    // Process symbols in parallel with user credentials
+    const promises = symbols.map(async (symbol: string) => {
+      const data = await marketDataService.getMarketData(symbol, snaptradeUserId, snaptradeUserSecret);
+      return { symbol: symbol.toUpperCase(), data };
+    });
+
+    const responses = await Promise.all(promises);
+    
+    responses.forEach(({ symbol, data }) => {
+      results[symbol] = data;
+    });
+
+    res.json(results);
   } catch (error) {
     console.error("Error fetching bulk market data:", error);
     res.status(500).json({ 

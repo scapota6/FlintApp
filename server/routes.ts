@@ -819,7 +819,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Valid symbol required' });
       }
 
-      const quote = await marketDataService.getQuote(symbol.toUpperCase());
+      const quote = await marketDataService.getMarketData(symbol.toUpperCase());
       
       if (!quote) {
         return res.status(404).json({ message: `Quote not found for symbol ${symbol}` });
