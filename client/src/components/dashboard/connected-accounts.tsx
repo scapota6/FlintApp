@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { ExternalLink, Plus, Building2, TrendingUp, Loader2 } from 'lucide-react';
+import { ExternalLink, Plus, Building2, TrendingUp, Loader2, Landmark, CreditCard } from 'lucide-react';
 import { Link } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import DisconnectButton from '@/components/ui/disconnect-button';
+import AccountDetailsModal from '@/components/ui/account-details-modal';
+import SkeletonCard from '@/components/ui/skeleton-card';
+import ErrorCard from '@/components/ui/error-card';
+import QuickActionsBar from '@/components/ui/quick-actions-bar';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface Account {
@@ -29,6 +33,10 @@ export default function ConnectedAccounts({
   onConnectBrokerage 
 }: ConnectedAccountsProps) {
   const [loadingConnect, setLoadingConnect] = useState<string | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const handleConnectBank = async () => {
@@ -52,6 +60,36 @@ export default function ConnectedAccounts({
   const handleAccountDisconnected = () => {
     // Refresh dashboard data after account disconnection
     queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+  };
+
+  const handleAccountDetails = (account: Account) => {
+    setSelectedAccount(account);
+    setIsModalOpen(true);
+  };
+
+  const handleRetryLoad = () => {
+    setError(null);
+    setIsLoading(true);
+    // Simulate retry logic
+    setTimeout(() => {
+      setIsLoading(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+    }, 1000);
+  };
+
+  const handleQuickBuy = () => {
+    // Navigate to trading page with buy preset
+    window.location.href = '/trading?action=buy';
+  };
+
+  const handleQuickSell = () => {
+    // Navigate to trading page with sell preset
+    window.location.href = '/trading?action=sell';
+  };
+
+  const handleTransferFunds = () => {
+    // Navigate to transfers page
+    window.location.href = '/transfers';
   };
 
   const getProviderIcon = (provider: string) => {

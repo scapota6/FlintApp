@@ -263,3 +263,207 @@
 .disconnect-popover .btn-confirm {
   @apply bg-red-600 hover:bg-red-700 text-white border-0;
 }
+
+/* Global Navbar Styling */
+.navbar-link-active {
+  text-shadow: 0 0 6px rgba(142,68,173,0.6);
+}
+
+.navbar-link-hover:hover {
+  text-shadow: 0 0 6px rgba(142,68,173,0.6);
+}
+
+/* Enhanced Account Cards Grid */
+.accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.account-card-enhanced {
+  background: var(--surface);
+  border: 1px solid rgba(142,68,173,0.3);
+  border-radius: 16px;
+  box-shadow: 0 0 8px rgba(142,68,173,0.4);
+  transition: all 200ms ease;
+  cursor: pointer;
+  min-width: 240px;
+  width: 100%;
+}
+
+.account-card-enhanced:hover {
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 8px 25px rgba(142,68,173,0.5);
+}
+
+/* Skeleton Animation */
+.skeleton-card {
+  background: var(--surface);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+
+.skeleton-shimmer {
+  animation: shimmer 1.5s infinite;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background-size: 200% 100%;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Error Card Styling */
+.error-card {
+  background: rgba(192, 57, 43, 0.1);
+  border: 1px solid rgba(192, 57, 43, 0.5);
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+
+/* Quick Actions Bar */
+.quick-action-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.quick-action-icon {
+  transition: transform 200ms ease;
+}
+
+.quick-action-btn:hover .quick-action-icon {
+  animation: iconPulse 600ms ease-in-out;
+}
+
+@keyframes iconPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.quick-buy-btn:hover {
+  box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+}
+
+.quick-sell-btn:hover {
+  box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+}
+
+.transfer-btn:hover {
+  box-shadow: 0 4px 15px rgba(142, 68, 173, 0.4);
+}
+
+/* Modal Animations */
+.modal-backdrop {
+  animation: fadeIn 300ms ease;
+}
+
+.modal-content {
+  animation: slideUp 300ms ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Sparkle Title Effect */
+.sparkle-title {
+  position: relative;
+}
+
+.sparkle-title::after {
+  content: '✨';
+  position: absolute;
+  top: -10px;
+  right: -20px;
+  font-size: 1rem;
+  animation: sparkle 2s ease-in-out;
+  opacity: 0;
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.5) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1) rotate(180deg); }
+}
+
+/* Typography - Inter Font */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  color: white;
+}
+
+p, span, div {
+  font-weight: 400;
+  color: #CCCCCC;
+}
+
+/* Focus Styles for Accessibility */
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #8e44ad;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .accounts-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .account-card-enhanced:hover {
+    transform: none;
+  }
+  
+  .modal-content {
+    width: 95%;
+    height: 95%;
+    margin: 0;
+  }
+  
+  .navbar-link-hover:hover {
+    text-shadow: none;
+  }
+}
+
+/* Tooltip Styling */
+[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  z-index: 1000;
+  animation: tooltipFadeIn 200ms ease;
+}
+
+@keyframes tooltipFadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(5px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

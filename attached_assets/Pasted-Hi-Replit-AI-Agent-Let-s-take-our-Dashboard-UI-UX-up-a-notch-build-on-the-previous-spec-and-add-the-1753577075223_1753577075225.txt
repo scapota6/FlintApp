@@ -1,0 +1,44 @@
+Hi Replit AI Agent! Let’s take our Dashboard UI/UX up a notch—build on the previous spec and add these surprise enhancements:
+
+1. **Global Navbar**  
+   - Fixed top bar (`#121212`) with links: Dashboard, Trading, Transfers, Watchlist, News, Activity, plus user avatar dropdown.  
+   - Active link underlined in accent purple `#8e44ad`.  
+   - On hover, links glow softly (`text-shadow: 0 0 6px rgba(142,68,173,0.6)`).  
+   - Collapse into a hamburger menu on mobile.
+
+2. **Connected Accounts Grid**  
+   - Three-card horizontal grid on desktop (cards: 30% width, min-width 240px, 1% margin).  
+   - Card style: deep rounded corners (16px), subtle purple glow border (`box-shadow: 0 0 8px rgba(142,68,173,0.4)`).  
+   - On hover, cards slightly lift and scale up 1.03x (`transform: translateY(-4px) scale(1.03)`), with smooth 200ms transition.  
+   - Global “+ Connect Bank” (blue) and “+ Connect Brokerage” (purple) buttons above grid; remove “Sync” & “Test API.”
+
+3. **Account Details Modal**  
+   - Triggered by a “Details” button on each card—show an in-app modal (80% width & height, dark `#1e1e1e`, white text).  
+   - Tabs: Overview, Holdings, Transactions, with animated purple underline on active tab.  
+   - Overview shows live balances, margins, and quick stats cards.  
+   - Holdings lists positions (symbol, qty, avg price, live price, P/L) with small sparkline charts beside each.  
+   - Transactions shows a timeline view with colored icons for Buys (green) and Sells (red).  
+   - Modal entrance animation: fadeIn + slideUp over 300ms; exit: fadeOut.
+
+4. **Quick Actions Bar**  
+   - Full-width colored bar under accounts with three buttons: Quick Buy (green), Quick Sell (red), Transfer Funds (purple).  
+   - On hover, each button glows and icon gently pulses.
+
+5. **Skeleton & Error States**  
+   - Show animated skeleton cards with pulsating gradient while loading.  
+   - On error, replace card with a red-bordered box containing “Failed to load. Retry?” clickable text that retries.
+
+6. **Interactive Flair**  
+   - Add a floating accent “sparkle” effect on the header title when the page first loads.  
+   - On hover over any button, show a subtle tooltip with a fade-in after 200ms (“Buy quickly”, “Sell quickly”, etc.).
+
+7. **Styling & Typography**  
+   - Use Inter font throughout.  
+   - Headings: white, weight 600; body: `#CCCCCC`, weight 400.  
+   - Accent color: `#8e44ad` for hover glows, link underlines, focus rings.
+
+8. **Accessibility & Responsiveness**  
+   - All interactive elements keyboard-focusable, with visible focus outlines in accent purple.  
+   - Ensure layout stacks vertically on narrow screens, cards full-width, modals full-screen on mobile.
+
+Commit as one PR titled **`feat(ui): polished dashboard grid, modals & micro-interactions`**. Let’s make Flint feel alive!  
