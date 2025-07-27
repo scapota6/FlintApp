@@ -72,8 +72,8 @@ export default function GlobalNavbar() {
             <div className="ml-10 flex items-baseline space-x-8">
               {navLinks.map((link) => (
                 <Link key={link.href} href={link.href}>
-                  <a
-                    className={`px-3 py-2 text-sm font-medium transition-all duration-200 relative group
+                  <span
+                    className={`px-3 py-2 text-sm font-medium transition-all duration-200 relative group cursor-pointer
                       ${isActiveLink(link.href)
                         ? 'text-white navbar-link-active'
                         : 'text-gray-300 hover:text-white navbar-link-hover'
@@ -83,7 +83,7 @@ export default function GlobalNavbar() {
                     {isActiveLink(link.href) && (
                       <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#8e44ad] rounded-full" />
                     )}
-                  </a>
+                  </span>
                 </Link>
               ))}
             </div>
@@ -151,15 +151,15 @@ export default function GlobalNavbar() {
           <div className="px-2 pt-2 pb-3 space-y-1 bg-[#1e1e1e] border-t border-gray-800">
             {navLinks.map((link) => (
               <Link key={link.href} href={link.href}>
-                <a
-                  className={`block px-3 py-2 text-base font-medium transition-colors duration-200
+                <span
+                  className={`block px-3 py-2 text-base font-medium transition-colors duration-200 cursor-pointer
                     ${isActiveLink(link.href)
                       ? 'text-white bg-[#8e44ad]/20 border-l-4 border-[#8e44ad]'
                       : 'text-gray-300 hover:text-white hover:bg-gray-800'
                     }`}
                 >
                   {link.label}
-                </a>
+                </span>
               </Link>
             ))}
             <div className="border-t border-gray-700 pt-4 pb-3">

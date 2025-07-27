@@ -207,16 +207,16 @@ export default function Transfers() {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-400">Pending Transfers</span>
                   <span className="text-yellow-500 font-semibold">
-                    {transfers?.filter((t: any) => t.status === 'pending').length || 0}
+                    {Array.isArray(transfers) ? transfers.filter((t: any) => t.status === 'pending').length : 0}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-400">Completed Today</span>
                   <span className="text-green-500 font-semibold">
-                    {transfers?.filter((t: any) => 
+                    {Array.isArray(transfers) ? transfers.filter((t: any) => 
                       t.status === 'completed' && 
                       new Date(t.executedAt).toDateString() === new Date().toDateString()
-                    ).length || 0}
+                    ).length : 0}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -245,7 +245,7 @@ export default function Transfers() {
               </TabsList>
               
               <TabsContent value="all" className="space-y-3 mt-4">
-                {transfers?.map((transfer: any, index: number) => (
+                {Array.isArray(transfers) ? transfers.map((transfer: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div className="flex items-center space-x-3">
                       {getStatusIcon(transfer.status)}
@@ -268,7 +268,7 @@ export default function Transfers() {
                       </p>
                     </div>
                   </div>
-                )) || (
+                )) : (
                   <div className="text-center py-12">
                     <ArrowRightLeft className="h-12 w-12 text-gray-500 mx-auto mb-4" />
                     <p className="text-gray-400 text-lg">No transfers yet</p>
@@ -278,7 +278,7 @@ export default function Transfers() {
               </TabsContent>
               
               <TabsContent value="pending" className="space-y-3 mt-4">
-                {transfers?.filter((transfer: any) => transfer.status === 'pending').map((transfer: any, index: number) => (
+                {Array.isArray(transfers) ? transfers.filter((transfer: any) => transfer.status === 'pending').map((transfer: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <Clock className="h-4 w-4 text-yellow-500" />
@@ -293,13 +293,13 @@ export default function Transfers() {
                       <p className="text-gray-500 text-xs">{formatDate(transfer.createdAt)}</p>
                     </div>
                   </div>
-                )) || (
+                )) : (
                   <p className="text-gray-400 text-center py-8">No pending transfers</p>
                 )}
               </TabsContent>
               
               <TabsContent value="completed" className="space-y-3 mt-4">
-                {transfers?.filter((transfer: any) => transfer.status === 'completed').map((transfer: any, index: number) => (
+                {Array.isArray(transfers) ? transfers.filter((transfer: any) => transfer.status === 'completed').map((transfer: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-4 w-4 text-green-500" />
@@ -314,13 +314,13 @@ export default function Transfers() {
                       <p className="text-gray-500 text-xs">{formatDate(transfer.executedAt)}</p>
                     </div>
                   </div>
-                )) || (
+                )) : (
                   <p className="text-gray-400 text-center py-8">No completed transfers</p>
                 )}
               </TabsContent>
               
               <TabsContent value="failed" className="space-y-3 mt-4">
-                {transfers?.filter((transfer: any) => transfer.status === 'failed').map((transfer: any, index: number) => (
+                {Array.isArray(transfers) ? transfers.filter((transfer: any) => transfer.status === 'failed').map((transfer: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <XCircle className="h-4 w-4 text-red-500" />
@@ -335,7 +335,7 @@ export default function Transfers() {
                       <p className="text-gray-500 text-xs">{formatDate(transfer.createdAt)}</p>
                     </div>
                   </div>
-                )) || (
+                )) : (
                   <p className="text-gray-400 text-center py-8">No failed transfers</p>
                 )}
               </TabsContent>

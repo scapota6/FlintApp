@@ -1,0 +1,62 @@
+Title: feat(ui): polished dashboard grid, modals & micro-interactions
+
+1. Global Navbar  
+   • Add a fixed top bar (#121212) with links: Dashboard, Trading, Transfers, Watchlist, News, Activity, Admin, and user avatar dropdown.  
+   • Underline the active link in accent purple #8e44ad; links glow softly on hover (text-shadow: 0 0 6px rgba(142,68,173,0.6)).  
+   • Collapse into a hamburger menu on mobile.
+
+2. Connected Accounts Grid  
+   • Remove “Sync” & “Test API” buttons—just “+ Connect Bank” (blue) and “+ Connect Brokerage” (purple).  
+   • Render connected accounts as a responsive 3-column grid (cards 30% width, min 240px, 1% gutter).  
+   • Card style: 16px border-radius, subtle purple glow border (box-shadow: 0 0 8px rgba(142,68,173,0.4)).  
+   • On hover: lift & scale (transform: translateY(-4px) scale(1.03)), 200ms ease.
+
+3. Account Details Modal  
+   • Each card has a “Details” button opening an in-app modal (80% viewport, #1e1e1e background, white text).  
+   • Modal tabs: Overview, Holdings, Transactions—active tab has animated purple underline.  
+   • **Overview:** live balances, quick-stat cards.  
+   • **Holdings:** table of positions (symbol, qty, avg price, live price, P/L) with inline sparklines.  
+   • **Transactions:** timeline list with colored icons (green buys, red sells).  
+   • Animate open (fadeIn + slideUp 300ms) and close (fadeOut).
+
+4. Quick Actions Bar  
+   • Full-width bar below accounts with three buttons: Quick Buy (green), Quick Sell (red), Transfer Funds (purple).  
+   • On hover: button glows and icon pulses gently.
+
+5. Real-time Prices & Charts  
+   • Replace static TradingView embed with a default simple line chart at real prices; enable dark theme: `theme: "dark"`.  
+   • Sync the chart’s current price and instrument metadata to match our backend values exactly.
+
+6. Order Placement Fixes  
+   • Generate a unique `tradeId` (e.g. UUID v4) and supply it to the placeOrder call.  
+   • Ensure forms capture symbol, quantity, order type; call SnapTrade trade endpoint; show toasts on success/error.
+
+7. Skeleton & Error States  
+   • While loading data: show pulsating skeleton cards.  
+   • On fetch error: replace the card with a red-border box reading “Failed to load. Retry?” that retries on click.
+
+8. UI/UX Consistency & Styling  
+   • Use Inter font throughout: headings white weight 600; body #CCCCCC weight 400.  
+   • Standardize button styles with accent glows and smooth scale on hover.  
+   • Add subtle hover tooltips (“Buy quickly”, “View details”, etc.) with 200ms fade-in.  
+   • All interactive elements keyboard-focusable with visible purple focus outlines.  
+   • Responsive: on narrow screens, stack the grid to full-width cards; modal becomes full-screen.
+
+9. Error & Data Guards  
+   • In Activity and Transfers pages, ensure `activities` and `transfers` are arrays before `.filter`, e.g.:  
+     ```ts
+     const list = Array.isArray(activities) ? activities : [];
+     const filtered = list.filter(...);
+     ```  
+   • Remove any console errors.
+
+10. Routing & Auth Flow  
+   • Add Signup/Login/Forgot pages using Replit Auth.  
+   • Protect all routes behind auth; redirect to login if unauthenticated.
+
+Bonus micro-interactions:  
+   • Page-load sparkle animation on Dashboard title.  
+   • Subtle card pop on hover.  
+   • Smooth page transitions with Framer Motion.
+
+Please implement these changes in one PR, verify end-to-end SnapTrade/Teller flows, chart sync, and order placement still function, and let me know when ready for review! ```

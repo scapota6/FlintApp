@@ -8,6 +8,7 @@ import ConnectedAccounts from "@/components/dashboard/connected-accounts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, Activity, RefreshCw } from "lucide-react";
+import { SparkleTitle } from "@/components/ui/sparkle-title";
 
 interface DashboardData {
   totalBalance: number;
@@ -166,9 +167,11 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto p-6">
         {/* Dashboard Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2 font-mono text-transparent bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text">
-            Dashboard
-          </h1>
+          <SparkleTitle>
+            <h1 className="text-4xl font-bold mb-2 font-mono text-transparent bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text">
+              Dashboard
+            </h1>
+          </SparkleTitle>
           <p className="text-gray-400">Welcome back, {user?.firstName || user?.email?.split('@')[0] || 'Trader'}</p>
         </div>
 
@@ -187,6 +190,26 @@ export default function Dashboard() {
             onConnectBank={handleConnectBank}
             onConnectBrokerage={handleConnectBrokerage}
           />
+        </div>
+
+        {/* Quick Actions Bar */}
+        <div className="mb-8">
+          <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-lg p-4 border border-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <button className="group flex items-center justify-center px-6 py-3 bg-green-600 hover:bg-green-500 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-green-500/25 hover:scale-105">
+                <TrendingUp className="h-5 w-5 mr-2 group-hover:animate-pulse" />
+                <span className="font-semibold text-white">Quick Buy</span>
+              </button>
+              <button className="group flex items-center justify-center px-6 py-3 bg-red-600 hover:bg-red-500 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-red-500/25 hover:scale-105">
+                <Activity className="h-5 w-5 mr-2 group-hover:animate-pulse" />
+                <span className="font-semibold text-white">Quick Sell</span>
+              </button>
+              <button className="group flex items-center justify-center px-6 py-3 bg-purple-600 hover:bg-purple-500 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/25 hover:scale-105">
+                <RefreshCw className="h-5 w-5 mr-2 group-hover:animate-pulse" />
+                <span className="font-semibold text-white">Transfer Funds</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Watchlist & Holdings */}

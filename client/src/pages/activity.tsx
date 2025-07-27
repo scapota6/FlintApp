@@ -119,12 +119,14 @@ export default function Activity() {
     });
   };
 
-  const filteredActivities = activities?.filter((activity: any) => {
-    const matchesSearch = activity.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          activity.action.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = selectedFilter === 'all' || activity.action.includes(selectedFilter);
+  // Filter activities based on search and selected filter
+  const activitiesList = Array.isArray(activities) ? activities : [];
+  const filteredActivities = activitiesList.filter((activity: any) => {
+    const matchesSearch = activity.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         activity.action?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = selectedFilter === 'all' || activity.action === selectedFilter;
     return matchesSearch && matchesFilter;
-  }) || [];
+  });
 
   const groupedActivities = filteredActivities.reduce((groups: any, activity: any) => {
     const date = new Date(activity.createdAt).toDateString();
