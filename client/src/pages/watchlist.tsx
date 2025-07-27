@@ -201,8 +201,10 @@ export default function Watchlist() {
     <PageTransition className="min-h-screen bg-[#121212] text-white">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6 pt-20">
         <div className="mb-8">
-          <h2 className="text-2xl sm:text-3xl font-semibold mb-2 text-white font-inter sparkle-title">Watchlist</h2>
-          <p className="text-[#CCCCCC] text-sm font-inter">Track your favorite assets and market trends</p>
+          <h1 className="text-4xl font-bold mb-2 font-mono">
+            <span className="sparkle-title">Watchlist</span>
+          </h1>
+          <p className="text-gray-400">Track your favorite assets and market trends</p>
         </div>
 
         {/* Search and Add */}

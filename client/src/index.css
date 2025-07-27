@@ -608,6 +608,7 @@ h1, h2, h3, h4, h5, h6 {
 .sparkle-title {
   position: relative;
   display: inline-block;
+  z-index: 10;
 }
 
 .sparkle-title::after {
@@ -618,6 +619,7 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 0.9rem;
   animation: sparkle 2s ease-in-out infinite;
   opacity: 0;
+  z-index: 11;
 }
 
 @keyframes sparkle {
