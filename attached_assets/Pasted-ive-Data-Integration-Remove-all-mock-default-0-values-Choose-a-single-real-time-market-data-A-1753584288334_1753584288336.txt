@@ -1,0 +1,30 @@
+ive Data Integration
+	•	Remove all mock/default 0 values.
+	•	Choose a single real-time market data API (e.g. IEX Cloud, Alpha Vantage, Tiingo, or TradingView’s Data API).
+	•	Implement a backend service that fetches current price, change %, volume, and market cap for any symbol (stock or crypto) every 5 seconds and caches it.
+	•	Expose a unified /api/market-data?symbol=AAPL endpoint returning JSON { symbol, price, changePct, volume, marketCap }.
+	2.	Watchlist Component
+	•	On login, fetch the user’s saved watchlist symbols.
+	•	For each symbol, call /api/market-data and render a card with: logo icon, company name, live price, live change %.
+	•	Update those cards in real-time (poll or WebSocket push).
+	•	Ensure feed consistency: same data drives dashboard mini-cards, Trading page list, and symbol detail pages.
+	3.	Dashboard Cleanup
+	•	Remove the hardcoded AAPL widget from the dashboard.
+	•	Instead, show an “All Assets” sparkline summary chart that aggregates portfolio value over time (using your market-data service plus holdings).
+	•	Only show per-account preview cards (balance, account name) in the Connected Accounts grid.
+	4.	Symbol Detail Pages (/stock/[symbol])
+	•	Fetch /api/market-data?symbol= to populate the header (price/change/volume) and meta widgets.
+	•	Embed a simple dark-themed TradingView line chart with the same symbol/exchange.
+	•	Always verify the chart’s current price text matches your backend price.
+	5.	Order Form Enhancements
+	•	Under the “Buy” button, show a toggle: “Shares” vs “Dollar Amount”.
+	•	When in “Dollar Amount” mode, compute shares = amount / livePrice and round appropriately.
+	•	Generate a UUID v4 tradeId and include it in the order payload.
+	•	Call POST /api/orders with { tradeId, symbol, side, shares }, handle 403s by refreshing SnapTrade credentials automatically, and show success/error toasts.
+	6.	End-to-End Verification
+	•	After implementation, verify:
+	•	Watchlist prices match symbol detail page and dashboard summary.
+	•	Trading page “Trade” buttons prefill the live price.
+	•	Orders actually submit and reflect in Activity.
+
+Please implement all of the above in one PR titled feat(market-data): real-time pricing & unified watchlist, wire up the new backend service, update the React components, and verify on staging that every number on the site is identical to the market-data API. Thanks!

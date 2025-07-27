@@ -6,11 +6,16 @@ export function useWatchlist() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Get user's watchlist
-  const { data: watchlist = [], isLoading, error } = useQuery({
+  // Get user's watchlist with proper error handling
+  const { data: watchlistData, isLoading, error } = useQuery({
     queryKey: ["/api/watchlist"],
     retry: 2,
+    onError: (error) => {
+      console.error("Failed to fetch watchlist:", error);
+    },
   });
+
+  const watchlist = Array.isArray(watchlistData?.watchlist) ? watchlistData.watchlist : [];
 
   // Add to watchlist mutation
   const addToWatchlist = useMutation({
@@ -86,7 +91,7 @@ export function useWatchlist() {
   };
 
   return {
-    watchlist: Array.isArray(watchlist?.watchlist) ? watchlist.watchlist : [],
+    watchlist,
     isLoading,
     error,
     addToWatchlist: addToWatchlist.mutate,

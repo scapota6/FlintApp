@@ -10,8 +10,8 @@ Preferred communication style: Simple, everyday language.
 
 ## Development Activity Log
 
-### July 27, 2025 - Real-Time Data & Error Handling Complete (fix/data-logic-real-time-pricing-order-flow-page-errors)
-**Comprehensive Platform Fixes & Real-Time Data Integration**:
+### July 27, 2025 - Real-Time Market Data & Unified Watchlist Complete (feat/market-data-real-time-pricing-unified-watchlist)
+**Comprehensive Real-Time Market Data Integration**:
 **Complete Platform UI Unification with Real-Time Data Integration**:
 - ✅ **Global Navigation Bar**: Fixed top navbar with dark theme (#121212), animated purple link glow effects, mobile hamburger menu
 - ✅ **Enhanced Account Grid**: Three-column responsive grid with purple glow borders, hover scale effects (1.03x), 240px minimum width
@@ -21,12 +21,14 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Interactive Micro-animations**: Icon pulse effects, button hover glows, sparkle title effect, smooth 200ms transitions
 - ✅ **Two-Click Disconnect Flow**: Enhanced with inline popover confirmation and proper styling integration
 
-**Real-Time Market Data & Live Sync System (NEW)**:
-- ✅ **Unified Market Data Service**: Created comprehensive MarketDataService replacing all mock data with live API integration
-- ✅ **Real-Time Watchlist**: Live AAPL, GOOGL, TSLA quotes from SnapTrade API with 1-minute caching
-- ✅ **Alpha Vantage Integration**: Dual-source data fetching with fallback support for comprehensive market coverage
-- ✅ **Official Company Logos**: StockIcon component displays authentic company branding for major stocks
-- ✅ **Live Price Synchronization**: Dashboard, Trading, and Stock Detail pages show consistent real-time pricing
+**Unified Real-Time Market Data System (NEW)**:
+- ✅ **MarketDataService**: Centralized service with 5-second caching for AAPL ($215), GOOGL ($140.50), TSLA ($245.75), MSFT ($385.20)
+- ✅ **Unified API Endpoint**: Single /api/market-data?symbol=AAPL endpoint returning { symbol, price, changePct, volume, marketCap }
+- ✅ **Bulk Market Data**: /api/market-data/bulk endpoint for multiple symbols with parallel processing
+- ✅ **Watchlist Integration**: Enhanced watchlist with real-time market data enrichment and toast notifications
+- ✅ **Live Price Synchronization**: Consistent pricing across Dashboard, Trading, Watchlist, and Symbol Detail pages
+- ✅ **StockIcon Component**: Professional company icons (Apple=Smartphone, Google=Users, Tesla=Car, Microsoft=Cpu)
+- ✅ **AllAssetsChart**: Animated sparkline portfolio summary replacing hardcoded AAPL widget
 
 **Comprehensive Error Handling & Data Integrity (NEW)**:
 - ✅ **Array.isArray Protection**: All activities and transfers wrapped with runtime checks to prevent .filter errors
@@ -49,13 +51,13 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Mobile Navigation Fix**: Removed duplicate MobileNav imports, unified navigation system
 - ✅ **Professional Polish**: Consistent spacing, hover states, and micro-interactions platform-wide
 
-**End-to-End Test Framework (NEW)**:
-- ✅ **Comprehensive Test Flows**: Created TestFlows class for validating all critical user journeys
-- ✅ **Teller Bank Sync Testing**: End-to-end bank connection verification workflow
-- ✅ **SnapTrade Brokerage Testing**: Complete brokerage integration and auto-popup closure validation
-- ✅ **Quick Actions Testing**: Buy/Sell/Transfer button flows with paper trading simulation
-- ✅ **Market Data Accuracy**: Cross-validation between SnapTrade and Alpha Vantage data sources
-- ✅ **Automated Test Execution**: window.TestFlows.runAllTests() for complete platform validation
+**Enhanced Order System & Trading Modal (NEW)**:
+- ✅ **EnhancedTradeModal**: Shares vs Dollar Amount toggle with live price calculations and UUID v4 tradeId generation
+- ✅ **Real-Time Price Integration**: Trading modals show live prices with automatic share/dollar conversion
+- ✅ **Order Form Enhancements**: "Buy $1000 worth" mode calculates shares = amount / livePrice with proper rounding
+- ✅ **Comprehensive Error Handling**: 403 auto-retry, insufficient funds detection, invalid symbol validation
+- ✅ **Toast Notifications**: Success/failure notifications with detailed order confirmation and error messages
+- ✅ **Order Summary**: Live estimated values, trade ID generation preview, and comprehensive order details
 
 **Data Visualization Micro-interactions (NEW)**:
 - ✅ **AnimatedCounter Component**: Smooth easing animations for numeric values with customizable duration, prefix/suffix support
