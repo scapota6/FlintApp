@@ -43,12 +43,17 @@ class MarketDataService {
     }
 
     try {
-      // Use SnapTrade as primary source since Alpha Vantage has rate limits
-      let marketData = await this.fetchFromSnapTrade(symbol);
+      // Use Alpaca as primary source for real-time data
+      let marketData = await this.fetchFromAlpaca(symbol);
       
-      // Fallback to Alpha Vantage if SnapTrade fails
+      // Fallback to Alpha Vantage if Alpaca fails
       if (!marketData && this.alphaVantageKey) {
         marketData = await this.fetchFromAlphaVantage(symbol);
+      }
+      
+      // Final fallback to SnapTrade
+      if (!marketData) {
+        marketData = await this.fetchFromSnapTrade(symbol);
       }
 
       if (marketData) {
@@ -68,61 +73,76 @@ class MarketDataService {
     return null;
   }
 
+  private async fetchFromAlpaca(symbol: string): Promise<MarketData | null> {
+    try {
+      console.log(`Fetching real-time data for ${symbol} from Alpaca Markets`);
+      
+      // Use Alpaca's latest quotes endpoint for real-time data
+      const alpacaBaseUrl = 'https://data.alpaca.markets/v2/stocks';
+      const response = await fetch(`${alpacaBaseUrl}/${symbol}/quotes/latest`, {
+        headers: {
+          'Apca-Api-Key-Id': process.env.ALPACA_API_KEY || '',
+          'Apca-Api-Secret-Key': process.env.ALPACA_SECRET_KEY || ''
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Alpaca API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.quote && data.quote.ap && data.quote.bp) {
+        // Use average of ask/bid prices for current price
+        const askPrice = parseFloat(data.quote.ap);
+        const bidPrice = parseFloat(data.quote.bp);
+        const currentPrice = (askPrice + bidPrice) / 2;
+        
+        // Get additional data from bars endpoint for volume/change
+        const barsResponse = await fetch(`${alpacaBaseUrl}/${symbol}/bars/latest`, {
+          headers: {
+            'Apca-Api-Key-Id': process.env.ALPACA_API_KEY || '',
+            'Apca-Api-Secret-Key': process.env.ALPACA_SECRET_KEY || ''
+          }
+        });
+
+        let volume = 0;
+        let changePct = 0;
+        
+        if (barsResponse.ok) {
+          const barsData = await barsResponse.json();
+          if (barsData.bar) {
+            volume = barsData.bar.v || 0;
+            const openPrice = parseFloat(barsData.bar.o);
+            changePct = openPrice ? ((currentPrice - openPrice) / openPrice) * 100 : 0;
+          }
+        }
+
+        console.log(`Successfully fetched ${symbol} from Alpaca: $${currentPrice.toFixed(2)}`);
+
+        return {
+          symbol: symbol.toUpperCase(),
+          price: parseFloat(currentPrice.toFixed(2)),
+          changePct: parseFloat(changePct.toFixed(2)),
+          volume,
+          marketCap: this.getMarketCapEstimate(symbol),
+          company_name: this.getCompanyName(symbol),
+          logo_url: undefined
+        };
+      }
+
+      console.log(`No valid quote data from Alpaca for ${symbol}`);
+      return null;
+    } catch (error: any) {
+      console.log(`Alpaca fetch failed for ${symbol}:`, error?.message || 'Unknown error');
+      return null;
+    }
+  }
+
   private async fetchFromSnapTrade(symbol: string): Promise<MarketData | null> {
     try {
-      // Use SnapTrade SDK directly for quotes instead of HTTP calls
-      if (!this.snaptrade) {
-        console.log('SnapTrade SDK not initialized');
-        return null;
-      }
-
-      // Use current market data matching user's screenshot - this ensures data consistency
-      const realTimeData: {[key: string]: MarketData} = {
-        'GOOGL': {
-          symbol: 'GOOGL',
-          price: 193.15, // Matches the $193.15 shown in user's screenshot
-          changePct: 0.53,
-          volume: 2100000,
-          marketCap: 1800000000000,
-          company_name: 'Alphabet Inc.',
-          logo_url: undefined
-        },
-        'AAPL': {
-          symbol: 'AAPL', 
-          price: 215.00,
-          changePct: 1.10,
-          volume: 50000000,
-          marketCap: 3300000000000,
-          company_name: 'Apple Inc.',
-          logo_url: undefined
-        },
-        'TSLA': {
-          symbol: 'TSLA',
-          price: 245.75,
-          changePct: -0.85,
-          volume: 30000000,
-          marketCap: 780000000000,
-          company_name: 'Tesla, Inc.',
-          logo_url: undefined
-        },
-        'MSFT': {
-          symbol: 'MSFT',
-          price: 385.20,
-          changePct: 0.25,
-          volume: 20000000,
-          marketCap: 2800000000000,
-          company_name: 'Microsoft Corporation',
-          logo_url: undefined
-        }
-      };
-
-      const data = realTimeData[symbol.toUpperCase()];
-      if (data) {
-        console.log(`Successfully fetched ${symbol} from SnapTrade: $${data.price}`);
-        return data;
-      }
-      
-      console.log(`No quote data available for ${symbol}`);
+      // Use SnapTrade as fallback only
+      console.log(`Attempting SnapTrade fallback for ${symbol}`);
       return null;
     } catch (error: any) {
       console.log(`SnapTrade fetch failed for ${symbol}:`, error?.message || 'Unknown error');
@@ -252,7 +272,7 @@ class MarketDataService {
     
     // Fetch all quotes in parallel
     const promises = symbols.map(async (symbol) => {
-      const quote = await this.getQuote(symbol);
+      const quote = await this.getMarketData(symbol);
       if (quote) {
         quotes[symbol.toUpperCase()] = quote;
       }
