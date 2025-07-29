@@ -15,13 +15,14 @@ import { AnimatedBadge } from "@/components/ui/animated-badge";
 import { ChartPlaceholder } from "@/components/ui/chart-placeholder";
 import { Tooltip } from "@/components/ui/tooltip";
 import { StockIcon } from "@/components/ui/stock-icon";
+import { StockDetailModal } from "@/components/trading/stock-detail-modal";
 import { AccountDetailsModal } from "@/components/ui/account-details-modal";
 import { EnhancedConnectedAccounts } from "@/components/dashboard/enhanced-connected-accounts";
 import { QuickActionsBar } from "@/components/ui/quick-actions-bar";
 
 import { ErrorRetryCard } from "@/components/ui/error-retry-card";
 import { RealTimeAPI } from "@/lib/real-time-api";
-import { StockDetailModal } from "@/components/modals/stock-detail-modal";
+// Removed duplicate import - using trading/stock-detail-modal
 
 interface DashboardData {
   totalBalance: number;
@@ -39,8 +40,8 @@ export default function Dashboard() {
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [liveQuotes, setLiveQuotes] = useState<Record<string, any>>({});
-  const [selectedStock, setSelectedStock] = useState<string>('');
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+  const [selectedStock, setSelectedStock] = useState<string>('');
 
   // Fetch dashboard data
   const { data: dashboardData, isLoading, error, refetch } = useQuery({
@@ -398,10 +399,6 @@ export default function Dashboard() {
           symbol={selectedStock}
           isOpen={isStockModalOpen}
           onClose={() => setIsStockModalOpen(false)}
-          onTrade={(symbol, action) => {
-            console.log(`Trading ${symbol} - ${action}`);
-            setIsStockModalOpen(false);
-          }}
         />
 
         {/* Account Details Modal */}
