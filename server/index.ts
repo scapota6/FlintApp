@@ -58,6 +58,10 @@ app.use((req, res, next) => {
   // Mount Market Data API router
   const marketDataRouter = (await import("./routes/market-data")).default;
   app.use("/api/market-data", marketDataRouter);
+  
+  // Mount Banking API router
+  const bankingRouter = (await import("./routes/banking")).default;
+  app.use("/api/banking", bankingRouter);
 
   // Debug routers disabled - using unified flow only
   // app.use("/api/snaptrade-debug", snaptradeDebugRouter);

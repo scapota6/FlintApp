@@ -19,10 +19,9 @@ import { StockDetailModal } from "@/components/trading/stock-detail-modal";
 import { AccountDetailsModal } from "@/components/ui/account-details-modal";
 import { EnhancedConnectedAccounts } from "@/components/dashboard/enhanced-connected-accounts";
 import { QuickActionsBar } from "@/components/ui/quick-actions-bar";
-
+import { BankAccountsSection } from "@/components/dashboard/bank-accounts-section";
 import { ErrorRetryCard } from "@/components/ui/error-retry-card";
 import { RealTimeAPI } from "@/lib/real-time-api";
-// Removed duplicate import - using trading/stock-detail-modal
 
 interface DashboardData {
   totalBalance: number;
@@ -257,6 +256,11 @@ export default function Dashboard() {
               </Tooltip>
             </div>
           </div>
+        </div>
+
+        {/* Bank Accounts Section */}
+        <div className="mb-8">
+          <BankAccountsSection />
         </div>
 
         {/* Enhanced Watchlist & Holdings with Micro-interactions */}

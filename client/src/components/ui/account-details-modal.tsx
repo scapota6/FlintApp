@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { StockIcon } from '@/components/ui/stock-icon';
-import { Building2, CreditCard, DollarSign, TrendingUp, TrendingDown, Activity } from 'lucide-react';
+import { BankAccountModal } from '@/components/banking/bank-account-modal';
+import { Building2, CreditCard, DollarSign, TrendingUp, TrendingDown, Activity, Building } from 'lucide-react';
 
 interface AccountDetailsModalProps {
   isOpen: boolean;
@@ -20,10 +21,33 @@ interface AccountDetailsModalProps {
   } | null;
 }
 
+// Check if account is a bank account
+const isBankAccount = (account: any) => {
+  return account && (
+    account.institution || 
+    account.type === 'checking' || 
+    account.type === 'savings' ||
+    account.provider === 'teller' ||
+    account.source === 'bank' ||
+    account.type === 'bank'
+  );
+};
+
 export function AccountDetailsModal({ isOpen, onClose, account }: AccountDetailsModalProps) {
   const [activeTab, setActiveTab] = useState('overview');
 
   if (!account) return null;
+
+  // If it's a bank account, use the specialized bank account modal
+  if (isBankAccount(account)) {
+    return (
+      <BankAccountModal
+        account={account}
+        isOpen={isOpen}
+        onClose={onClose}
+      />
+    );
+  }
 
   const mockHoldings = [
     { symbol: 'AAPL', name: 'Apple Inc.', shares: 25, avgPrice: 180.50, currentPrice: 189.45, value: 4736.25 },

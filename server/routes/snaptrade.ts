@@ -759,10 +759,10 @@ router.get("/accounts", isAuthenticated, async (req: any, res) => {
     console.log('SnapTrade accounts fetched:', accounts.length);
     res.json({ accounts });
   } catch (error: any) {
-    console.error('Error fetching SnapTrade accounts:', error);
+    console.error('Error fetching SnapTrade accounts:', error?.message || 'Unknown error');
     res.status(500).json({ 
       success: false, 
-      message: error.message || 'Failed to fetch accounts' 
+      message: error?.message || 'Failed to fetch accounts' 
     });
   }
 });
