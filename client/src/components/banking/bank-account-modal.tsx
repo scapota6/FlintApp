@@ -78,7 +78,7 @@ export function BankAccountModal({ account, isOpen, onClose }: BankAccountModalP
   const mockTransactions = [
     {
       id: '1',
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1), // 1 day ago
+      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString(), // 1 day ago
       description: 'ACH Transfer to Investment Account',
       amount: -2500.00,
       type: 'transfer',
@@ -86,7 +86,7 @@ export function BankAccountModal({ account, isOpen, onClose }: BankAccountModalP
     },
     {
       id: '2',
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3), // 3 days ago
+      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(), // 3 days ago
       description: 'Salary Deposit - Employer',
       amount: 5200.00,
       type: 'deposit',
@@ -94,7 +94,7 @@ export function BankAccountModal({ account, isOpen, onClose }: BankAccountModalP
     },
     {
       id: '3',
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
+      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(), // 5 days ago
       description: 'ATM Withdrawal',
       amount: -200.00,
       type: 'withdrawal',
@@ -102,7 +102,7 @@ export function BankAccountModal({ account, isOpen, onClose }: BankAccountModalP
     },
     {
       id: '4',
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7), // 7 days ago
+      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(), // 7 days ago
       description: 'Online Purchase - Amazon',
       amount: -89.99,
       type: 'purchase',
@@ -110,7 +110,7 @@ export function BankAccountModal({ account, isOpen, onClose }: BankAccountModalP
     },
     {
       id: '5',
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10), // 10 days ago
+      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10).toISOString(), // 10 days ago
       description: 'Dividend Payment - AAPL',
       amount: 125.50,
       type: 'dividend',
@@ -258,7 +258,7 @@ export function BankAccountModal({ account, isOpen, onClose }: BankAccountModalP
                           <p className="text-white font-medium text-sm">{transaction.description}</p>
                           <div className="flex items-center gap-2 text-xs text-gray-400">
                             <Calendar className="h-3 w-3" />
-                            {transaction.date.toLocaleDateString()}
+                            {new Date(transaction.date).toLocaleDateString()}
                             <Badge variant="outline" className="text-xs py-0 px-1">
                               {transaction.type}
                             </Badge>
