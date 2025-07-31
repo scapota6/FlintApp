@@ -9,7 +9,7 @@ export class CredentialEncryption {
    */
   static encrypt(text: string): string {
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(ALGORITHM, ENCRYPTION_KEY);
+    const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
     
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
@@ -29,7 +29,7 @@ export class CredentialEncryption {
   static decrypt(encryptedData: string): string {
     const { encrypted, iv, authTag } = JSON.parse(encryptedData);
     
-    const decipher = crypto.createDecipher(ALGORITHM, ENCRYPTION_KEY);
+    const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, Buffer.from(iv, 'hex'));
     decipher.setAuthTag(Buffer.from(authTag, 'hex'));
     
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
