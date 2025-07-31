@@ -47,13 +47,52 @@ export function EnhancedTradeModal({
   const { data: marketData } = useMarketData(formData.symbol, !!formData.symbol);
   const livePrice = marketData?.price || currentPrice || 0;
 
-  // Calculate shares from dollar amount
+  // Calculate shares from dollar amount with proper fractional handling
   const calculateShares = () => {
     if (formData.isDollarMode && formData.dollarAmount && livePrice > 0) {
       const shares = parseFloat(formData.dollarAmount) / livePrice;
-      return Math.floor(shares * 100) / 100; // Round to 2 decimal places
+      // Support fractional shares with up to 6 decimal places for platforms like Robinhood
+      return Math.floor(shares * 1000000) / 1000000; // Round to 6 decimal places
     }
     return parseFloat(formData.quantity) || 0;
+  };
+
+  // Calculate dollar value from shares
+  const calculateDollarValue = () => {
+    if (!formData.isDollarMode && formData.quantity && livePrice > 0) {
+      return parseFloat(formData.quantity) * livePrice;
+    }
+    return parseFloat(formData.dollarAmount) || 0;
+  };
+
+  // Check if selected brokerage supports fractional shares and dollar amounts
+  const supportsFractionalShares = (accountId: string) => {
+    // Get account details to check brokerage type
+    const account = accounts.find(acc => acc.id === accountId);
+    const brokerage = account?.institutionName?.toLowerCase() || account?.provider?.toLowerCase() || '';
+    
+    // Brokerages that support fractional shares and dollar amount orders
+    const supportedBrokerages = [
+      'robinhood', 'charles schwab', 'fidelity', 'interactive brokers',
+      'alpaca', 'td ameritrade', 'webull', 'sofi', 'm1 finance'
+    ];
+    
+    return supportedBrokerages.some(supported => 
+      brokerage.includes(supported) || supported.includes(brokerage)
+    );
+  };
+
+  // Check balance availability for dollar amount orders
+  const checkBalance = () => {
+    if (!formData.accountId) return true;
+    
+    const account = accounts.find(acc => acc.id === formData.accountId);
+    const availableBalance = account?.balance || 0;
+    const orderValue = formData.isDollarMode ? 
+      parseFloat(formData.dollarAmount) || 0 : 
+      calculateDollarValue();
+    
+    return orderValue <= availableBalance;
   };
 
   // Place order mutation with UUID tradeId generation
@@ -68,14 +107,20 @@ export function EnhancedTradeModal({
         body: {
           ...orderData,
           tradeId,
-          quantity: calculateShares().toString(), // Always send calculated shares
+          quantity: formData.isDollarMode ? undefined : formData.quantity, // Send original quantity if not dollar mode
+          dollarAmount: formData.isDollarMode ? formData.dollarAmount : undefined, // Send dollar amount if in dollar mode
+          isDollarMode: formData.isDollarMode, // Send the mode flag
         },
       });
     },
     onSuccess: (data, variables) => {
+      const shares = data.orderDetails?.shares || calculateShares();
+      const isFractional = data.orderDetails?.fractionalShares || (shares % 1 !== 0);
+      const dollarPurchase = data.orderDetails?.dollarsRequested;
+      
       toast({
         title: "Order Placed Successfully",
-        description: `${variables.action} order for ${calculateShares()} shares of ${variables.symbol} has been placed.`,
+        description: `${variables.action} order for ${shares}${isFractional ? ' (fractional)' : ''} shares of ${variables.symbol}${dollarPurchase ? ` ($${dollarPurchase} purchase)` : ''} has been placed.`,
         duration: 5000,
       });
       
@@ -131,7 +176,7 @@ export function EnhancedTradeModal({
     
     const shares = calculateShares();
     
-    // Validation
+    // Enhanced validation with balance checking
     if (!formData.symbol || !formData.accountId) {
       toast({
         title: "Missing Information",
@@ -159,6 +204,30 @@ export function EnhancedTradeModal({
       return;
     }
     
+    // Check platform compatibility for dollar amount orders
+    if (formData.isDollarMode && !supportsFractionalShares(formData.accountId)) {
+      toast({
+        title: "Feature Not Supported",
+        description: "Dollar amount orders are not supported by this brokerage. Please use share quantities instead.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check available balance
+    if (!checkBalance()) {
+      const orderValue = formData.isDollarMode ? 
+        parseFloat(formData.dollarAmount) || 0 : 
+        calculateDollarValue();
+      
+      toast({
+        title: "Insufficient Funds",
+        description: `Order value $${orderValue.toFixed(2)} exceeds available balance. Please reduce the amount.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (formData.orderType === 'LIMIT' && !formData.price) {
       toast({
         title: "Price Required",
@@ -166,6 +235,16 @@ export function EnhancedTradeModal({
         variant: "destructive",
       });
       return;
+    }
+    
+    // Large order warning
+    const orderValue = formData.isDollarMode ? 
+      parseFloat(formData.dollarAmount) || 0 : 
+      calculateDollarValue();
+      
+    if (orderValue > 10000) {
+      // Could add a confirmation dialog here
+      console.log(`Large order warning: $${orderValue.toFixed(2)}`);
     }
     
     // Place the order
@@ -283,9 +362,21 @@ export function EnhancedTradeModal({
                   required
                 />
                 {formData.dollarAmount && livePrice > 0 && (
-                  <p className="text-sm text-gray-400">
-                    ≈ {calculateShares()} shares at {formatPrice(livePrice)}
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-400">
+                      ≈ {calculateShares()} shares at {formatPrice(livePrice)}
+                    </p>
+                    {calculateShares() % 1 !== 0 && (
+                      <p className="text-xs text-blue-400">
+                        ✓ Fractional shares calculated automatically
+                      </p>
+                    )}
+                  </div>
+                )}
+                {formData.accountId && !supportsFractionalShares(formData.accountId) && (
+                  <div className="p-2 bg-orange-900/20 border border-orange-600/30 rounded text-xs text-orange-400">
+                    ⚠️ This brokerage may not support dollar amount orders. Switch to share quantities if needed.
+                  </div>
                 )}
               </div>
             ) : (
@@ -294,8 +385,8 @@ export function EnhancedTradeModal({
                 <Input
                   id="quantity"
                   type="number"
-                  min="1"
-                  step="1"
+                  min="0.000001"
+                  step="0.000001"
                   value={formData.quantity}
                   onChange={(e) => handleInputChange('quantity', e.target.value)}
                   placeholder="10"
@@ -303,9 +394,16 @@ export function EnhancedTradeModal({
                   required
                 />
                 {formData.quantity && livePrice > 0 && (
-                  <p className="text-sm text-gray-400">
-                    ≈ {formatPrice(parseFloat(formData.quantity) * livePrice)} total
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-400">
+                      ≈ {formatPrice(parseFloat(formData.quantity) * livePrice)} total
+                    </p>
+                    {parseFloat(formData.quantity) % 1 !== 0 && (
+                      <p className="text-xs text-blue-400">
+                        ✓ Fractional shares supported
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             )}

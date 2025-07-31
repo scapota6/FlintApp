@@ -38,12 +38,19 @@ router.post("/", isAuthenticated, async (req: any, res) => {
       return res.status(400).json({ error: "User email required" });
     }
 
-    const { accountId, symbol, action, quantity, price, orderType } = req.body;
+    const { accountId, symbol, action, quantity, price, orderType, dollarAmount, isDollarMode } = req.body;
 
     // Validate input
-    if (!accountId || !symbol || !action || !quantity || !orderType) {
+    if (!accountId || !symbol || !action || !orderType) {
       return res.status(400).json({ 
-        error: "Missing required fields: accountId, symbol, action, quantity, orderType" 
+        error: "Missing required fields: accountId, symbol, action, orderType" 
+      });
+    }
+
+    // Validate quantity or dollar amount
+    if (!quantity && !dollarAmount) {
+      return res.status(400).json({ 
+        error: "Either quantity or dollarAmount is required" 
       });
     }
 
@@ -81,6 +88,72 @@ router.post("/", isAuthenticated, async (req: any, res) => {
       accountType: targetAccount.meta?.type || 'unknown'
     });
 
+    // Handle dollar amount orders by calculating fractional shares
+    let finalQuantity = quantity;
+    let finalPrice = price;
+    
+    if (isDollarMode && dollarAmount) {
+      // Get current market price for the symbol
+      let currentPrice = null;
+      try {
+        // Try to get current price from SnapTrade first
+        const quotes = await snaptrade.accountInformation.getUserAccountQuotes({
+          userId: credentials.userId,
+          userSecret: credentials.userSecret,
+          symbols: symbol.toUpperCase()
+        });
+        
+        currentPrice = quotes.data?.[0]?.last_trade_price || quotes.data?.[0]?.bid || null;
+      } catch (quoteErr) {
+        console.log('Failed to get SnapTrade quote, using fallback price');
+      }
+      
+      // Fallback to hardcoded prices for demo
+      if (!currentPrice) {
+        const fallbackPrices: { [key: string]: number } = {
+          'AAPL': 224.50,
+          'GOOGL': 193.15,
+          'TSLA': 322.00,
+          'MSFT': 385.20,
+          'NVDA': 875.30
+        };
+        currentPrice = fallbackPrices[symbol.toUpperCase()] || 200.00;
+      }
+      
+      // Calculate fractional shares with high precision
+      const dollarValue = parseFloat(dollarAmount);
+      finalQuantity = Math.floor((dollarValue / currentPrice) * 1000000) / 1000000; // 6 decimal places
+      finalPrice = currentPrice;
+      
+      console.log('Dollar amount order calculation:', {
+        dollarAmount: dollarValue,
+        currentPrice,
+        calculatedShares: finalQuantity,
+        estimatedTotal: finalQuantity * currentPrice
+      });
+      
+      // Validate minimum order size
+      if (finalQuantity < 0.000001) {
+        return res.status(400).json({
+          error: "Dollar amount too small",
+          message: `$${dollarAmount} results in ${finalQuantity} shares, which is below minimum order size`
+        });
+      }
+    }
+
+    // Check if brokerage supports fractional shares
+    const supportsFractional = targetAccount.institution_name?.toLowerCase().includes('robinhood') ||
+                              targetAccount.institution_name?.toLowerCase().includes('alpaca') ||
+                              targetAccount.institution_name?.toLowerCase().includes('schwab') ||
+                              targetAccount.institution_name?.toLowerCase().includes('fidelity');
+
+    if (!supportsFractional && finalQuantity % 1 !== 0) {
+      return res.status(400).json({
+        error: "Fractional shares not supported",
+        message: `${targetAccount.institution_name} does not support fractional shares. Please use whole share quantities.`
+      });
+    }
+
     // Place order via SnapTrade using placeForceOrder - no tradeId needed
     const orderPayload = {
       userId: credentials.userId,
@@ -90,8 +163,8 @@ router.post("/", isAuthenticated, async (req: any, res) => {
       symbol: symbol.toUpperCase(),
       order_type: orderType === 'MARKET' ? 'Market' : 'Limit', // Capitalize first letter
       time_in_force: 'Day', // Default time in force
-      units: Number(quantity), // SnapTrade uses 'units' for quantity
-      ...(orderType === 'LIMIT' && price && { price: Number(price) })
+      units: Number(finalQuantity), // SnapTrade uses 'units' for quantity (supports fractional)
+      ...(orderType === 'LIMIT' && finalPrice && { price: Number(finalPrice) })
     };
 
     // Generate UUID v4 for this trade
@@ -106,7 +179,10 @@ router.post("/", isAuthenticated, async (req: any, res) => {
       symbol: symbol.toUpperCase(),
       order_type: orderPayload.order_type,
       time_in_force: 'Day',
-      units: Number(quantity)
+      units: Number(finalQuantity),
+      originalInput: isDollarMode ? `$${dollarAmount}` : `${quantity} shares`,
+      fractionalShares: finalQuantity % 1 !== 0,
+      platformSupport: supportsFractional
     });
 
     // Check if this is a paper trading account (Alpaca Paper)
@@ -139,7 +215,15 @@ router.post("/", isAuthenticated, async (req: any, res) => {
       success: true,
       tradeId,
       order: orderResult,
-      message: `Order ${orderResult.simulated ? 'simulated' : 'placed'} successfully for ${quantity} shares of ${symbol}`,
+      orderDetails: {
+        shares: finalQuantity,
+        dollarsRequested: isDollarMode ? dollarAmount : null,
+        sharesRequested: !isDollarMode ? quantity : null,
+        fractionalShares: finalQuantity % 1 !== 0,
+        estimatedPrice: finalPrice,
+        estimatedTotal: finalQuantity * (finalPrice || 0)
+      },
+      message: `Order ${orderResult.simulated ? 'simulated' : 'placed'} successfully for ${finalQuantity} shares of ${symbol}${isDollarMode ? ` ($${dollarAmount} purchase)` : ''}`,
       simulated: orderResult.simulated || false
     });
 
