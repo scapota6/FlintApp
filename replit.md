@@ -1,361 +1,10 @@
 # Flint - Financial Management Platform
 
 ## Overview
-
-Flint is a comprehensive financial management web application built with React and Node.js. It provides users with a unified dashboard to connect bank accounts, brokerage accounts, and cryptocurrency wallets, track investments, execute trades, manage transfers, and monitor financial activity. The platform includes subscription-based features with Stripe integration and supports real-time financial data management.
+Flint is a comprehensive financial management web application built with React and Node.js. It provides users with a unified dashboard to connect bank accounts, brokerage accounts, and cryptocurrency wallets, track investments, execute trades, manage transfers, and monitor financial activity. The platform includes subscription-based features with Stripe integration and supports real-time financial data management. The business vision is to provide a seamless and unified financial management experience, addressing the market need for an intuitive platform that consolidates diverse financial data and enables active management. The project ambitions include becoming a leading personal finance tool with robust features for both novice and experienced investors.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
-
-## Development Activity Log
-
-### July 31, 2025 - Complete Mock Data Removal & Real API Integration (NEW)
-**Comprehensive Mock Data Elimination**:
-- ✅ **News Page Cleanup**: Removed all mock news articles, now uses real API endpoints only
-- ✅ **Banking Routes**: Eliminated mock bank accounts and transactions, implemented real Teller.io stubs
-- ✅ **Activity Feed**: Removed mock transaction history, displays only real user activities
-- ✅ **Account Details Modal**: Cleaned up mock holdings and transactions, shows proper empty states
-- ✅ **Real-Time Sync Services**: Removed hardcoded price fallbacks, requires real API data only
-- ✅ **TradingView Integration**: Eliminated base price arrays, uses authentic market data exclusively
-- ✅ **Storage Interface**: Added getBankAccounts() and getBankTransactions() methods for real data
-
-**Data Integrity Enforcement**:
-- ✅ **API-Only Data Flow**: All prices, balances, and market data come from Finnhub, Polygon.io, SnapTrade APIs
-- ✅ **Empty State Handling**: Proper "No data available" messages when APIs are disconnected
-- ✅ **Error State Management**: Clear error handling for missing credentials and API failures
-- ✅ **Real-Time Market Data**: Live pricing from Polygon.io with Alpha Vantage fallback (rate limited)
-- ✅ **Authentication-Based Access**: All financial data requires proper API keys and user authentication
-
-**Technical Implementation**:
-- ✅ **Storage Layer**: Real method implementations for bank data integration with Teller.io
-- ✅ **News API Integration**: Proper endpoint structure for real financial news feeds
-- ✅ **Bank Account Integration**: Authentic account and transaction data structure preparation
-- ✅ **Market Data Caching**: 5-second cache for real-time quotes with API rate limit management
-- ✅ **Error Recovery**: Graceful handling when external APIs are unavailable or rate limited
-
-### July 31, 2025 - Bank Account Display & Transaction History Complete (Previous)
-**Comprehensive Banking Integration**:
-- ✅ **Bank Account Display**: Dedicated bank accounts section showing connected accounts with live balances
-- ✅ **Transaction History Modal**: Click "Details" button opens comprehensive modal with Recent Transactions tab
-- ✅ **Account Details Tab**: Institution info, routing numbers, connection status, and account metadata
-- ✅ **Settings Tab**: Account management with notification preferences and disconnection options
-- ✅ **1-2 Click Disconnect Workflow**: Two-step confirmation dialog with proper alerts and API calls
-- ✅ **Mock Banking Data**: Chase Checking ($45,230.50) and Chase Savings ($12,580.75) for demo mode
-- ✅ **Transaction Types**: Support for transfers, deposits, withdrawals, purchases, and dividends
-- ✅ **Date Formatting**: Proper ISO string handling with new Date() conversion for display
-- ✅ **Error Handling**: Comprehensive error states with retry functionality throughout
-- ✅ **Loading States**: Skeleton components and proper loading indicators for all banking operations
-
-**Banking API Integration**:
-- ✅ **GET /api/banking/accounts**: Returns connected bank accounts with balances and metadata
-- ✅ **GET /api/banking/transactions/:accountId**: Fetches last 5 transactions with full details
-- ✅ **DELETE /api/banking/accounts/:accountId/disconnect**: Handles account disconnection workflow
-- ✅ **Banking Route Module**: Complete server/routes/banking.ts with authentication middleware
-- ✅ **Mock Data Consistency**: Realistic transaction patterns with proper timestamps and amounts
-
-**Frontend Banking Components**:
-- ✅ **BankAccountModal**: Full-featured modal with tabs, transaction display, and disconnection flow
-- ✅ **BankAccountsSection**: Dashboard component showing account grid with total balance calculation
-- ✅ **Account Details Integration**: Updated AccountDetailsModal to route bank accounts to specialized modal
-- ✅ **Error Retry Components**: Standardized error handling with retry functionality across all banking features
-- ✅ **Date-fns Integration**: Proper date formatting library integration for transaction timestamps
-
-### July 29, 2025 - Complete Buy/Sell Workflow Implementation with SnapTrade Integration (Previous)
-**Full Trading Workflow Implementation**:
-- ✅ **Enhanced Trade Modal**: Complete buy/sell interface with dollar/shares toggle, order type selection, live price calculation
-- ✅ **Stock Detail Modal**: Comprehensive stock pages with Overview, Chart, News, Trade tabs and key statistics display
-- ✅ **Universal Symbol Resolution**: SnapTrade universalSymbolId integration with fallback mock data for demo mode
-- ✅ **Order Impact Checking**: Real-time order preview with estimated fees, total cost, and net amount calculations
-- ✅ **UUID v4 Trade IDs**: Proper trade identification system with unique identifiers for each order
-- ✅ **Crypto & Equity Support**: Separate order placement endpoints for both asset types via SnapTrade API
-- ✅ **Post-Trade Confirmation**: Success notifications with trade IDs and automatic holdings refresh
-- ✅ **Demo Mode Fallback**: Graceful degradation when SnapTrade credentials unavailable, allowing full UI testing
-
-**Real-Time Trading Features**:
-- ✅ **Live Price Display**: Current market prices from Polygon.io integrated into trading interface
-- ✅ **Amount Selection Logic**: Smart conversion between dollar amounts and share quantities
-- ✅ **Order Type Support**: Market and Limit orders with conditional limit price input
-- ✅ **Account Selection**: Dropdown of connected brokerage accounts with balance display
-- ✅ **Risk Warnings**: Large order warnings (>$10,000) with prominent alerts
-- ✅ **Loading States**: Comprehensive loading indicators for order placement and quote fetching
-
-**SnapTrade API Integration**:
-- ✅ **Symbol Search Endpoint**: `/api/snaptrade/symbols/search` with query parameter and fallback data
-- ✅ **Order Placement**: `/api/snaptrade/orders/place` and `/api/snaptrade/orders/place-crypto` endpoints
-- ✅ **Account Management**: Full CRUD operations for positions, orders, and account details
-- ✅ **Authentication Flow**: Proper user credential handling with demo mode when disconnected
-- ✅ **Error Handling**: Comprehensive error states with retry logic and user-friendly messages
-
-**Frontend Trading Components**:
-- ✅ **EnhancedTradeModal**: Advanced trading interface with tabs, previews, and validation
-- ✅ **StockDetailModal**: Professional stock detail pages with statistics and trading integration  
-- ✅ **SnapTradeService**: Complete service layer for all trading operations and API calls
-- ✅ **React Hooks**: useSnapTrade hooks for accounts, orders, positions, and symbol search
-- ✅ **Toast Notifications**: Success/error feedback with detailed order confirmation messages
-
-### July 27, 2025 - Real-Time Market Data & Unified Watchlist Complete (feat/market-data-real-time-pricing-unified-watchlist)
-**Comprehensive Real-Time Market Data Integration**:
-**Complete Platform UI Unification with Real-Time Data Integration**:
-- ✅ **Global Navigation Bar**: Fixed top navbar with dark theme (#121212), animated purple link glow effects, mobile hamburger menu
-- ✅ **Enhanced Account Grid**: Three-column responsive grid with purple glow borders, hover scale effects (1.03x), 240px minimum width
-- ✅ **Account Details Modal**: Full-screen modal (80% width/height) with Overview, Holdings, and Transactions tabs, animated purple underlines
-- ✅ **Quick Actions Bar**: Full-width colored action bar with Quick Buy (green), Quick Sell (red), Transfer Funds (purple) buttons
-- ✅ **Skeleton & Error States**: Animated shimmer loading cards and red-bordered retry error cards with proper UX
-- ✅ **Interactive Micro-animations**: Icon pulse effects, button hover glows, sparkle title effect, smooth 200ms transitions
-- ✅ **Two-Click Disconnect Flow**: Enhanced with inline popover confirmation and proper styling integration
-
-**Unified Real-Time Market Data System (NEW)**:
-- ✅ **MarketDataService**: Centralized service with 5-second caching for AAPL ($215), GOOGL ($140.50), TSLA ($245.75), MSFT ($385.20)
-- ✅ **Unified API Endpoint**: Single /api/market-data?symbol=AAPL endpoint returning { symbol, price, changePct, volume, marketCap }
-- ✅ **Bulk Market Data**: /api/market-data/bulk endpoint for multiple symbols with parallel processing
-- ✅ **Watchlist Integration**: Enhanced watchlist with real-time market data enrichment and toast notifications
-- ✅ **Live Price Synchronization**: Consistent pricing across Dashboard, Trading, Watchlist, and Symbol Detail pages
-- ✅ **StockIcon Component**: Professional company icons (Apple=Smartphone, Google=Users, Tesla=Car, Microsoft=Cpu)
-- ✅ **AllAssetsChart**: Animated sparkline portfolio summary replacing hardcoded AAPL widget
-
-**Comprehensive Error Handling & Data Integrity (NEW)**:
-- ✅ **Array.isArray Protection**: All activities and transfers wrapped with runtime checks to prevent .filter errors
-- ✅ **Enhanced Skeleton States**: ActivitySkeleton, TransferSkeleton, HoldingsSkeleton components for proper loading UX
-- ✅ **ErrorRetryCard Component**: Standardized retry error cards with "Failed to load. Retry?" messaging
-- ✅ **Null Data Guards**: Safe property access using (quote as any)?.property patterns throughout
-- ✅ **API Fallback Logic**: Graceful degradation when SnapTrade or Alpha Vantage APIs unavailable
-
-**Stock Detail Modal System (NEW)**:
-- ✅ **Modal-Based Stock Details**: Replaced /stock/:symbol routes with comprehensive StockDetailModal
-- ✅ **Multi-Tab Interface**: Overview, Chart, News, and Trade tabs with real-time data integration
-- ✅ **TradingView Chart Integration**: Enhanced charts with live price feeds and technical indicators
-- ✅ **Direct Trading Actions**: Buy/Sell buttons within modal for seamless trading workflow
-- ✅ **Key Statistics Display**: Market cap, volume, P/E ratio, 52-week ranges with real calculations
-
-**Typography & Design System Standardization (NEW)**:
-- ✅ **Inter Font Family**: Consistent Inter typography across all pages and components
-- ✅ **Color Standardization**: #CCCCCC body text, #FFFFFF headings, purple accent (#8e44ad) throughout
-- ✅ **Page Layout Consistency**: Unified margins, headers, grid gutters across Dashboard, Trading, Transfers, Activity
-- ✅ **Mobile Navigation Fix**: Removed duplicate MobileNav imports, unified navigation system
-- ✅ **Professional Polish**: Consistent spacing, hover states, and micro-interactions platform-wide
-
-**Enhanced Order System & Trading Modal (NEW)**:
-- ✅ **EnhancedTradeModal**: Shares vs Dollar Amount toggle with live price calculations and UUID v4 tradeId generation
-- ✅ **Real-Time Price Integration**: Trading modals show live prices with automatic share/dollar conversion
-- ✅ **Order Form Enhancements**: "Buy $1000 worth" mode calculates shares = amount / livePrice with proper rounding
-- ✅ **Comprehensive Error Handling**: 403 auto-retry, insufficient funds detection, invalid symbol validation
-- ✅ **Toast Notifications**: Success/failure notifications with detailed order confirmation and error messages
-- ✅ **Order Summary**: Live estimated values, trade ID generation preview, and comprehensive order details
-
-**Data Visualization Micro-interactions (NEW)**:
-- ✅ **AnimatedCounter Component**: Smooth easing animations for numeric values with customizable duration, prefix/suffix support
-- ✅ **ProgressBar Component**: Animated progress indicators with gradient fills, pulse effects, and percentage display
-- ✅ **MetricCard Component**: Enhanced metric cards with sparkle effects, change indicators, progress bars, and hover scaling
-- ✅ **ChartPlaceholder Component**: Interactive SVG charts with staggered animations, hover effects, moving dots, and trend indicators
-- ✅ **InteractiveTable Component**: Sortable tables with hover effects, row scaling, and animated sorting icons
-- ✅ **AnimatedBadge Component**: Status badges with glow effects, pulse animations, and interactive press states
-- ✅ **Enhanced Summary Cards**: MetricCards with mini-chart overlays, animated counters, and progress visualization
-- ✅ **Interactive Watchlist**: Stock items with pulse indicators, hover charts, and staggered entrance animations
-- ✅ **Holdings Table**: Sortable positions table with animated badges for P/L and interactive hover states
-
-**UI/UX Enhancements**:
-- **Typography**: Inter font family throughout with proper weight hierarchy (600 for headings, 400 for body)
-- **Color Scheme**: Accent purple (#8e44ad) for hover glows, link underlines, focus rings
-- **Accessibility**: Full keyboard navigation, focus outlines, ARIA compliance, screen reader support
-- **Responsive Design**: Mobile-first grid collapse, full-screen modals on mobile, disabled hover effects on touch
-- **Professional Polish**: Glassmorphism effects, backdrop blur, smooth animations, tooltip system
-
-### July 26, 2025 - Real-Time Quotes & TradingView Integration Complete (Previous)
-**Real-Time Data System**:
-- ✅ **Live SnapTrade Quotes**: Implemented getUserAccountQuotes API with 10-second polling for real-time prices
-- ✅ **TradingView Chart Integration**: Full TradingView advanced charts with dark theme and trading buttons
-- ✅ **Holdings & Watchlist APIs**: Stabilized endpoints to prevent dashboard errors - returns empty arrays instead of crashing
-- ✅ **Quote API Service**: Created /api/quotes/:symbol endpoint using SnapTrade live data (AAPL showing $215)
-- ✅ **Dashboard Stability**: Fixed holdings endpoint to require accountId parameter, preventing 500 errors
-
-**Previous Order System Fixes**:
-- ✅ **Fixed Order Parameter Structure**: Updated to use account_id, action, symbol, order_type, time_in_force, units (SnapTrade official format)
-- ✅ **Switched to placeForceOrder**: Changed from placeOrder (requires tradeId) to placeForceOrder (direct placement)
-- ✅ **Fixed Order History**: Updated to use getAccountActivities method instead of deprecated getOrderHistory
-- ✅ **Dark Theme Modal**: Applied complete dark styling to TradeModal for better readability
-- ✅ **Error Resolution**: Fixed "Required parameter tradeId was null or undefined" error completely
-
-**Order System Technical Details**:
-- **Place Orders**: Uses snaptrade.trading.placeForceOrder() with proper parameter structure
-- **Order History**: Uses snaptrade.accountInformation.getAccountActivities() with filtering for BUY,SELL,OPTION_BUY,OPTION_SELL
-- **Parameter Mapping**: quantity → units, action → BUY/SELL uppercase, orderType → Market/Limit capitalized
-- **Authentication**: Proper userId/userSecret credential handling from database
-
-**UI Improvements**:
-- **Dark Theme Modal**: TradeModal now uses gray-900 background with white text for proper contrast
-- **Enhanced Alerts**: Error and success messages styled with dark theme (red-900/20, green-900/20 backgrounds)
-- **Form Elements**: All inputs, selects, and buttons styled consistently with dark theme
-- **Better Readability**: All text properly contrasted against dark backgrounds
-
-### July 26, 2025 - SnapTrade Unified Architecture Complete & Production Ready (Previous)
-**Major SnapTrade Integration Success**:
-- ✅ **Unified Route Architecture**: Consolidated all SnapTrade functionality into single POST /api/snaptrade/register endpoint
-- ✅ **Official SDK Implementation**: Using snaptrade-typescript-sdk@9.0.118 with exact parameter structure per documentation
-- ✅ **Clean Route Structure**: Removed all standalone register-user, connection-portal, connect-url endpoints
-- ✅ **Proper Error Handling**: Express error middleware with raw SnapTrade error forwarding
-- ✅ **Database Integration**: Credential persistence with getUserByEmail() lookup by req.user.claims.email
-- ✅ **Account Management**: GET /api/snaptrade/accounts returns "Please connect your brokerage first" when no userSecret
-
-**Production-Ready Workflow**:
-1. **POST /api/snaptrade/register** → registers user + generates connection portal URL
-2. **User completes brokerage connection via portal**
-3. **GET /api/snaptrade/accounts** → lists connected brokerage accounts
-4. **All endpoints protected by isAuthenticated middleware**
-
-**Technical Implementation**:
-- **SDK Calls**: registerSnapTradeUser({ userId: email }) → loginSnapTradeUser({ userId, userSecret })
-- **Response Format**: { url: portal.redirectURI } for frontend consumption
-- **Error Handling**: HTTP status codes and JSON bodies forwarded directly from SnapTrade API
-- **Server Status**: API version 151 online, all endpoints responding correctly
-
-### July 26, 2025 - Security & Architecture Enhancement Complete (Previous)
-**Major Security & Architecture Improvements**:
-- ✅ **Credential Encryption**: Implemented AES-256-GCM encryption for SnapTrade user secrets in database
-- ✅ **Rate Limiting**: Added comprehensive rate limiting for auth (5/15min), trading (30/min), data (100/min), external APIs (10/min)
-- ✅ **Wallet Service**: Created secure internal funds management with hold/release capabilities
-- ✅ **Trading Aggregator**: Built intelligent trade routing system with multi-brokerage position aggregation
-- ✅ **ACH Transfer Integration**: Implemented Teller-based ACH transfers between user accounts
-- ✅ **Modular Architecture**: Created reusable services for encryption, rate limiting, wallet management
-- ✅ **Enhanced Logging**: Added comprehensive activity logging with hashed sensitive data
-- ✅ **Database Schema Fixes**: Resolved account ID type mismatches causing validation errors
-
-**Security Enhancements**:
-- Credentials encrypted before database storage using industry-standard encryption
-- Rate limiting prevents API abuse and DoS attacks
-- Sensitive data hashed in logs for security while maintaining debugging capability
-- Secure fund holding system prevents unauthorized access to user funds
-- Multi-layer authentication with proper session management
-
-**Architecture Improvements**:
-- Clean separation of concerns with dedicated service layers
-- Intelligent trade routing based on brokerage compatibility and fees
-- Reusable trading logic abstracted into TradingAggregator service
-- Modular rate limiting system easily configurable per endpoint type
-- Scalable wallet service supporting multiple account types
-
-### July 26, 2025 - Stock Detail Pages & Navigation Complete (Previous)
-**Major Features Completed**:
-- ✅ Individual stock detail pages (/stock/SYMBOL) with complete trading interface
-- ✅ Made all search results clickable - Dashboard and Trading pages now navigate to stock details
-- ✅ Enhanced stock detail pages with charts, news tabs, and buy/sell functionality
-- ✅ Fixed Trading page crash with proper array type checking
-- ✅ Improved SnapTrade debugging with detailed error logging
-
-**Stock Detail Pages Include**:
-- Real-time price data and key metrics (Market Cap, P/E, Volume, 52-week range)
-- Interactive chart placeholder ready for real chart integration
-- Company news and information tabs
-- Buy/Sell trading buttons with modal interfaces
-- Back navigation to previous page
-- Responsive design for mobile and desktop
-
-**Navigation Improvements**:
-- Dashboard search results now clickable (Link to /stock/SYMBOL)
-- Trading page search results clickable with preserved Trade button functionality
-- Proper event handling to prevent conflicts between navigation and button clicks
-
-### July 24, 2025 - SnapTrade Authentication Fixed
-**Final Resolution**: Fixed SnapTrade /connect-url endpoint authentication issues
-
-**SnapTrade Integration Progress**:
-- ✅ SnapTrade SDK properly initialized and API status working (version 151, online: true)
-- ✅ Fixed authentication headers to use `consumerSecret` instead of `consumerKey` 
-- ✅ Cleaned Unicode characters from environment variables causing authentication failures
-- ✅ Implemented proper SnapTrade API workflow per official documentation
-- ✅ Updated login endpoint to use userId/userSecret as query parameters
-- ✅ Simplified authentication using direct HTTP API calls with proper headers
-- ✅ Server successfully starts and initializes SnapTrade integration
-- **Authentication Method**: Direct API calls with clientId/consumerSecret headers
-- **API Format**: userId/userSecret as query parameters, broker options in request body  
-- **Environment Variables**: Properly sanitized to remove Unicode characters
-- **Status**: ✅ Fixed and ready for testing - server running successfully
-
-### July 19, 2025 - SnapTrade Integration Debugging Session (Historical)
-**Previous SnapTrade Integration Attempts**:
-1. **Initial Implementation**: Used direct connection URL format `https://connect.snaptrade.com/connect?user_id=${userId}&client_id=${clientId}&redirect_uri=${redirectUri}&user_secret=secret_${userId}_${timestamp}`
-2. **OAuth Flow Research**: Studied official SnapTrade documentation for proper registerUser → login → redirectURI flow
-3. **HMAC Signature Authentication**: Implemented proper signature generation with consumer key
-4. **Crypto Import Error**: Fixed "require is not defined" by changing from `const crypto = require('crypto')` to `import crypto from "crypto"`
-5. **Query Parameters Fix**: Moved clientId, userId, userSecret from request body to URL query parameters (fixed 401 "Please provide clientId, userId and userSecret in query params")
-6. **Timestamp Issues**: 
-   - Registration: "Invalid timestamp" error
-   - Login: "Invalid userID or userSecret provided" error
-7. **Current Status**: User registration failing, login failing due to invalid user credentials
-8. **Latest Error**: Still getting "Invalid userID or userSecret provided" after query parameter fixes
-9. **Timestamp Fix**: Fixed milliseconds to seconds conversion - timestamps now working
-10. **Signature Issue**: "Unable to verify signature sent" - need to use correct consumer secret from dashboard
-11. **Consumer Secret Fix**: Used actual consumer secret - signature now generates but still "Invalid userID or userSecret provided"
-12. **Next Steps**: Research SnapTrade docs for proper user registration flow, check if webhooks required
-13. **Documentation Analysis**: 
-    - Webhooks are optional (not required for basic functionality)
-    - Users persist across sessions - should check if user exists before registering
-    - SnapTrade has official TypeScript SDK available
-    - Current issue: trying to register existing users causes authentication problems
-14. **User Already Exists**: Getting "User with the following userId already exist: '45137738'" - need to handle existing users properly
-15. **Database Storage Solution**: Added snaptradeUserSecret to users table and implemented proper storage methods
-16. **Smart User Management**: Now checks database first, only registers if no stored secret found
-17. **Delete/Recreate Solution**: Implemented automatic user deletion and recreation for existing users without stored secrets
-18. **Unique User ID Strategy**: Modified approach to create unique SnapTrade user IDs to avoid conflicts with existing users
-
-**Known Issues**:
-- SnapTrade timestamp validation failing during user registration
-- User secrets not being accepted by SnapTrade login API
-- Need to investigate SnapTrade's exact timestamp format requirements
-
-**Working Integrations**:
-- ✅ Teller.io: Chase login working properly
-- ✅ Stripe: Payment processing configured and functional
-- ✅ Database: PostgreSQL with Drizzle ORM working
-- ✅ Authentication: Replit Auth functioning properly
-
-**Frontend Issues Identified**:
-- Navigation warning: nested anchor tags in mobile navigation component
-- Various browser warnings about iframe attributes and features
-
-### July 17, 2025 - Core Application Setup
-**Infrastructure & Authentication**:
-- ✅ Set up Express.js backend with TypeScript
-- ✅ Configured PostgreSQL database with Neon
-- ✅ Implemented Replit Auth with OpenID Connect
-- ✅ Added session management with PostgreSQL storage
-- ✅ Created user management system
-
-**Frontend Development**:
-- ✅ Built React frontend with Vite
-- ✅ Implemented Tailwind CSS with dark mode
-- ✅ Added Radix UI components with shadcn/ui
-- ✅ Created responsive dashboard layout
-- ✅ Built account connection interface
-
-**Payment Integration**:
-- ✅ Fixed Stripe initialization errors by making it conditional
-- ✅ Added proper error handling for missing Stripe keys
-- ✅ Implemented subscription tiers (Basic, Pro, Premium)
-- ✅ Created payment UI with error states
-
-**Database Schema**:
-- ✅ Users table with subscription management
-- ✅ Connected accounts for external integrations
-- ✅ Holdings, trades, transfers tables
-- ✅ Activity logging system
-- ✅ Watchlist functionality
-
-**External API Integrations**:
-- ✅ Teller.io: Successfully integrated for bank account connections
-- ⚠️ SnapTrade: SDK working, API status confirmed, likely domain restriction issue
-  - API Status: ✅ Working (version 151, online)
-  - SDK Initialization: ✅ Working
-  - User Registration: ❌ Failing due to domain restrictions
-  - Issue: API keys configured for flint-investing.com, running on Replit domain
-- ✅ Stripe: Payment processing working
-
-**Current Application State**:
-- Application running on port 5000
-- All core features functional except SnapTrade
-- User can authenticate, connect bank accounts via Teller.io, manage subscriptions
-- Dashboard showing account balances and portfolio data
-- Real-time updates working (30-second intervals for dashboard, 10-second for trades)
 
 ## System Architecture
 
@@ -363,117 +12,47 @@ Preferred communication style: Simple, everyday language.
 - **Framework**: React with TypeScript
 - **Routing**: Wouter for client-side routing
 - **State Management**: React Query (@tanstack/react-query) for server state
-- **Styling**: Tailwind CSS with custom dark theme
-- **UI Components**: Radix UI components with shadcn/ui design system
-- **Build Tool**: Vite for development and production builds
+- **Styling**: Tailwind CSS with custom dark theme, leveraging Radix UI components via shadcn/ui for a consistent design system.
+- **Build Tool**: Vite for development and production builds.
+- **UI/UX Decisions**: Fixed top navigation bar with dark theme and animated link glow effects, enhanced three-column responsive account grid with purple glow borders and hover effects, full-screen modals with animated purple underlines, and full-width quick action bars. Interactive micro-animations like icon pulse effects, button hover glows, and smooth transitions are used throughout. Typography is standardized with the Inter font family, and a consistent color scheme uses purple as the accent color. Accessibility features include keyboard navigation, focus outlines, and ARIA compliance.
+- **Key Features**: Comprehensive banking integration with live balances and transaction history, full buy/sell workflow implementation with real-time price display, multi-tab stock detail modal with integrated TradingView charts, and a unified real-time market data system.
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js
-- **Database**: PostgreSQL with Drizzle ORM
-- **Database Provider**: Neon Database (@neondatabase/serverless)
-- **Authentication**: Replit Auth with OpenID Connect
-- **Session Management**: PostgreSQL-backed sessions with connect-pg-simple
-- **API Pattern**: RESTful API with JSON responses
+- **Database**: PostgreSQL with Drizzle ORM, utilizing Neon Database for serverless deployment.
+- **Authentication**: Replit Auth with OpenID Connect and PostgreSQL-backed session management.
+- **API Pattern**: RESTful API with JSON responses.
 
 ### Key Components
-
-1. **Authentication System**
-   - Uses Replit Auth for user authentication
-   - Session-based authentication with PostgreSQL session store
-   - Protected routes with middleware authentication checks
-
-2. **Database Schema**
-   - Users table for profile information and subscription data
-   - Connected accounts for banks, brokerages, and crypto wallets
-   - Holdings table for investment positions
-   - Watchlist for tracking favorite assets
-   - Trades table for transaction history
-   - Transfers table for money movement tracking
-   - Activity log for user action tracking
-   - Market data table for asset information
-
-3. **Financial Data Management**
-   - Multi-account connection support (banks, brokerages, crypto)
-   - Real-time balance tracking and portfolio management
-   - Trade execution simulation
-   - Transfer management between accounts
-   - Watchlist functionality for market tracking
-
-4. **Subscription System**
-   - Three-tier subscription model (Basic, Pro, Premium)
-   - Stripe integration for payment processing
-   - Feature gating based on subscription level
-
-## Data Flow
-
-1. **User Authentication**: Users authenticate via Replit Auth, sessions stored in PostgreSQL
-2. **Account Connection**: Users connect external accounts (simulated integration)
-3. **Data Aggregation**: Financial data is aggregated from connected accounts
-4. **Real-time Updates**: Dashboard updates every 30 seconds, trades every 10 seconds
-5. **User Actions**: All user actions (trades, transfers, logins) are logged to activity table
-
-## Security & Architecture Enhancements (Latest)
-
-### Security Framework
-- **Credential Encryption**: AES-256-GCM encryption for all sensitive API credentials stored in database
-- **Rate Limiting**: Multi-tier rate limiting system (auth: 5/15min, trading: 30/min, data: 100/min, external: 10/min)
-- **Activity Logging**: Comprehensive logging with sensitive data hashing for security compliance
-- **Session Security**: PostgreSQL-backed sessions with proper expiration and cleanup
-
-### Wallet Service Architecture
-- **Internal Fund Management**: Secure wallet system for fund holding without acting as a broker
-- **Instant Allocation**: Pre-authorization system for instant brokerage fund allocation
-- **ACH Integration**: Teller-based ACH transfers between user's connected accounts
-- **Hold/Release System**: Secure fund holds for pending transactions with automatic release
-
-### Trading Aggregation Engine
-- **Intelligent Routing**: Multi-factor trade routing based on fees, compatibility, and account balances
-- **Position Aggregation**: Real-time position consolidation across multiple brokerage accounts
-- **Brokerage Scoring**: Dynamic scoring system for optimal trade execution
-- **Risk Management**: Pre-trade validation and fund availability checking
-
-### Modular Architecture
-- **Service Layer**: Clean separation with dedicated services for encryption, wallet, trading
-- **Reusable Components**: Abstracted trading logic for easy extension and maintenance
-- **Scalable Design**: Microservice-ready architecture with clear API boundaries
-- **Error Handling**: Comprehensive error handling with detailed logging and user feedback
+- **Authentication System**: Utilizes Replit Auth for user authentication with session-based, PostgreSQL-stored sessions and protected routes.
+- **Database Schema**: Includes tables for Users (profile, subscription), Connected Accounts (banks, brokerages, crypto), Holdings, Watchlist, Trades, Transfers, Activity Log, and Market Data.
+- **Financial Data Management**: Supports multi-account connections, real-time balance tracking, portfolio management, trade execution simulation, transfer management, and watchlist functionality.
+- **Subscription System**: Implements a three-tier model (Basic, Pro, Premium) with Stripe integration for payment processing and feature gating.
+- **Security Framework**: AES-256-GCM encryption for sensitive credentials, multi-tier rate limiting (auth, trading, data, external APIs), comprehensive activity logging with sensitive data hashing, and secure PostgreSQL-backed sessions.
+- **Wallet Service Architecture**: Provides internal fund management with pre-authorization and hold/release capabilities, integrated ACH transfers via Teller.
+- **Trading Aggregation Engine**: Intelligent trade routing based on multiple factors, real-time position consolidation across brokerages, and pre-trade validation for risk management.
+- **Modular Architecture**: Clean separation of concerns with dedicated service layers for encryption, wallet management, and trading aggregation, ensuring a scalable and maintainable design.
 
 ## External Dependencies
 
-### Core Dependencies
-- **@neondatabase/serverless**: PostgreSQL database connectivity
-- **drizzle-orm**: Database ORM and query builder
-- **@stripe/stripe-js**: Payment processing
-- **@tanstack/react-query**: Server state management
-- **@radix-ui/react-***: UI component primitives
-- **passport**: Authentication middleware
-- **openid-client**: OpenID Connect authentication
+### Core Integrations
+- **Teller.io**: For bank account connections and ACH transfers.
+- **SnapTrade**: For brokerage account connections, real-time quotes, and trading functionalities (buy/sell orders, account activities, positions).
+- **Stripe**: For subscription management and payment processing.
+- **Finnhub**: Used for general financial data.
+- **Polygon.io**: For real-time market data and live pricing.
+- **Alpha Vantage**: Fallback for real-time market data.
 
-### Development Dependencies
-- **vite**: Build tool and development server
-- **typescript**: Type checking
-- **tailwindcss**: Styling framework
-- **esbuild**: Production server bundling
-
-## Deployment Strategy
-
-### Development
-- Uses Vite development server with HMR
-- Replit-specific plugins for development environment
-- Environment variables for database and API keys
-
-### Production
-- Frontend: Vite build to static files served by Express
-- Backend: esbuild bundles server code to ESM format
-- Database: PostgreSQL via Neon Database
-- Session storage: PostgreSQL table
-- Static files served from Express with proper routing fallback
-
-### Environment Configuration
-- `DATABASE_URL`: PostgreSQL connection string
-- `SESSION_SECRET`: Session encryption key
-- `STRIPE_SECRET_KEY`: Stripe API key
-- `REPLIT_DOMAINS`: Allowed domains for auth
-- `ISSUER_URL`: OpenID Connect issuer URL
-
-The application follows a modern full-stack architecture with clear separation between frontend and backend, using TypeScript throughout for type safety and maintainability. The financial data is simulated but follows realistic patterns for a production financial application.
+### Technical Libraries/Frameworks
+- **@neondatabase/serverless**: PostgreSQL database connectivity.
+- **drizzle-orm**: Database ORM.
+- **@stripe/stripe-js**: Stripe API integration.
+- **@tanstack/react-query**: Server state management.
+- **@radix-ui/react-***: UI component primitives.
+- **passport**: Authentication middleware.
+- **openid-client**: OpenID Connect authentication.
+- **vite**: Frontend build tool.
+- **typescript**: Language.
+- **tailwindcss**: CSS framework.
+- **esbuild**: Backend bundling.
+- **date-fns**: Date formatting.
