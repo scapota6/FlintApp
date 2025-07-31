@@ -9,6 +9,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import SimpleWatchlist from '@/components/watchlist/simple-watchlist';
+import RealTimeHoldings from '@/components/portfolio/real-time-holdings';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -116,6 +118,15 @@ export default function Dashboard() {
         {/* Unified Dashboard - Real API Data Only */}
         <UnifiedDashboard />
 
+        {/* Real-Time Market Data Section */}
+        <div className="mt-12">
+          <h3 className="text-xl font-semibold mb-6">Real-Time Market Data</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <SimpleWatchlist />
+            <RealTimeHoldings showAccountProvider={true} />
+          </div>
+        </div>
+
         {/* Connection Options */}
         <div className="mt-12">
           <SimpleConnectButtons 
@@ -124,32 +135,6 @@ export default function Dashboard() {
           />
         </div>
       </main>
-
-      {/* Account Detail Modal */}
-      <AccountDetailModal
-        isOpen={isAccountModalOpen}
-        onClose={() => setIsAccountModalOpen(false)}
-        account={selectedAccount}
-      />
-    </div>
-  );
-}
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <HoldingsCard data={dashboardData?.holdings || []}/>
-          <WatchlistCard 
-            data={dashboardData?.watchlist || []} 
-            onAccountDetail={handleAccountDetail}
-          />
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <QuickTrade />
-          <ActivityFeed activities={dashboardData?.recentActivity || []} />
-        </div>
-      </main>
-
-      <MobileNav />
 
       {/* Account Detail Modal */}
       <AccountDetailModal

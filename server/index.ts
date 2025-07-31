@@ -74,6 +74,14 @@ app.use((req, res, next) => {
   // Mount Search API router
   const searchRouter = (await import("./routes/search")).default;
   app.use("/api/search", searchRouter);
+  
+  // Mount Simple Watchlist API router
+  const watchlistSimpleRouter = (await import("./routes/watchlist-simple")).default;
+  app.use("/api/watchlist", watchlistSimpleRouter);
+  
+  // Mount Holdings API router
+  const holdingsRouter = (await import("./routes/holdings")).default;
+  app.use("/api/holdings", holdingsRouter);
 
   // Debug routers disabled - using unified flow only
   // app.use("/api/snaptrade-debug", snaptradeDebugRouter);

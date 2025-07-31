@@ -8,10 +8,10 @@ import GlobalNavbar from "@/components/layout/global-navbar";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
-import Dashboard from "@/pages/dashboard-new";
+import Dashboard from "@/pages/dashboard-simple";
 import Trading from "@/pages/trading";
 import Transfers from "@/pages/transfers";
-import Watchlist from "@/pages/watchlist";
+import WatchlistPage from "@/pages/watchlist";
 import Activity from "@/pages/activity";
 import Subscribe from "@/pages/subscribe";
 import Admin from "@/pages/admin";
@@ -43,7 +43,7 @@ function Router() {
               <Route path="/dashboard" component={Dashboard} />
               <Route path="/trading" component={Trading} />
               <Route path="/transfers" component={Transfers} />
-              <Route path="/watchlist" component={Watchlist} />
+              <Route path="/watchlist" component={WatchlistPage} />
               <Route path="/activity" component={Activity} />
               <Route path="/subscribe" component={Subscribe} />
               <Route path="/admin" component={Admin} />
