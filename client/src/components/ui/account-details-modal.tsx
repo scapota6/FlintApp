@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { StockIcon } from '@/components/ui/stock-icon';
 import { BankAccountModal } from '@/components/banking/bank-account-modal';
+import { BrokerageAccountModal } from '@/components/brokerage/brokerage-account-modal';
 import { Building2, CreditCard, DollarSign, TrendingUp, TrendingDown, Activity, Building } from 'lucide-react';
 
 interface AccountDetailsModalProps {
@@ -33,6 +34,17 @@ const isBankAccount = (account: any) => {
   );
 };
 
+// Check if account is a brokerage account
+const isBrokerageAccount = (account: any) => {
+  return account && (
+    account.provider === 'snaptrade' ||
+    account.type === 'brokerage' ||
+    account.type === 'investment' ||
+    account.institution_name ||
+    (account.provider && account.provider !== 'teller')
+  );
+};
+
 export function AccountDetailsModal({ isOpen, onClose, account }: AccountDetailsModalProps) {
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -42,6 +54,17 @@ export function AccountDetailsModal({ isOpen, onClose, account }: AccountDetails
   if (isBankAccount(account)) {
     return (
       <BankAccountModal
+        account={account}
+        isOpen={isOpen}
+        onClose={onClose}
+      />
+    );
+  }
+
+  // If it's a brokerage account, use the specialized brokerage account modal
+  if (isBrokerageAccount(account)) {
+    return (
+      <BrokerageAccountModal
         account={account}
         isOpen={isOpen}
         onClose={onClose}

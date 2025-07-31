@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { ExternalLink, Plus, Building2, TrendingUp, Loader2, Landmark, CreditCard } from 'lucide-react';
+import { ExternalLink, Plus, Building2, TrendingUp, Loader2, Landmark, CreditCard, Eye } from 'lucide-react';
 import { Link } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip } from '@/components/ui/tooltip';
 import DisconnectButton from '@/components/ui/disconnect-button';
-import AccountDetailsModal from '@/components/ui/account-details-modal';
+import { AccountDetailsModal } from '@/components/ui/account-details-modal';
 import SkeletonCard from '@/components/ui/skeleton-card';
 import ErrorCard from '@/components/ui/error-card';
-import QuickActionsBar from '@/components/ui/quick-actions-bar';
+import { QuickActionsBar } from '@/components/ui/quick-actions-bar';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface Account {
@@ -191,11 +191,14 @@ export default function ConnectedAccounts({
                       ${parseFloat(account.balance).toLocaleString()}
                     </div>
                     <Tooltip content="View details" position="top">
-                      <Link href={`/accounts/${account.provider}/${account.id}`}>
-                        <Button variant="ghost" size="sm" className="text-purple-400 hover:text-purple-300 interactive-glow focus-visible:outline-purple-400">
-                          Details <ExternalLink className="h-3 w-3 ml-1" />
-                        </Button>
-                      </Link>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-purple-400 hover:text-purple-300 interactive-glow focus-visible:outline-purple-400"
+                        onClick={() => handleAccountDetails(account)}
+                      >
+                        Details <Eye className="h-3 w-3 ml-1" />
+                      </Button>
                     </Tooltip>
                   </div>
                 </div>
@@ -210,6 +213,13 @@ export default function ConnectedAccounts({
           </div>
         )}
       </CardContent>
+
+      {/* Account Details Modal */}
+      <AccountDetailsModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        account={selectedAccount}
+      />
     </Card>
   );
 }
