@@ -18,6 +18,7 @@ import Admin from "@/pages/admin";
 import Profile from "@/pages/profile";
 import News from "@/pages/news";
 import StockDetail from "@/pages/stock-detail";
+import AssetDetail from "@/pages/asset-detail";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -50,6 +51,7 @@ function Router() {
               <Route path="/profile" component={Profile} />
               <Route path="/news" component={News} />
               <Route path="/stock/:symbol" component={StockDetail} />
+              <Route path="/asset/:symbol" component={AssetDetail} />
             </>
           )}
           <Route component={NotFound} />

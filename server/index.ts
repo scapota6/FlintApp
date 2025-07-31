@@ -82,6 +82,10 @@ app.use((req, res, next) => {
   // Mount Holdings API router
   const holdingsRouter = (await import("./routes/holdings")).default;
   app.use("/api/holdings", holdingsRouter);
+  
+  // Mount Asset Detail API router
+  const assetDetailRouter = (await import("./routes/asset-detail")).default;
+  app.use("/api/asset", assetDetailRouter);
 
   // Debug routers disabled - using unified flow only
   // app.use("/api/snaptrade-debug", snaptradeDebugRouter);
