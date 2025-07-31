@@ -9,6 +9,7 @@ import { TrendingUp, TrendingDown, ArrowLeft, BarChart3, Activity } from 'lucide
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import TradingViewChart from '@/components/charts/tradingview-chart';
+import EnhancedTradeModal from '@/components/trading/enhanced-trade-modal';
 
 interface AssetData {
   symbol: string;
@@ -39,6 +40,8 @@ export default function AssetDetail() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [selectedTab, setSelectedTab] = useState('overview');
+  const [tradeModalOpen, setTradeModalOpen] = useState(false);
+  const [tradeAction, setTradeAction] = useState<'buy' | 'sell'>('buy');
 
   // Fetch asset data with real-time updates
   const { data: assetData, isLoading, error } = useQuery<AssetData>({
@@ -90,11 +93,8 @@ export default function AssetDetail() {
   };
 
   const handleTrade = (action: 'buy' | 'sell') => {
-    toast({
-      title: `${action.toUpperCase()} ${symbol}`,
-      description: `Opening trading interface for ${assetData?.name}`,
-    });
-    // Could open trading modal or navigate to trading page
+    setTradeAction(action);
+    setTradeModalOpen(true);
   };
 
   const handleAddToWatchlist = async () => {
@@ -426,6 +426,15 @@ export default function AssetDetail() {
           </div>
         </div>
       </main>
+
+      {/* Trade Modal */}
+      <EnhancedTradeModal
+        isOpen={tradeModalOpen}
+        onClose={() => setTradeModalOpen(false)}
+        symbol={symbol || ''}
+        action={tradeAction}
+        currentPrice={assetData.price}
+      />
     </div>
   );
 }

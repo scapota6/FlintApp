@@ -47,7 +47,11 @@ app.use((req, res, next) => {
   app.use("/api/snaptrade", snaptradeRouter);
   
   // Mount Orders API router
-  app.use("/api/orders", ordersRouter);
+  app.use("/api", ordersRouter);
+  
+  // Mount Accounts Brokerage API router
+  const accountsBrokerageRouter = (await import("./routes/accounts-brokerage")).default;
+  app.use("/api", accountsBrokerageRouter);
   
   // Mount Watchlist API router
   app.use("/api/watchlist", watchlistRouter);
