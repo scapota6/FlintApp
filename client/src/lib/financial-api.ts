@@ -19,6 +19,10 @@ export interface DashboardData {
   recentTrades: any[];
   recentTransfers: any[];
   recentActivity: any[];
+  snapTradeStatus?: {
+    error?: 'not_connected' | 'auth_failed' | 'fetch_failed';
+    connected?: boolean;
+  };
 }
 
 export class FinancialAPI {

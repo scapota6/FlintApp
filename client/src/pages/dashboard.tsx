@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import UnifiedDashboard from "@/components/dashboard/unified-dashboard";
 import SimpleConnectButtons from "@/components/dashboard/simple-connect-buttons";
 import AccountDetailModal from "@/components/dashboard/account-detail-modal";
+import AccountCard from "@/components/dashboard/account-card";
+import SnapTradeConnectionAlert from "@/components/dashboard/snaptrade-connection-alert";
 import { FinancialAPI } from "@/lib/financial-api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -115,6 +117,9 @@ export default function Dashboard() {
           </div>
           <AssetSearch />
         </div>
+
+        {/* SnapTrade Connection Alert */}
+        <SnapTradeConnectionAlert snapTradeStatus={dashboardData?.snapTradeStatus} />
 
         {/* Unified Dashboard - Real API Data Only */}
         <UnifiedDashboard />

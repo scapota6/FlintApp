@@ -111,6 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Fetch real investment account data from SnapTrade
+      let snapTradeError = null;
       try {
         console.log('Fetching SnapTrade accounts for user:', userEmail);
         
@@ -125,6 +126,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (accounts.data && Array.isArray(accounts.data)) {
             for (const account of accounts.data) {
               const balance = parseFloat(account.total_value?.amount || '0') || 0;
+              const cash = parseFloat(account.cash?.amount || '0') || 0;
+              const holdings = balance - cash;
+              
               investmentValue += balance;
               totalBalance += balance;
               
@@ -132,18 +136,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 id: account.id || `snaptrade-${Math.random()}`,
                 provider: 'snaptrade',
                 accountName: account.name || account.account_type || 'Investment Account',
+                accountNumber: account.number,
                 balance: balance,
                 type: 'investment' as const,
                 institution: account.institution_name || 'Brokerage',
-                lastUpdated: new Date().toISOString()
+                lastUpdated: new Date().toISOString(),
+                cash: cash,
+                holdings: holdings,
+                buyingPower: parseFloat(account.buying_power?.amount || '0') || cash
               });
             }
           }
         } else {
           console.log('SnapTrade credentials not available for user');
+          snapTradeError = 'not_connected';
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching SnapTrade accounts:', error);
+        
+        // Check if it's an authentication error
+        if (error.status === 401 || error.message?.includes('401') || error.message?.includes('Unable to verify signature')) {
+          snapTradeError = 'auth_failed';
+        } else {
+          snapTradeError = 'fetch_failed';
+        }
       }
 
       // Add any legacy connected accounts that aren't covered above
@@ -179,7 +195,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         investmentValue,
         cryptoValue,
         accounts: enrichedAccounts,
-        subscriptionTier: user?.subscriptionTier || 'free'
+        subscriptionTier: user?.subscriptionTier || 'free',
+        snapTradeStatus: snapTradeError ? { error: snapTradeError } : { connected: true }
       };
       
       res.json(dashboardData);
