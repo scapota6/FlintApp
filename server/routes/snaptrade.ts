@@ -744,25 +744,48 @@ router.get("/accounts", isAuthenticated, async (req: any, res) => {
     const userEmail = req.user.claims.email;
     const user = await getUserByEmail(userEmail);
     
-    if (!user || !user.snaptradeUserSecret) {
+    if (!user || !user.snaptradeUserSecret || !user.snaptradeUserId) {
       return res.json({ 
         message: "Please connect your brokerage first",
         accounts: [] 
       });
     }
 
-    const accounts = await snaptrade.accountInformation.listUserAccounts({
-      userId: userEmail,
-      userSecret: user.snaptradeUserSecret
-    });
+    try {
+      const { data: accounts } = await snaptrade.accountInformation.listUserAccounts({
+        userId: user.snaptradeUserId,
+        userSecret: user.snaptradeUserSecret
+      });
 
-    console.log('SnapTrade accounts fetched:', accounts.length);
-    res.json({ accounts });
+      console.log('SnapTrade accounts fetched:', accounts?.length || 0);
+      res.json({ 
+        success: true,
+        accounts: accounts || [],
+        message: `Found ${accounts?.length || 0} account(s)`
+      });
+    } catch (snapTradeError: any) {
+      // Handle authentication errors specifically
+      if (snapTradeError.response?.status === 401) {
+        console.error('SnapTrade authentication failed - credentials may be expired');
+        return res.json({ 
+          success: false,
+          message: "Your brokerage connection has expired. Please reconnect.",
+          accounts: [],
+          needsReconnect: true
+        });
+      }
+      throw snapTradeError;
+    }
   } catch (error: any) {
-    console.error('Error fetching SnapTrade accounts:', error?.message || 'Unknown error');
+    console.error('Error fetching SnapTrade accounts:', {
+      message: error?.message || 'Unknown error',
+      status: error?.response?.status,
+      statusText: error?.response?.statusText
+    });
     res.status(500).json({ 
       success: false, 
-      message: error?.message || 'Failed to fetch accounts' 
+      message: error?.message || 'Failed to fetch accounts',
+      accounts: []
     });
   }
 });
