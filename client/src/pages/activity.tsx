@@ -12,6 +12,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { PageTransition } from "@/components/auth/page-transition";
 import { ActivitySkeleton } from "@/components/ui/skeleton-placeholder";
 import { ErrorRetryCard } from "@/components/ui/error-retry-card";
+import { TransactionHistory } from "@/components/activity/transaction-history";
 import { 
   Search, 
   TrendingUp, 
@@ -218,7 +219,13 @@ export default function Activity() {
           </div>
         </div>
 
-        {/* Activity List */}
+        {/* Comprehensive Transaction History */}
+        <TransactionHistory 
+          transactions={activitiesList} 
+          isLoading={isLoading} 
+        />
+
+        {/* System Activity List */}
         <Card className="trade-card shadow-lg">
           <CardHeader>
             <CardTitle className="text-lg font-semibold text-white">Activity Feed</CardTitle>
