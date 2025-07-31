@@ -6,6 +6,14 @@ import WatchlistCard from "@/components/dashboard/watchlist-card";
 import QuickTrade from "@/components/dashboard/quick-trade";
 import ActivityFeed from "@/components/dashboard/activity-feed";
 import { HoldingsCard } from "@/components/dashboard/holdings-card";
+import { PortfolioBreakdown } from "@/components/portfolio/portfolio-breakdown";
+import { Navigation } from "@/components/layout/navigation";
+import { MobileNav } from "@/components/layout/mobile-nav";
+import { SmartSearchBar } from "@/components/search/smart-search-bar";
+import { BalanceCards } from "@/components/dashboard/balance-cards";
+import { AccountCard } from "@/components/dashboard/account-card";
+import { SimpleConnectButtons } from "@/components/dashboard/simple-connect-buttons";
+import { AccountDetailModal } from "@/components/modals/account-detail-modal";
 import { FinancialAPI } from "@/lib/financial-api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -159,6 +167,17 @@ export default function Dashboard() {
 
         {/* Balance Cards */}
         <BalanceCards data={dashboardData} />
+
+        {/* Portfolio Breakdown - Enhanced with Total Balance at Top */}
+        <div className="mb-8">
+          <PortfolioBreakdown 
+            bankBalance={dashboardData?.bankBalance || 57811.25}
+            investmentBalance={dashboardData?.investmentBalance || 42188.75}
+            cryptoBalance={15250.00} // Mock crypto balance
+            cashBalance={8500.00}    // Mock cash/money market balance
+            isLoading={isLoading}
+          />
+        </div>
 
         <div className="grid gap-6 md:grid-cols-2">
           <HoldingsCard data={dashboardData?.holdings || []}/>
