@@ -195,8 +195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         investmentValue,
         cryptoValue,
         accounts: enrichedAccounts,
-        subscriptionTier: user?.subscriptionTier || 'free',
-        snapTradeStatus: snapTradeError ? { error: snapTradeError } : { connected: true }
+        subscriptionTier: user?.subscriptionTier || 'free'
       };
       
       res.json(dashboardData);

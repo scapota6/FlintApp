@@ -118,9 +118,6 @@ export default function Dashboard() {
           <AssetSearch />
         </div>
 
-        {/* SnapTrade Connection Alert */}
-        <SnapTradeConnectionAlert snapTradeStatus={dashboardData?.snapTradeStatus} />
-
         {/* Unified Dashboard - Real API Data Only */}
         <UnifiedDashboard />
 
