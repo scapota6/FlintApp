@@ -1,99 +1,98 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  Search, 
+  Receipt, 
   TrendingUp, 
   TrendingDown, 
-  ArrowLeftRight, 
-  ArrowDown, 
-  ArrowUp,
-  Filter,
-  Calendar
+  ArrowUpRight, 
+  ArrowDownRight,
+  Building,
+  Wallet,
+  Calendar,
+  Filter
 } from 'lucide-react';
+import { apiRequest } from '@/lib/queryClient';
+import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
 
-interface TransactionHistoryProps {
-  transactions: any[];
-  isLoading?: boolean;
+interface Transaction {
+  id: string;
+  accountId: string;
+  accountName: string;
+  accountType: 'bank' | 'brokerage';
+  provider: string;
+  date: string;
+  type: string;
+  description: string;
+  symbol?: string;
+  quantity?: number;
+  price?: number;
+  amount: number;
+  fee?: number;
+  currency: string;
+  status: string;
+  category?: string;
+  merchant?: string;
 }
 
-export function TransactionHistory({ transactions, isLoading }: TransactionHistoryProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState("all");
+export default function TransactionHistory() {
+  const [filterAccount, setFilterAccount] = useState<string>('all');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
-  const formatCurrency = (amount: string | number) => {
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(num);
-  };
+  // Build query params
+  const queryParams = new URLSearchParams();
+  if (filterAccount !== 'all') queryParams.append('accountId', filterAccount);
+  if (filterType !== 'all') queryParams.append('type', filterType);
+  if (startDate) queryParams.append('startDate', startDate);
+  if (endDate) queryParams.append('endDate', endDate);
 
-  const getTransactionIcon = (action: string) => {
-    switch (action) {
-      case 'BUY':
-      case 'trade_executed':
-        return { icon: TrendingUp, color: 'bg-green-500', textColor: 'text-green-400' };
-      case 'SELL':
-        return { icon: TrendingDown, color: 'bg-red-500', textColor: 'text-red-400' };
-      case 'DEPOSIT':
-        return { icon: ArrowDown, color: 'bg-green-600', textColor: 'text-green-400' };
-      case 'WITHDRAWAL':
-        return { icon: ArrowUp, color: 'bg-red-600', textColor: 'text-red-400' };
-      case 'TRANSFER':
-      case 'transfer_completed':
-        return { icon: ArrowLeftRight, color: 'bg-blue-500', textColor: 'text-blue-400' };
-      default:
-        return { icon: Calendar, color: 'bg-gray-500', textColor: 'text-gray-400' };
-    }
-  };
-
-  const getTransactionBadge = (action: string) => {
-    switch (action) {
-      case 'BUY':
-        return { text: 'Buy', variant: 'default' as const, class: 'bg-green-900/20 text-green-400 border-green-600' };
-      case 'SELL':
-        return { text: 'Sell', variant: 'destructive' as const, class: 'bg-red-900/20 text-red-400 border-red-600' };
-      case 'DEPOSIT':
-        return { text: 'Deposit', variant: 'default' as const, class: 'bg-green-900/20 text-green-400 border-green-600' };
-      case 'WITHDRAWAL':
-        return { text: 'Withdrawal', variant: 'destructive' as const, class: 'bg-red-900/20 text-red-400 border-red-600' };
-      case 'TRANSFER':
-      case 'transfer_completed':
-        return { text: 'Transfer', variant: 'secondary' as const, class: 'bg-blue-900/20 text-blue-400 border-blue-600' };
-      default:
-        return { text: action, variant: 'outline' as const, class: 'bg-gray-900/20 text-gray-400 border-gray-600' };
-    }
-  };
-
-  // Safe array handling - prevent crashes
-  const safeTransactions = Array.isArray(transactions) ? transactions : [];
-  
-  // No mock transaction data - real data only
-
-  // Use only real transactions - no mock data
-  const displayTransactions = safeTransactions;
-
-  // Filter transactions based on search and type
-  const filteredTransactions = displayTransactions.filter((transaction: any) => {
-    const matchesSearch = transaction.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.symbol?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterType === 'all' || transaction.action.toLowerCase() === filterType.toLowerCase();
-    return matchesSearch && matchesFilter;
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['/api/transactions', queryParams.toString()],
+    queryFn: async () => {
+      const url = queryParams.toString() 
+        ? `/api/transactions?${queryParams.toString()}`
+        : '/api/transactions';
+      const response = await apiRequest('GET', url);
+      if (!response.ok) throw new Error('Failed to fetch transactions');
+      return response.json();
+    },
+    refetchInterval: 60000, // Refresh every minute
   });
+
+  const transactions: Transaction[] = data?.transactions || [];
+  const uniqueAccounts = Array.from(new Set(transactions.map(t => `${t.accountId}:${t.accountName}`)));
+
+  // Group transactions by date
+  const groupedTransactions = transactions.reduce((groups, transaction) => {
+    const date = format(new Date(transaction.date), 'MMMM d, yyyy');
+    if (!groups[date]) {
+      groups[date] = [];
+    }
+    groups[date].push(transaction);
+    return groups;
+  }, {} as Record<string, Transaction[]>);
 
   if (isLoading) {
     return (
-      <Card className="trade-card shadow-lg">
+      <Card className="bg-gray-900 border-gray-800">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold text-white">Transaction History</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Receipt className="h-5 w-5" />
+            Transaction History
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="animate-pulse space-y-3">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-16 bg-gray-800 rounded-lg"></div>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-20 bg-gray-800" />
             ))}
           </div>
         </CardContent>
@@ -101,127 +100,188 @@ export function TransactionHistory({ transactions, isLoading }: TransactionHisto
     );
   }
 
+  if (error) {
+    return (
+      <Card className="bg-gray-900 border-gray-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Receipt className="h-5 w-5" />
+            Transaction History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-400">Failed to load transactions. Please try again.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const getTransactionIcon = (transaction: Transaction) => {
+    if (transaction.accountType === 'bank') {
+      return transaction.amount > 0 ? <ArrowDownRight className="h-4 w-4 text-green-400" /> : <ArrowUpRight className="h-4 w-4 text-red-400" />;
+    } else {
+      const isBuy = transaction.type?.toLowerCase().includes('buy') || transaction.amount < 0;
+      return isBuy ? <TrendingDown className="h-4 w-4 text-red-400" /> : <TrendingUp className="h-4 w-4 text-green-400" />;
+    }
+  };
+
+  const getTransactionColor = (transaction: Transaction) => {
+    if (transaction.accountType === 'bank') {
+      return transaction.amount > 0 ? 'text-green-400' : 'text-red-400';
+    } else {
+      const isBuy = transaction.type?.toLowerCase().includes('buy') || transaction.amount < 0;
+      return isBuy ? 'text-red-400' : 'text-green-400';
+    }
+  };
+
   return (
-    <Card className="trade-card shadow-lg">
+    <Card className="bg-gray-900 border-gray-800">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold text-white">
-            Transaction History ({filteredTransactions.length})
+          <CardTitle className="flex items-center gap-2">
+            <Receipt className="h-5 w-5" />
+            Transaction History
           </CardTitle>
-          <div className="flex items-center space-x-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search transactions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-64 bg-gray-800 border-gray-600 text-white"
-              />
-            </div>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="bg-gray-800 border border-gray-600 text-white rounded-md px-3 py-2 text-sm"
-            >
-              <option value="all">All Types</option>
-              <option value="buy">Buy Orders</option>
-              <option value="sell">Sell Orders</option>
-              <option value="deposit">Deposits</option>
-              <option value="withdrawal">Withdrawals</option>
-              <option value="transfer">Transfers</option>
-            </select>
-          </div>
+          <Badge variant="secondary" className="bg-purple-600/20 text-purple-400">
+            {transactions.length} Transactions
+          </Badge>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
-          {filteredTransactions.map((transaction: any, index: number) => {
-            const { icon: Icon, color, textColor } = getTransactionIcon(transaction.action);
-            const badge = getTransactionBadge(transaction.action);
-            const amount = transaction.metadata?.amount || 0;
-            const isTradeTransaction = ['BUY', 'SELL', 'trade_executed'].includes(transaction.action);
-            
-            return (
-              <div
-                key={transaction.id || index}
-                className="flex items-center justify-between p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-all duration-200 border border-gray-700/50"
-              >
-                <div className="flex items-center space-x-4 flex-1">
-                  <div className={`w-12 h-12 ${color} rounded-full flex items-center justify-center flex-shrink-0`}>
-                    <Icon className="h-6 w-6 text-white" />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-3">
-                        <p className="text-white font-semibold text-sm">{transaction.description}</p>
-                        <Badge className={badge.class}>
-                          {badge.text}
-                        </Badge>
+        {/* Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div>
+            <Label className="text-xs text-gray-400">Account</Label>
+            <Select value={filterAccount} onValueChange={setFilterAccount}>
+              <SelectTrigger className="bg-gray-800 border-gray-700">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-800 border-gray-700">
+                <SelectItem value="all">All Accounts</SelectItem>
+                {uniqueAccounts.map((account) => {
+                  const [id, name] = account.split(':');
+                  return (
+                    <SelectItem key={id} value={id}>
+                      {name}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs text-gray-400">Type</Label>
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="bg-gray-800 border-gray-700">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-800 border-gray-700">
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="bank">Bank Transactions</SelectItem>
+                <SelectItem value="trade">Trades</SelectItem>
+                <SelectItem value="dividend">Dividends</SelectItem>
+                <SelectItem value="fee">Fees</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs text-gray-400">Start Date</Label>
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-gray-800 border-gray-700"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs text-gray-400">End Date</Label>
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-gray-800 border-gray-700"
+            />
+          </div>
+        </div>
+
+        {/* Transactions List */}
+        {transactions.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-400">No transactions found</p>
+            <p className="text-sm text-gray-500 mt-2">Try adjusting your filters or connect an account</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {Object.entries(groupedTransactions).map(([date, dayTransactions]) => (
+              <div key={date}>
+                <h3 className="text-sm font-medium text-gray-400 mb-3">{date}</h3>
+                <div className="space-y-2">
+                  {dayTransactions.map((transaction) => (
+                    <div
+                      key={transaction.id}
+                      className="bg-gray-800 rounded-lg p-4 hover:bg-gray-750 transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1">
+                            {getTransactionIcon(transaction)}
+                          </div>
+                          <div>
+                            <div className="font-medium">
+                              {transaction.description}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="text-xs">
+                                {transaction.accountType === 'bank' ? (
+                                  <Building className="h-3 w-3 mr-1" />
+                                ) : (
+                                  <TrendingUp className="h-3 w-3 mr-1" />
+                                )}
+                                {transaction.accountName}
+                              </Badge>
+                              {transaction.symbol && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {transaction.symbol}
+                                </Badge>
+                              )}
+                              {transaction.quantity && (
+                                <span className="text-xs text-gray-400">
+                                  {transaction.quantity} shares @ ${transaction.price?.toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                            {transaction.merchant && (
+                              <p className="text-sm text-gray-400 mt-1">{transaction.merchant}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-semibold ${getTransactionColor(transaction)}`}>
+                            {transaction.accountType === 'bank' ? (
+                              <>
+                                {transaction.amount > 0 ? '+' : ''}
+                                ${Math.abs(transaction.amount).toFixed(2)}
+                              </>
+                            ) : (
+                              `$${Math.abs(transaction.amount).toFixed(2)}`
+                            )}
+                          </p>
+                          {transaction.fee && (
+                            <p className="text-xs text-gray-400">Fee: ${transaction.fee.toFixed(2)}</p>
+                          )}
+                          <p className="text-xs text-gray-500 mt-1">
+                            {format(new Date(transaction.date), 'h:mm a')}
+                          </p>
+                        </div>
                       </div>
-                      <span className={`text-lg font-bold ${
-                        amount >= 0 ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        {amount >= 0 ? '+' : ''}{formatCurrency(Math.abs(amount))}
-                      </span>
                     </div>
-                    
-                    <div className="flex items-center justify-between text-sm text-gray-400">
-                      <div className="flex items-center space-x-4">
-                        {isTradeTransaction && transaction.symbol && (
-                          <span className="text-blue-400 font-medium">{transaction.symbol}</span>
-                        )}
-                        {isTradeTransaction && transaction.quantity && (
-                          <span>{transaction.quantity} shares</span>
-                        )}
-                        {isTradeTransaction && transaction.price && (
-                          <span>@ {formatCurrency(transaction.price)}</span>
-                        )}
-                        {transaction.metadata?.account && (
-                          <span className="text-gray-500">via {transaction.metadata.account}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        {transaction.metadata?.fees && (
-                          <span className="text-gray-500">Fee: {formatCurrency(transaction.metadata.fees)}</span>
-                        )}
-                        <span>
-                          {new Date(transaction.createdAt).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
-            );
-          })}
-        </div>
-        
-        {filteredTransactions.length === 0 && (
-          <div className="text-center py-12">
-            <Calendar className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400 text-lg">No transactions found</p>
-            <p className="text-gray-500 text-sm mt-1">
-              {searchTerm || filterType !== 'all' 
-                ? 'Try adjusting your search or filter criteria'
-                : 'Connect your accounts to see transaction history'
-              }
-            </p>
-          </div>
-        )}
-        
-        {safeTransactions.length === 0 && filteredTransactions.length > 0 && (
-          <div className="mt-4 p-3 bg-blue-900/20 border border-blue-600/30 rounded-lg">
-            <p className="text-blue-400 text-sm">
-              <Filter className="h-4 w-4 inline mr-2" />
-              Showing demo transaction history. Connect your brokerage account to see real trades.
-            </p>
+            ))}
           </div>
         )}
       </CardContent>

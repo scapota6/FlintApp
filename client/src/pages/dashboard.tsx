@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SimpleWatchlist from '@/components/watchlist/simple-watchlist';
 import RealTimeHoldings from '@/components/portfolio/real-time-holdings';
 import HoldingsBreakdown from '@/components/portfolio/holdings-breakdown';
+import TransactionHistory from '@/components/activity/transaction-history';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -117,6 +118,11 @@ export default function Dashboard() {
         {/* Holdings Breakdown Section */}
         <div className="mt-12">
           <HoldingsBreakdown />
+        </div>
+
+        {/* Transaction History Section */}
+        <div className="mt-12">
+          <TransactionHistory />
         </div>
 
         {/* Real-Time Market Data Section */}
