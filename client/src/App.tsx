@@ -8,7 +8,7 @@ import GlobalNavbar from "@/components/layout/global-navbar";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
-import Dashboard from "@/pages/dashboard-simple";
+import Dashboard from "@/pages/dashboard";
 import Trading from "@/pages/trading";
 import Transfers from "@/pages/transfers";
 import WatchlistPage from "@/pages/watchlist";

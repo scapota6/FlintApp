@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import UnifiedDashboard from "@/components/dashboard/unified-dashboard";
-import { SimpleConnectButtons } from "@/components/dashboard/simple-connect-buttons";
-import { AccountDetailModal } from "@/components/modals/account-detail-modal";
-import { QuickActionsBar } from "@/components/ui/quick-actions-bar";
+import SimpleConnectButtons from "@/components/dashboard/simple-connect-buttons";
+import AccountDetailModal from "@/components/dashboard/account-detail-modal";
 import { FinancialAPI } from "@/lib/financial-api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
