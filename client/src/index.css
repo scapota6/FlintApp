@@ -43,10 +43,15 @@
 
 /* Consistent card styling */
 .flint-card {
-  background: #1e1e1e;
-  border: 1px solid #333;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 16px;
   transition: all 0.3s ease;
+}
+
+.dark .flint-card {
+  background: #1e1e1e;
+  border: 1px solid #333;
 }
 
 .flint-card:hover {
@@ -56,45 +61,51 @@
 }
 
 :root {
-  /* Flint Brand Colors */
-  --bg: #121212;
-  --surface: #1e1e1e;
-  --text-primary: #ececec;
-  --text-secondary: #a0a0a0;
+  /* Light mode colors */
+  --bg: #ffffff;
+  --surface: #f5f5f5;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
   --accent: #8e44ad;      /* Flint purple */
   --buy-color: #27ae60;   /* Green buy */
   --sell-color: #c0392b;  /* Red sell */
   
-  /* Shadcn theme variables */
-  --background: 216 13% 7%;  /* #121212 */
-  --foreground: 0 0% 93%;    /* #ececec */
-  --card: 216 13% 12%;       /* #1e1e1e */
-  --card-foreground: 0 0% 93%;
-  --popover: 216 13% 12%;
-  --popover-foreground: 0 0% 93%;
-  --primary: 283 39% 48%;    /* #8e44ad */
+  /* Shadcn theme variables - Light mode */
+  --background: 0 0% 100%;    /* white */
+  --foreground: 0 0% 10%;     /* dark text */
+  --card: 0 0% 96%;           /* light gray */
+  --card-foreground: 0 0% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 10%;
+  --primary: 283 39% 48%;     /* #8e44ad */
   --primary-foreground: 0 0% 100%;
-  --secondary: 216 13% 15%;
-  --secondary-foreground: 0 0% 93%;
-  --muted: 216 13% 15%;
-  --muted-foreground: 0 0% 63%; /* #a0a0a0 */
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 10%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 40%;
   --accent: 283 39% 48%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 4 69% 50%;  /* #c0392b */
+  --destructive: 4 69% 50%;   /* #c0392b */
   --destructive-foreground: 0 0% 100%;
-  --border: 216 13% 18%;
-  --input: 216 13% 18%;
+  --border: 0 0% 88%;
+  --input: 0 0% 88%;
   --ring: 283 39% 48%;
-  --chart-1: 142 69% 45%;    /* #27ae60 */
-  --chart-2: 4 69% 50%;      /* #c0392b */
-  --chart-3: 283 39% 48%;    /* #8e44ad */
+  --chart-1: 142 69% 45%;     /* #27ae60 */
+  --chart-2: 4 69% 50%;       /* #c0392b */
+  --chart-3: 283 39% 48%;     /* #8e44ad */
   --chart-4: 35 91% 65%;
   --chart-5: 200 80% 55%;
-  --radius: 0.75rem;         /* 12px border radius */
+  --radius: 0.75rem;          /* 12px border radius */
 }
 
 .dark {
-  /* Keep same colors for dark mode */
+  /* Dark mode colors */
+  --bg: #121212;
+  --surface: #1e1e1e;
+  --text-primary: #ececec;
+  --text-secondary: #a0a0a0;
+  
+  /* Shadcn theme variables - Dark mode */
   --background: 216 13% 7%;
   --foreground: 0 0% 93%;
   --card: 216 13% 12%;
