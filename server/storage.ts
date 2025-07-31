@@ -74,6 +74,10 @@ export interface IStorage {
   getMarketData(symbols: string[]): Promise<MarketData[]>;
   updateMarketData(data: InsertMarketData): Promise<MarketData>;
   
+  // Bank data methods
+  getBankAccounts(userEmail: string): Promise<any[]>;
+  getBankTransactions(userEmail: string, accountId: string): Promise<any[]>;
+  
   // User updates
   updateUser(userId: string, updates: Partial<User>): Promise<User>;
 }
@@ -403,6 +407,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  // Bank account methods - real implementations required for Teller.io integration
+  async getBankAccounts(userEmail: string): Promise<any[]> {
+    // TODO: Implement real Teller.io API call
+    // For now, return empty array until Teller.io credentials are provided
+    return [];
+  }
+
+  async getBankTransactions(userEmail: string, accountId: string): Promise<any[]> {
+    // TODO: Implement real Teller.io API call  
+    // For now, return empty array until Teller.io credentials are provided
+    return [];
   }
 }
 

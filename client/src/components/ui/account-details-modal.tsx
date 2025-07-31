@@ -72,17 +72,7 @@ export function AccountDetailsModal({ isOpen, onClose, account }: AccountDetails
     );
   }
 
-  const mockHoldings = [
-    { symbol: 'AAPL', name: 'Apple Inc.', shares: 25, avgPrice: 180.50, currentPrice: 189.45, value: 4736.25 },
-    { symbol: 'GOOGL', name: 'Alphabet Inc.', shares: 10, avgPrice: 140.20, currentPrice: 142.18, value: 1421.80 },
-    { symbol: 'TSLA', name: 'Tesla Inc.', shares: 8, avgPrice: 220.75, currentPrice: 238.77, value: 1910.16 },
-  ];
-
-  const mockTransactions = [
-    { id: '1', date: '2025-01-25', type: 'BUY', symbol: 'AAPL', shares: 5, price: 185.20, amount: -926.00 },
-    { id: '2', date: '2025-01-24', type: 'SELL', symbol: 'TSLA', shares: 2, price: 240.50, amount: 481.00 },
-    { id: '3', date: '2025-01-23', type: 'BUY', symbol: 'GOOGL', shares: 3, price: 141.75, amount: -425.25 },
-  ];
+  // No mock data - real holdings and transactions only
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -164,65 +154,25 @@ export function AccountDetailsModal({ isOpen, onClose, account }: AccountDetails
 
             <TabsContent value="holdings" className="mt-4">
               <div className="space-y-3">
-                {mockHoldings.map((holding) => {
-                  const gainLoss = (holding.currentPrice - holding.avgPrice) * holding.shares;
-                  const gainLossPercent = ((holding.currentPrice - holding.avgPrice) / holding.avgPrice) * 100;
-                  const isPositive = gainLoss >= 0;
-
-                  return (
-                    <Card key={holding.symbol} className="bg-gray-800 border-gray-700 hover:border-purple-500/50 transition-colors">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <StockIcon symbol={holding.symbol} size={32} />
-                            <div>
-                              <div className="font-semibold text-white">{holding.symbol}</div>
-                              <div className="text-sm text-gray-400">{holding.name}</div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-semibold text-white">${holding.value.toLocaleString()}</div>
-                            <div className={`text-sm flex items-center gap-1 ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-                              {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                              ${Math.abs(gainLoss).toFixed(2)} ({gainLossPercent.toFixed(2)}%)
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                <Card className="bg-gray-800 border-gray-700">
+                  <CardContent className="p-4">
+                    <div className="text-center text-gray-400">
+                      No holdings data available. Connect your brokerage account to view holdings.
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </TabsContent>
 
             <TabsContent value="transactions" className="mt-4">
               <div className="space-y-3">
-                {mockTransactions.map((transaction) => (
-                  <Card key={transaction.id} className="bg-gray-800 border-gray-700">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            transaction.type === 'BUY' ? 'bg-green-600' : 'bg-red-600'
-                          }`}>
-                            <Activity className="h-4 w-4 text-white" />
-                          </div>
-                          <div>
-                            <div className="font-semibold text-white">
-                              {transaction.type} {transaction.shares} {transaction.symbol}
-                            </div>
-                            <div className="text-sm text-gray-400">
-                              {transaction.date} • ${transaction.price}
-                            </div>
-                          </div>
-                        </div>
-                        <div className={`font-semibold ${transaction.amount >= 0 ? 'text-green-400' : 'text-white'}`}>
-                          ${Math.abs(transaction.amount).toLocaleString()}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                <Card className="bg-gray-800 border-gray-700">
+                  <CardContent className="p-4">
+                    <div className="text-center text-gray-400">
+                      No transaction data available. Real transaction history will appear here when connected.
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </TabsContent>
           </div>

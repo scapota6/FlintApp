@@ -12,62 +12,11 @@ router.get("/transactions/:accountId", isAuthenticated, async (req: any, res) =>
     
     console.log(`Fetching transactions for account ${accountId} - user: ${userEmail}`);
     
-    // In a real implementation, this would fetch from Teller.io or SnapTrade
-    // For now, return mock transaction data
-    const mockTransactions = [
-      {
-        id: 'txn_1',
-        account_id: accountId,
-        date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString(), // 1 day ago
-        description: 'ACH Transfer to Investment Account',
-        amount: -2500.00,
-        type: 'transfer',
-        status: 'completed',
-        category: 'Transfer'
-      },
-      {
-        id: 'txn_2',
-        account_id: accountId,
-        date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(), // 3 days ago
-        description: 'Salary Deposit - Employer',
-        amount: 5200.00,
-        type: 'deposit',
-        status: 'completed',
-        category: 'Payroll'
-      },
-      {
-        id: 'txn_3',
-        account_id: accountId,
-        date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(), // 5 days ago
-        description: 'ATM Withdrawal',
-        amount: -200.00,
-        type: 'withdrawal',
-        status: 'completed',
-        category: 'ATM'
-      },
-      {
-        id: 'txn_4',
-        account_id: accountId,
-        date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(), // 7 days ago
-        description: 'Online Purchase - Amazon',
-        amount: -89.99,
-        type: 'purchase',
-        status: 'completed',
-        category: 'Shopping'
-      },
-      {
-        id: 'txn_5',
-        account_id: accountId,
-        date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10).toISOString(), // 10 days ago
-        description: 'Dividend Payment - AAPL',
-        amount: 125.50,
-        type: 'dividend',
-        status: 'completed',
-        category: 'Investment'
-      }
-    ];
+    // Fetch real transaction data from Teller.io API
+    // TODO: Implement actual Teller.io API call using stored access tokens
+    const realTransactions = await storage.getBankTransactions(userEmail, accountId);
 
-    res.json(mockTransactions);
+    res.json(realTransactions || []);
   } catch (error: any) {
     console.error('Error fetching transactions:', error);
     res.status(500).json({ 
@@ -83,38 +32,10 @@ router.get("/accounts", isAuthenticated, async (req: any, res) => {
     const userEmail = req.user.claims.email;
     console.log(`Fetching bank accounts for user: ${userEmail}`);
     
-    // In a real implementation, this would fetch from Teller.io
-    // For now, return mock account data
-    const mockAccounts = [
-      {
-        id: 'acc_chase_checking',
-        name: 'Chase Total Checking',
-        type: 'checking',
-        balance: 45230.50,
-        mask: '4321',
-        institution: {
-          name: 'Chase Bank',
-          logo: 'https://example.com/chase-logo.png'
-        },
-        status: 'active',
-        last_updated: new Date().toISOString()
-      },
-      {
-        id: 'acc_chase_savings',
-        name: 'Chase Savings',
-        type: 'savings',
-        balance: 12580.75,
-        mask: '8765',
-        institution: {
-          name: 'Chase Bank',
-          logo: 'https://example.com/chase-logo.png'
-        },
-        status: 'active',
-        last_updated: new Date().toISOString()
-      }
-    ];
+    // Fetch real bank accounts from Teller.io
+    const realBankAccounts = await storage.getBankAccounts(userEmail);
 
-    res.json(mockAccounts);
+    res.json(realBankAccounts || []);
   } catch (error: any) {
     console.error('Error fetching bank accounts:', error);
     res.status(500).json({ 

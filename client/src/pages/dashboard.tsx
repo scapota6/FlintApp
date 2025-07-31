@@ -129,7 +129,7 @@ export default function Dashboard() {
         {/* Universal Search Bar */}
         <div className="mb-8">
           <SmartSearchBar 
-            connectedBrokerages={['robinhood', 'fidelity']} // Mock connected accounts
+            connectedBrokerages={dashboardData?.accounts?.filter(acc => acc.provider === 'snaptrade').map(acc => acc.provider) || []}
             showCompatibilityFilter={true}
             placeholder="Search stocks, crypto, ETFs..."
             className="max-w-2xl mx-auto"
@@ -174,13 +174,13 @@ export default function Dashboard() {
         {/* Balance Cards */}
         <BalanceCards data={dashboardData} />
 
-        {/* Portfolio Breakdown - Enhanced with Total Balance at Top */}
+        {/* Portfolio Breakdown - Real Data Only */}
         <div className="mb-8">
           <PortfolioBreakdown 
-            bankBalance={dashboardData?.bankBalance || 57811.25}
-            investmentBalance={dashboardData?.investmentBalance || 42188.75}
-            cryptoBalance={15250.00} // Mock crypto balance
-            cashBalance={8500.00}    // Mock cash/money market balance
+            bankBalance={dashboardData?.bankBalance || 0}
+            investmentBalance={dashboardData?.investmentBalance || 0}
+            cryptoBalance={dashboardData?.cryptoValue || 0}
+            cashBalance={dashboardData?.cashBalance || 0}
             isLoading={isLoading}
           />
         </div>

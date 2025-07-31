@@ -31,32 +31,8 @@ export function TransferModal({ isOpen, onClose, accounts = [] }: TransferModalP
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mock accounts if none provided
-  const mockAccounts = [
-    {
-      id: 'acc_chase_checking',
-      name: 'Chase Total Checking',
-      provider: 'teller',
-      balance: 45230.50,
-      type: 'checking'
-    },
-    {
-      id: 'acc_chase_savings',
-      name: 'Chase Savings',
-      provider: 'teller',
-      balance: 12580.75,
-      type: 'savings'
-    },
-    {
-      id: 'acc_robinhood',
-      name: 'Robinhood Investment',
-      provider: 'snaptrade',
-      balance: 8750.25,
-      type: 'investment'
-    }
-  ];
-
-  const availableAccounts = accounts.length > 0 ? accounts : mockAccounts;
+  // Only use real accounts - no mock data
+  const availableAccounts = accounts || [];
 
   const getAccountIcon = (type: string, provider: string) => {
     if (provider === 'snaptrade' || type === 'investment') {

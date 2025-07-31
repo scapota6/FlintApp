@@ -100,33 +100,12 @@ router.get('/', isAuthenticated, async (req: any, res) => {
     
     console.log(`Fetching transfer history for user: ${userEmail}`);
 
-    // Mock transfer history
-    const mockTransfers = [
-      {
-        id: 'tr_1753922001',
-        fromAccountName: 'Chase Checking',
-        toAccountName: 'Robinhood Investment',
-        amount: 2500.00,
-        status: 'completed',
-        initiatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        completedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        description: 'Investment funding'
-      },
-      {
-        id: 'tr_1753921001',
-        fromAccountName: 'Chase Savings',
-        toAccountName: 'Chase Checking',
-        amount: 1000.00,
-        status: 'completed',
-        initiatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        completedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        description: 'Monthly transfer'
-      }
-    ];
+    // Get real transfer history from database (will return empty array if none)
+    const userTransfers = await storage.getTransfers(req.user.claims.sub);
 
     res.json({
       success: true,
-      transfers: mockTransfers
+      transfers: userTransfers || []
     });
 
   } catch (error: any) {

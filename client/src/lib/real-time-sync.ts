@@ -21,75 +21,7 @@ class RealTimeSyncService {
   private intervals: Map<string, NodeJS.Timeout> = new Map();
   private updateFrequency = 1000; // 1 second for real-time feel
 
-  // Base realistic prices that match TradingView
-  private basePrices: { [key: string]: RealTimeQuote } = {
-    'AAPL': {
-      symbol: 'AAPL',
-      price: 213.90,
-      change: -1.25,
-      changePercent: -0.58,
-      volume: 45678900,
-      open: 214.50,
-      high: 216.80,
-      low: 213.20,
-      timestamp: Date.now()
-    },
-    'GOOGL': {
-      symbol: 'GOOGL', 
-      price: 175.50,
-      change: 2.85,
-      changePercent: 1.65,
-      volume: 23456789,
-      open: 173.20,
-      high: 176.90,
-      low: 172.80,
-      timestamp: Date.now()
-    },
-    'MSFT': {
-      symbol: 'MSFT',
-      price: 425.80,
-      change: 8.90,
-      changePercent: 2.13,
-      volume: 19876543,
-      open: 420.50,
-      high: 428.90,
-      low: 419.20,
-      timestamp: Date.now()
-    },
-    'TSLA': {
-      symbol: 'TSLA',
-      price: 248.50,
-      change: -12.30,
-      changePercent: -4.72,
-      volume: 89765432,
-      open: 255.80,
-      high: 261.20,
-      low: 246.10,
-      timestamp: Date.now()
-    },
-    'META': {
-      symbol: 'META',
-      price: 510.30,
-      change: 15.60,
-      changePercent: 3.15,
-      volume: 12345678,
-      open: 498.20,
-      high: 515.40,
-      low: 495.80,
-      timestamp: Date.now()
-    },
-    'AMZN': {
-      symbol: 'AMZN',
-      price: 185.20,
-      change: 3.45,
-      changePercent: 1.90,
-      volume: 34567890,
-      open: 182.50,
-      high: 186.80,
-      low: 181.90,
-      timestamp: Date.now()
-    }
-  };
+  // Real-time sync only uses live API data - no fallback prices
 
   /**
    * Subscribe to real-time updates for a symbol
@@ -134,23 +66,10 @@ class RealTimeSyncService {
     this.stopRealTimeUpdates(symbol);
     
     const updateData = () => {
-      const baseData = this.basePrices[symbol];
-      if (!baseData) return;
-
-      // Create realistic market fluctuations
-      const now = Date.now();
-      const timeDiff = now - baseData.timestamp;
-      
-      // Create price movement patterns that feel realistic
-      const marketVariation = this.generateMarketMovement(symbol, timeDiff);
-      
-      const currentPrice = baseData.price + marketVariation.priceChange;
-      const change = currentPrice - baseData.open;
-      const changePercent = (change / baseData.open) * 100;
-      
-      // Update volume gradually
-      const volumeVariation = Math.floor(Math.random() * 100000) - 50000;
-      const currentVolume = Math.max(baseData.volume + volumeVariation, 1000000);
+      // Real-time sync only uses actual API data - no base prices
+      // This method should fetch from real market data APIs
+      console.warn('Real-time sync requires actual market data API integration');
+      return;
       
       // Update high/low based on current price
       const currentHigh = Math.max(baseData.high, currentPrice);

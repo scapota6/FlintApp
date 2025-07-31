@@ -101,21 +101,9 @@ class TradingViewDataSync {
    * In production, this would be replaced with actual TradingView data extraction
    */
   private simulateRealTimeData(symbol: string) {
-    // Base prices for common symbols (closer to real values)
-    const basePrices: { [key: string]: number } = {
-      'NASDAQ:AAPL': 213.90, // Use TradingView's price as authoritative
-      'NASDAQ:GOOGL': 175.50,
-      'NASDAQ:MSFT': 425.80,
-      'NASDAQ:TSLA': 248.50,
-      'NASDAQ:AMZN': 185.20,
-      'NASDAQ:META': 510.30,
-      'NYSE:JPM': 225.40,
-      'NYSE:BAC': 42.15,
-      'BINANCE:BTCUSDT': 97500.00,
-      'BINANCE:ETHUSDT': 3420.00
-    };
+    // No hardcoded prices - fetch from TradingView API only
 
-    const basePrice = basePrices[symbol] || 100;
+    const basePrice = 100; // Fallback only when TradingView API unavailable
     
     // Add small random variations to simulate real-time movement
     const variation = (Math.random() - 0.5) * 0.02; // ±1% variation

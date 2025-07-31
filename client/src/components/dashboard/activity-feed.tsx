@@ -55,93 +55,10 @@ export default function ActivityFeed({ activities }: ActivityFeedProps) {
   // Safely handle activities array - prevent crashes
   const safeActivities = Array.isArray(activities) ? activities : [];
   
-  // Mock transaction history for demo purposes when no real data available
-  const mockTransactions = [
-    {
-      action: 'BUY',
-      description: 'Bought 10 shares of AAPL',
-      symbol: 'AAPL',
-      quantity: 10,
-      price: 175.50,
-      createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: -1755.00, type: 'trade' },
-    },
-    {
-      action: 'SELL',
-      description: 'Sold 5 shares of TSLA',
-      symbol: 'TSLA',
-      quantity: 5,
-      price: 245.80,
-      createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: 1229.00, type: 'trade' },
-    },
-    {
-      action: 'DEPOSIT',
-      description: 'Bank Transfer from Chase ****1234',
-      createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: 2500.00, type: 'transfer' },
-    },
-    {
-      action: 'BUY',
-      description: 'Bought 15 shares of GOOGL',
-      symbol: 'GOOGL',
-      quantity: 15,
-      price: 142.30,
-      createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: -2134.50, type: 'trade' },
-    },
-    {
-      action: 'WITHDRAWAL',
-      description: 'Transfer to External Account',
-      createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: -1000.00, type: 'transfer' },
-    },
-    {
-      action: 'BUY',
-      description: 'Bought 8 shares of MSFT',
-      symbol: 'MSFT',
-      quantity: 8,
-      price: 385.20,
-      createdAt: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: -3081.60, type: 'trade' },
-    },
-    {
-      action: 'SELL',
-      description: 'Sold 12 shares of NVDA',
-      symbol: 'NVDA', 
-      quantity: 12,
-      price: 425.75,
-      createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: 5109.00, type: 'trade' },
-    },
-    {
-      action: 'DEPOSIT',
-      description: 'Payroll Direct Deposit',
-      createdAt: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: 3200.00, type: 'transfer' },
-    },
-    {
-      action: 'BUY',
-      description: 'Bought 25 shares of AMD',
-      symbol: 'AMD',
-      quantity: 25,
-      price: 165.40,
-      createdAt: new Date(Date.now() - 96 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: -4135.00, type: 'trade' },
-    },
-    {
-      action: 'SELL',
-      description: 'Sold 6 shares of META',
-      symbol: 'META',
-      quantity: 6,
-      price: 485.90,
-      createdAt: new Date(Date.now() - 120 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: 2915.40, type: 'trade' },
-    }
-  ];
+  // No mock data - real activities only
 
-  // Show last 10 transactions, prioritizing real data over mock
-  const displayActivities = safeActivities.length > 0 ? safeActivities.slice(0, 10) : mockTransactions;
+  // Use only real activity data - no mock transactions
+  const displayActivities = safeActivities.slice(0, 10);
 
   return (
     <Card className="trade-card shadow-lg">

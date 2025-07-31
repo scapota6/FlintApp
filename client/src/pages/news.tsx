@@ -21,80 +21,26 @@ interface NewsArticle {
   imageUrl?: string;
 }
 
-const mockNews: NewsArticle[] = [
-  {
-    id: '1',
-    title: 'Federal Reserve Signals Potential Rate Cut in Q2 2025',
-    summary: 'The Federal Reserve hints at monetary policy changes amid economic indicators showing...',
-    source: 'Reuters',
-    publishedAt: '2025-07-26T14:30:00Z',
-    url: '#',
-    sentiment: 'positive',
-    category: 'Federal Reserve',
-    symbols: ['SPY', 'QQQ'],
-    imageUrl: '/api/placeholder/400/200'
-  },
-  {
-    id: '2',
-    title: 'Tech Stocks Rally on AI Infrastructure Spending',
-    summary: 'Major technology companies report increased investments in artificial intelligence infrastructure...',
-    source: 'Bloomberg',
-    publishedAt: '2025-07-26T13:15:00Z',
-    url: '#',
-    sentiment: 'positive',
-    category: 'Technology',
-    symbols: ['AAPL', 'GOOGL', 'MSFT'],
-  },
-  {
-    id: '3',
-    title: 'Bitcoin Surges Past $45,000 Amid Institutional Adoption',
-    summary: 'Cryptocurrency markets see significant gains as more institutions announce Bitcoin adoption...',
-    source: 'CoinDesk',
-    publishedAt: '2025-07-26T12:45:00Z',
-    url: '#',
-    sentiment: 'positive',
-    category: 'Cryptocurrency',
-    symbols: ['BTC'],
-  },
-  {
-    id: '4',
-    title: 'Energy Sector Faces Headwinds Despite Oil Price Stability',
-    summary: 'Traditional energy companies report mixed earnings as renewable transition accelerates...',
-    source: 'Wall Street Journal',
-    publishedAt: '2025-07-26T11:30:00Z',
-    url: '#',
-    sentiment: 'negative',
-    category: 'Energy',
-    symbols: ['XOM', 'CVX'],
-  },
-  {
-    id: '5',
-    title: 'Healthcare Innovation Drives Biotech Sector Growth',
-    summary: 'Breakthrough treatments and FDA approvals boost biotech stock valuations across the board...',
-    source: 'MarketWatch',
-    publishedAt: '2025-07-26T10:15:00Z',
-    url: '#',
-    sentiment: 'positive',
-    category: 'Healthcare',
-    symbols: ['JNJ', 'PFE', 'MRNA'],
-  }
-];
+// No mock news data - all articles come from real APIs
 
 export default function News() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSentiment, setSelectedSentiment] = useState('all');
 
-  // In a real app, this would fetch from your news API
-  const { data: articles = mockNews, isLoading } = useQuery<NewsArticle[]>({
+  // Fetch real news from API
+  const { data: articles = [], isLoading } = useQuery<NewsArticle[]>({
     queryKey: ['/api/news', selectedCategory, selectedSentiment, searchQuery],
-    queryFn: () => Promise.resolve(mockNews), // Replace with actual API call
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/news');
+      return response.json();
+    },
   });
 
   const categories = ['all', 'Technology', 'Cryptocurrency', 'Energy', 'Healthcare', 'Federal Reserve'];
   const sentiments = ['all', 'positive', 'negative', 'neutral'];
 
-  const filteredArticles = articles.filter(article => {
+  const filteredArticles = (articles || []).filter((article: NewsArticle) => {
     const matchesSearch = article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          article.summary.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || article.category === selectedCategory;
@@ -238,7 +184,7 @@ export default function News() {
                       
                       {article.symbols && article.symbols.length > 0 && (
                         <div className="flex gap-1">
-                          {article.symbols.slice(0, 3).map(symbol => (
+                          {article.symbols.slice(0, 3).map((symbol: string) => (
                             <Badge key={symbol} variant="secondary" className="bg-blue-600/20 text-blue-400 text-xs">
                               {symbol}
                             </Badge>

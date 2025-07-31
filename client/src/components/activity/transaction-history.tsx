@@ -71,103 +71,10 @@ export function TransactionHistory({ transactions, isLoading }: TransactionHisto
   // Safe array handling - prevent crashes
   const safeTransactions = Array.isArray(transactions) ? transactions : [];
   
-  // Mock comprehensive transaction data for demonstration
-  const mockTransactions = [
-    {
-      id: 'txn_001',
-      action: 'BUY',
-      description: 'Bought 10 shares of AAPL',
-      symbol: 'AAPL',
-      quantity: 10,
-      price: 209.05,
-      createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: -2090.50, fees: 1.00, type: 'trade', account: 'Alpaca Trading' },
-    },
-    {
-      id: 'txn_002',
-      action: 'SELL',
-      description: 'Sold 5 shares of TSLA',
-      symbol: 'TSLA',
-      quantity: 5,
-      price: 319.04,
-      createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: 1595.20, fees: 1.00, type: 'trade', account: 'Alpaca Trading' },
-    },
-    {
-      id: 'txn_003',
-      action: 'DEPOSIT',
-      description: 'Bank Transfer from Chase ****1234',
-      createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: 2500.00, type: 'transfer', account: 'Chase Checking' },
-    },
-    {
-      id: 'txn_004',
-      action: 'BUY',
-      description: 'Bought 15 shares of GOOGL',
-      symbol: 'GOOGL',
-      quantity: 15,
-      price: 196.53,
-      createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: -2947.95, fees: 1.00, type: 'trade', account: 'Alpaca Trading' },
-    },
-    {
-      id: 'txn_005',
-      action: 'WITHDRAWAL',
-      description: 'Transfer to External Account',
-      createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: -1000.00, type: 'transfer', account: 'External Bank' },
-    },
-    {
-      id: 'txn_006',
-      action: 'BUY',
-      description: 'Bought 8 shares of MSFT',
-      symbol: 'MSFT',
-      quantity: 8,
-      price: 385.20,
-      createdAt: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: -3081.60, fees: 1.00, type: 'trade', account: 'Alpaca Trading' },
-    },
-    {
-      id: 'txn_007',
-      action: 'SELL',
-      description: 'Sold 12 shares of NVDA',
-      symbol: 'NVDA', 
-      quantity: 12,
-      price: 425.75,
-      createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: 5109.00, fees: 1.00, type: 'trade', account: 'Alpaca Trading' },
-    },
-    {
-      id: 'txn_008',
-      action: 'DEPOSIT',
-      description: 'Payroll Direct Deposit',
-      createdAt: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: 3200.00, type: 'transfer', account: 'Chase Checking' },
-    },
-    {
-      id: 'txn_009',
-      action: 'BUY',
-      description: 'Bought 25 shares of AMD',
-      symbol: 'AMD',
-      quantity: 25,
-      price: 165.40,
-      createdAt: new Date(Date.now() - 96 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: -4135.00, fees: 1.00, type: 'trade', account: 'Alpaca Trading' },
-    },
-    {
-      id: 'txn_010',
-      action: 'SELL',
-      description: 'Sold 6 shares of META',
-      symbol: 'META',
-      quantity: 6,
-      price: 485.90,
-      createdAt: new Date(Date.now() - 120 * 60 * 60 * 1000).toISOString(),
-      metadata: { amount: 2915.40, fees: 1.00, type: 'trade', account: 'Alpaca Trading' },
-    }
-  ];
+  // No mock transaction data - real data only
 
-  // Use real data if available, otherwise show mock transactions
-  const displayTransactions = safeTransactions.length > 0 ? safeTransactions : mockTransactions;
+  // Use only real transactions - no mock data
+  const displayTransactions = safeTransactions;
 
   // Filter transactions based on search and type
   const filteredTransactions = displayTransactions.filter((transaction: any) => {
