@@ -71,43 +71,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Dashboard data (with data rate limiting)
+  // Dashboard data (with data rate limiting) - Enhanced with real API integration
   app.get('/api/dashboard', rateLimits.data, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userEmail = req.user.claims.email;
       
-      const accounts = await storage.getConnectedAccounts(userId);
       const user = await storage.getUser(userId);
+      const connectedAccounts = await storage.getConnectedAccounts(userId);
       
       let totalBalance = 0;
       let bankBalance = 0;
       let investmentValue = 0;
       let cryptoValue = 0;
-      
-      accounts.forEach(account => {
-        const accountBalance = typeof account.balance === 'string' ? parseFloat(account.balance) : (account.balance || 0);
-        if (account.provider === 'teller') {
-          bankBalance += accountBalance;
-        } else if (account.provider === 'snaptrade') {
-          investmentValue += accountBalance;
-        } else if (account.provider === 'crypto') {
-          cryptoValue += accountBalance;
+      const enrichedAccounts = [];
+
+      // Fetch real bank account data from Teller
+      try {
+        console.log('Fetching bank accounts for user:', userEmail);
+        const bankAccounts = await storage.getBankAccounts(userId);
+        
+        for (const account of bankAccounts) {
+          const balance = parseFloat(account.balance) || 0;
+          bankBalance += balance;
+          totalBalance += balance;
+          
+          enrichedAccounts.push({
+            id: account.id,
+            provider: 'teller',
+            accountName: account.name || 'Bank Account',
+            balance: balance,
+            type: 'bank' as const,
+            institution: account.institution || 'Bank',
+            lastUpdated: account.lastSynced || new Date().toISOString()
+          });
         }
-        totalBalance += accountBalance;
-      });
+      } catch (error) {
+        console.error('Error fetching bank accounts:', error);
+      }
+
+      // Fetch real investment account data from SnapTrade
+      try {
+        console.log('Fetching SnapTrade accounts for user:', userEmail);
+        
+        if (snapTradeClient && user?.snaptradeUserId && user?.snaptradeUserSecret) {
+          const accounts = await snapTradeClient.accountInformation.listUserAccounts({
+            userId: user.snaptradeUserId,
+            userSecret: user.snaptradeUserSecret,
+          });
+          
+          console.log('SnapTrade accounts fetched:', accounts.data?.length || 0);
+          
+          if (accounts.data && Array.isArray(accounts.data)) {
+            for (const account of accounts.data) {
+              const balance = parseFloat(account.total_value?.amount || '0') || 0;
+              investmentValue += balance;
+              totalBalance += balance;
+              
+              enrichedAccounts.push({
+                id: account.id || `snaptrade-${Math.random()}`,
+                provider: 'snaptrade',
+                accountName: account.name || account.account_type || 'Investment Account',
+                balance: balance,
+                type: 'investment' as const,
+                institution: account.institution_name || 'Brokerage',
+                lastUpdated: new Date().toISOString()
+              });
+            }
+          }
+        } else {
+          console.log('SnapTrade credentials not available for user');
+        }
+      } catch (error) {
+        console.error('Error fetching SnapTrade accounts:', error);
+      }
+
+      // Add any legacy connected accounts that aren't covered above
+      for (const account of connectedAccounts) {
+        const existingAccount = enrichedAccounts.find(ea => ea.id === account.id);
+        if (!existingAccount) {
+          const accountBalance = parseFloat(account.balance?.toString() || '0') || 0;
+          
+          let accountType: 'bank' | 'investment' | 'crypto' = 'investment';
+          if (account.provider === 'teller') accountType = 'bank';
+          else if (account.provider === 'crypto') accountType = 'crypto';
+          
+          if (accountType === 'crypto') {
+            cryptoValue += accountBalance;
+          }
+          totalBalance += accountBalance;
+          
+          enrichedAccounts.push({
+            id: account.id,
+            provider: account.provider,
+            accountName: account.accountName || 'Account',
+            balance: accountBalance,
+            type: accountType,
+            institution: account.accountName || account.provider,
+            lastUpdated: account.lastSynced || new Date().toISOString()
+          });
+        }
+      }
       
       const dashboardData = {
         totalBalance,
         bankBalance,
         investmentValue,
         cryptoValue,
-        accounts: accounts.map(account => ({
-          id: account.id,
-          provider: account.provider,
-          accountName: account.accountName,
-          balance: account.balance,
-          lastUpdated: account.lastSynced
-        })),
+        accounts: enrichedAccounts,
         subscriptionTier: user?.subscriptionTier || 'free'
       };
       

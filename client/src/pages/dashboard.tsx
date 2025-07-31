@@ -1,17 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import SummaryCards from "@/components/dashboard/summary-cards";
-import ConnectedAccounts from "@/components/dashboard/connected-accounts";
-import WatchlistCard from "@/components/dashboard/watchlist-card";
-import QuickTrade from "@/components/dashboard/quick-trade";
-import ActivityFeed from "@/components/dashboard/activity-feed";
-import { HoldingsCard } from "@/components/dashboard/holdings-card";
-import { PortfolioBreakdown } from "@/components/portfolio/portfolio-breakdown";
-import { Navigation } from "@/components/layout/navigation";
-import { MobileNav } from "@/components/layout/mobile-nav";
-import { SmartSearchBar } from "@/components/search/smart-search-bar";
-import { BalanceCards } from "@/components/dashboard/balance-cards";
-import { AccountCard } from "@/components/dashboard/account-card";
+import UnifiedDashboard from "@/components/dashboard/unified-dashboard";
 import { SimpleConnectButtons } from "@/components/dashboard/simple-connect-buttons";
 import { AccountDetailModal } from "@/components/modals/account-detail-modal";
 import { QuickActionsBar } from "@/components/ui/quick-actions-bar";
@@ -115,75 +104,36 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <Navigation />
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
         {/* Dashboard Header */}
         <div className="mb-8">
           <h2 className="text-2xl sm:text-3xl font-semibold mb-2">
-            Good morning, User
+            Financial Dashboard
           </h2>
-          <p className="text-gray-400 text-sm">Here's your financial overview</p>
+          <p className="text-gray-400 text-sm">Unified view of your total net worth across all accounts</p>
         </div>
 
-        {/* Universal Search Bar */}
-        <div className="mb-8">
-          <SmartSearchBar 
-            connectedBrokerages={dashboardData?.accounts?.filter(acc => acc.provider === 'snaptrade').map(acc => acc.provider) || []}
-            showCompatibilityFilter={true}
-            placeholder="Search stocks, crypto, ETFs..."
-            className="max-w-2xl mx-auto"
+        {/* Unified Dashboard - Real API Data Only */}
+        <UnifiedDashboard />
+
+        {/* Connection Options */}
+        <div className="mt-12">
+          <SimpleConnectButtons 
+            accounts={dashboardData?.accounts || []} 
+            userTier="basic"
           />
         </div>
+      </main>
 
-        {/* Quick Actions Bar */}
-        <div className="mb-8">
-          <QuickActionsBar accounts={dashboardData?.accounts || []} />
-        </div>
-
-        {/* Balance Cards */}
-        <BalanceCards data={dashboardData} />
-
-        {/* Connected Accounts */}
-        {dashboardData?.accounts && dashboardData.accounts.length > 0 && (
-          <div className="mb-8">
-            <h3 className="text-xl font-semibold mb-4">Connected Accounts</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dashboardData.accounts.map((account: any) => (
-                <AccountCard
-                  key={account.id}
-                  id={account.id}
-                  name={account.accountName}
-                  provider={account.provider}
-                  type={account.accountType || 'investment'}
-                  balance={account.balance}
-                  currency={account.currency}
-                  institutionName={account.institutionName}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Simple Connect Buttons */}
-        <SimpleConnectButtons 
-          accounts={dashboardData?.accounts || []} 
-          userTier="basic"
-        />
-
-        {/* Balance Cards */}
-        <BalanceCards data={dashboardData} />
-
-        {/* Portfolio Breakdown - Real Data Only */}
-        <div className="mb-8">
-          <PortfolioBreakdown 
-            bankBalance={dashboardData?.bankBalance || 0}
-            investmentBalance={dashboardData?.investmentBalance || 0}
-            cryptoBalance={dashboardData?.cryptoValue || 0}
-            cashBalance={dashboardData?.cashBalance || 0}
-            isLoading={isLoading}
-          />
-        </div>
+      {/* Account Detail Modal */}
+      <AccountDetailModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        account={selectedAccount}
+      />
+    </div>
+  );
+}
 
         <div className="grid gap-6 md:grid-cols-2">
           <HoldingsCard data={dashboardData?.holdings || []}/>
