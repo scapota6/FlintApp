@@ -14,6 +14,7 @@ import { BalanceCards } from "@/components/dashboard/balance-cards";
 import { AccountCard } from "@/components/dashboard/account-card";
 import { SimpleConnectButtons } from "@/components/dashboard/simple-connect-buttons";
 import { AccountDetailModal } from "@/components/modals/account-detail-modal";
+import { QuickActionsBar } from "@/components/ui/quick-actions-bar";
 import { FinancialAPI } from "@/lib/financial-api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -133,6 +134,11 @@ export default function Dashboard() {
             placeholder="Search stocks, crypto, ETFs..."
             className="max-w-2xl mx-auto"
           />
+        </div>
+
+        {/* Quick Actions Bar */}
+        <div className="mb-8">
+          <QuickActionsBar accounts={dashboardData?.accounts || []} />
         </div>
 
         {/* Balance Cards */}

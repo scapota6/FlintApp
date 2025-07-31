@@ -62,6 +62,14 @@ app.use((req, res, next) => {
   // Mount Banking API router
   const bankingRouter = (await import("./routes/banking")).default;
   app.use("/api/banking", bankingRouter);
+  
+  // Mount Transfers API router
+  const transfersRouter = (await import("./routes/transfers")).default;
+  app.use("/api/transfers", transfersRouter);
+  
+  // Mount Deposits API router
+  const depositsRouter = (await import("./routes/deposits")).default;
+  app.use("/api/deposits", depositsRouter);
 
   // Debug routers disabled - using unified flow only
   // app.use("/api/snaptrade-debug", snaptradeDebugRouter);

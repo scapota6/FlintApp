@@ -20,6 +20,46 @@ export default function Trading() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
+  const [presetAction, setPresetAction] = useState<'BUY' | 'SELL' | null>(null);
+
+  // Check URL parameters for preset action
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get('action');
+    const symbol = urlParams.get('symbol');
+    
+    if (action === 'buy') {
+      setPresetAction('BUY');
+      if (symbol) {
+        // If symbol is provided, pre-populate the search and open trade modal
+        setSearchTerm(symbol);
+        // Create a mock asset for the symbol
+        const mockAsset = {
+          symbol: symbol.toUpperCase(),
+          name: `${symbol.toUpperCase()} Stock`,
+          price: 0, // Will be fetched from real-time data
+          change: 0,
+          changePercent: 0
+        };
+        setSelectedAsset(mockAsset);
+        setIsTradeModalOpen(true);
+      }
+    } else if (action === 'sell') {
+      setPresetAction('SELL');
+      if (symbol) {
+        setSearchTerm(symbol);
+        const mockAsset = {
+          symbol: symbol.toUpperCase(),
+          name: `${symbol.toUpperCase()} Stock`,
+          price: 0,
+          change: 0,
+          changePercent: 0
+        };
+        setSelectedAsset(mockAsset);
+        setIsTradeModalOpen(true);
+      }
+    }
+  }, []);
 
   // Fetch holdings and trades
   const { data: dashboardData, isLoading, error } = useQuery({
@@ -58,6 +98,19 @@ export default function Trading() {
     }
     setSelectedAsset(asset);
     setIsTradeModalOpen(true);
+  };
+
+  const handleQuickAction = (action: 'BUY' | 'SELL') => {
+    setPresetAction(action);
+    // Show a helper message if no asset is selected
+    if (!selectedAsset) {
+      toast({
+        title: `Quick ${action}`,
+        description: `Search for a stock to ${action.toLowerCase()} using the search bar above`,
+      });
+    } else {
+      setIsTradeModalOpen(true);
+    }
   };
 
   const formatCurrency = (amount: number | string) => {
@@ -314,7 +367,13 @@ export default function Trading() {
       <TradeModal
         isOpen={isTradeModalOpen}
         onClose={() => setIsTradeModalOpen(false)}
-        asset={selectedAsset}
+        symbol={selectedAsset?.symbol}
+        currentPrice={selectedAsset?.price}
+        presetAction={presetAction}
+        onTradeComplete={() => {
+          setIsTradeModalOpen(false);
+          setPresetAction(null);
+        }}
       />
     </PageTransition>
   );

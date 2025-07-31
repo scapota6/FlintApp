@@ -16,6 +16,7 @@ interface TradeModalProps {
   symbol?: string;
   currentPrice?: number;
   onTradeComplete?: () => void;
+  presetAction?: 'BUY' | 'SELL' | null;
 }
 
 interface Account {
@@ -24,7 +25,7 @@ interface Account {
   balance: { total: { amount: number; currency: string } };
 }
 
-export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onTradeComplete }: TradeModalProps) {
+export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onTradeComplete, presetAction = null }: TradeModalProps) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccount, setSelectedAccount] = useState("");
   const [action, setAction] = useState<"BUY" | "SELL">("BUY");
@@ -44,8 +45,12 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
       setLimitPrice("");
       setError("");
       setSuccess("");
+      // Set preset action if provided
+      if (presetAction) {
+        setAction(presetAction);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, presetAction]);
 
   const loadAccounts = async () => {
     try {

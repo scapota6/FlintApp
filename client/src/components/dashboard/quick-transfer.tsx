@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Building, TrendingUp } from "lucide-react";
 import { useState } from "react";
-import TransferModal from "@/components/modals/transfer-modal";
+import { TransferModal } from "@/components/modals/transfer-modal";
 
 interface QuickTransferProps {
   accounts: any[];
