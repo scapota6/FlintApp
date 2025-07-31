@@ -11,7 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SimpleWatchlist from '@/components/watchlist/simple-watchlist';
 import RealTimeHoldings from '@/components/portfolio/real-time-holdings';
 import HoldingsBreakdown from '@/components/portfolio/holdings-breakdown';
-import TransactionHistory from '@/components/activity/transaction-history';
+// import TransactionHistory from '@/components/activity/transaction-history';
+import AssetSearch from '@/components/search/asset-search';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -105,11 +106,14 @@ export default function Dashboard() {
     <div className="min-h-screen bg-black text-white">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
         {/* Dashboard Header */}
-        <div className="mb-8">
-          <h2 className="text-2xl sm:text-3xl font-semibold mb-2">
-            Financial Dashboard
-          </h2>
-          <p className="text-gray-400 text-sm">Unified view of your total net worth across all accounts</p>
+        <div className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-semibold mb-2">
+              Financial Dashboard
+            </h2>
+            <p className="text-gray-400 text-sm">Unified view of your total net worth across all accounts</p>
+          </div>
+          <AssetSearch />
         </div>
 
         {/* Unified Dashboard - Real API Data Only */}
@@ -121,9 +125,9 @@ export default function Dashboard() {
         </div>
 
         {/* Transaction History Section */}
-        <div className="mt-12">
+        {/* <div className="mt-12">
           <TransactionHistory />
-        </div>
+        </div> */}
 
         {/* Real-Time Market Data Section */}
         <div className="mt-12">

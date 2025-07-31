@@ -12,7 +12,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { PageTransition } from "@/components/auth/page-transition";
 import { ActivitySkeleton } from "@/components/ui/skeleton-placeholder";
 import { ErrorRetryCard } from "@/components/ui/error-retry-card";
-import { TransactionHistory } from "@/components/activity/transaction-history";
+import TransactionHistory from "@/components/activity/transaction-history";
 import { 
   Search, 
   TrendingUp, 

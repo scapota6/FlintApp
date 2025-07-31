@@ -1,84 +1,103 @@
-import { Router } from "express";
-import { isAuthenticated } from "../replitAuth";
+import { Router } from 'express';
 
 const router = Router();
 
-// Universal search endpoint for stocks, crypto, and companies
-router.get("/universal", isAuthenticated, async (req: any, res) => {
+// Middleware to check authentication
+const requireAuth = (req: any, res: any, next: any) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+  next();
+};
+
+// Search for assets (stocks via Polygon, crypto via CoinGecko)
+router.get('/search', requireAuth, async (req, res) => {
   try {
-    const query = req.query.q as string;
+    const { q: query, type = 'all' } = req.query;
     
-    if (!query || query.length < 1) {
-      return res.json([]);
+    if (!query || typeof query !== 'string' || query.length < 2) {
+      return res.json({ results: [] });
     }
 
-    const results = [];
-    const upperQuery = query.toUpperCase();
-    const lowerQuery = query.toLowerCase();
+    const results: any[] = [];
 
-    // Common stock symbols that match partial queries
-    const commonStocks = [
-      { symbol: 'AAPL', name: 'Apple Inc.' },
-      { symbol: 'GOOGL', name: 'Alphabet Inc.' },
-      { symbol: 'MSFT', name: 'Microsoft Corporation' },
-      { symbol: 'TSLA', name: 'Tesla Inc.' },
-      { symbol: 'AMZN', name: 'Amazon.com Inc.' },
-      { symbol: 'META', name: 'Meta Platforms Inc.' },
-      { symbol: 'NVDA', name: 'NVIDIA Corporation' },
-      { symbol: 'AMD', name: 'Advanced Micro Devices Inc.' },
-      { symbol: 'NFLX', name: 'Netflix Inc.' },
-      { symbol: 'SPY', name: 'SPDR S&P 500 ETF' },
-      { symbol: 'QQQ', name: 'Invesco QQQ ETF' },
-    ];
-
-    // Common crypto pairs
-    const cryptoPairs = [
-      { symbol: 'BTC-USD', name: 'Bitcoin' },
-      { symbol: 'ETH-USD', name: 'Ethereum' },
-      { symbol: 'ADA-USD', name: 'Cardano' },
-      { symbol: 'SOL-USD', name: 'Solana' },
-      { symbol: 'DOT-USD', name: 'Polkadot' },
-      { symbol: 'LINK-USD', name: 'Chainlink' },
-      { symbol: 'MATIC-USD', name: 'Polygon' },
-      { symbol: 'AVAX-USD', name: 'Avalanche' },
-    ];
-
-    // Search stocks by symbol or company name
-    const stockMatches = commonStocks.filter(stock => 
-      stock.symbol.includes(upperQuery) || 
-      stock.name.toLowerCase().includes(lowerQuery)
-    );
-    results.push(...stockMatches);
-
-    // Search crypto by symbol or name
-    const cryptoMatches = cryptoPairs.filter(crypto => 
-      crypto.symbol.includes(upperQuery) || 
-      crypto.name.toLowerCase().includes(lowerQuery)
-    );
-    results.push(...cryptoMatches);
-
-    // If exact symbol match, prioritize it
-    if (upperQuery.length >= 2) {
-      const exactMatch = results.find(r => r.symbol === upperQuery);
-      if (exactMatch) {
-        results.splice(results.indexOf(exactMatch), 1);
-        results.unshift(exactMatch);
+    // Search stocks via Polygon.io
+    if (type === 'all' || type === 'stock') {
+      if (process.env.POLYGON_API_KEY) {
+        try {
+          const polygonUrl = `https://api.polygon.io/v3/reference/tickers?search=${encodeURIComponent(query)}&active=true&limit=10&apiKey=${process.env.POLYGON_API_KEY}`;
+          const polygonResponse = await fetch(polygonUrl);
+          
+          if (polygonResponse.ok) {
+            const polygonData = await polygonResponse.json();
+            const tickers = polygonData.results || [];
+            
+            tickers.forEach((ticker: any) => {
+              results.push({
+                symbol: ticker.ticker,
+                name: ticker.name,
+                type: 'stock',
+                exchange: ticker.primary_exchange,
+                currency: ticker.currency_name || 'USD',
+              });
+            });
+          }
+        } catch (error) {
+          console.error('Polygon search error:', error);
+        }
       }
     }
 
-    // Limit results and remove duplicates
-    const uniqueResults = results
-      .filter((result, index, self) => 
-        index === self.findIndex(r => r.symbol === result.symbol)
-      )
-      .slice(0, 10);
+    // Search crypto via CoinGecko
+    if (type === 'all' || type === 'crypto') {
+      try {
+        const coinGeckoUrl = `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`;
+        const coinGeckoResponse = await fetch(coinGeckoUrl);
+        
+        if (coinGeckoResponse.ok) {
+          const coinGeckoData = await coinGeckoResponse.json();
+          const coins = coinGeckoData.coins || [];
+          
+          // Limit to top 10 crypto results
+          coins.slice(0, 10).forEach((coin: any) => {
+            results.push({
+              symbol: coin.symbol.toUpperCase(),
+              name: coin.name,
+              type: 'crypto',
+              exchange: 'CoinGecko',
+              currency: 'USD',
+              coinGeckoId: coin.id,
+            });
+          });
+        }
+      } catch (error) {
+        console.error('CoinGecko search error:', error);
+      }
+    }
 
-    res.json(uniqueResults);
+    // If no external APIs available, search SnapTrade
+    if (results.length === 0 && process.env.SNAPTRADE_CLIENT_ID) {
+      try {
+        // Note: This would require the user's SnapTrade credentials
+        // For now, we'll return empty if no other search sources
+        console.log('No external search APIs configured');
+      } catch (error) {
+        console.error('SnapTrade search error:', error);
+      }
+    }
+
+    res.json({ 
+      results,
+      query,
+      type,
+      total: results.length 
+    });
+
   } catch (error: any) {
-    console.error('Universal search error:', error);
+    console.error('Search error:', error);
     res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Search failed' 
+      message: 'Search failed', 
+      error: error.message 
     });
   }
 });

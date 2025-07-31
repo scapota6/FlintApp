@@ -313,6 +313,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Search endpoint for assets (stocks and crypto)
+  app.get('/api/search', rateLimits.data, isAuthenticated, async (req: any, res) => {
+    try {
+      const { q: query, type = 'all' } = req.query;
+      
+      if (!query || typeof query !== 'string' || query.length < 2) {
+        return res.json({ results: [] });
+      }
+
+      const results: any[] = [];
+
+      // Search stocks via Polygon.io
+      if (type === 'all' || type === 'stock') {
+        if (process.env.POLYGON_API_KEY) {
+          try {
+            const polygonUrl = `https://api.polygon.io/v3/reference/tickers?search=${encodeURIComponent(query)}&active=true&limit=10&apiKey=${process.env.POLYGON_API_KEY}`;
+            const polygonResponse = await fetch(polygonUrl);
+            
+            if (polygonResponse.ok) {
+              const polygonData = await polygonResponse.json();
+              const tickers = polygonData.results || [];
+              
+              tickers.forEach((ticker: any) => {
+                results.push({
+                  symbol: ticker.ticker,
+                  name: ticker.name,
+                  type: 'stock',
+                  exchange: ticker.primary_exchange,
+                  currency: ticker.currency_name || 'USD',
+                });
+              });
+            }
+          } catch (error) {
+            console.error('Polygon search error:', error);
+          }
+        }
+      }
+
+      // Search crypto via CoinGecko
+      if (type === 'all' || type === 'crypto') {
+        try {
+          const coinGeckoUrl = `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`;
+          const coinGeckoResponse = await fetch(coinGeckoUrl);
+          
+          if (coinGeckoResponse.ok) {
+            const coinGeckoData = await coinGeckoResponse.json();
+            const coins = coinGeckoData.coins || [];
+            
+            // Limit to top 10 crypto results
+            coins.slice(0, 10).forEach((coin: any) => {
+              results.push({
+                symbol: coin.symbol.toUpperCase(),
+                name: coin.name,
+                type: 'crypto',
+                exchange: 'CoinGecko',
+                currency: 'USD',
+                coinGeckoId: coin.id,
+              });
+            });
+          }
+        } catch (error) {
+          console.error('CoinGecko search error:', error);
+        }
+      }
+
+      res.json({ 
+        results,
+        query,
+        type,
+        total: results.length 
+      });
+
+    } catch (error: any) {
+      console.error('Search error:', error);
+      res.status(500).json({ 
+        message: 'Search failed', 
+        error: error.message 
+      });
+    }
+  });
+
   // Transactions endpoint - fetch from SnapTrade and Teller
   app.get('/api/transactions', rateLimits.data, isAuthenticated, async (req: any, res) => {
     try {
