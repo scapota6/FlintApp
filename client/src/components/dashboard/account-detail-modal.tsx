@@ -64,25 +64,29 @@ interface Transaction {
 export default function AccountDetailModal({ isOpen, onClose, account }: AccountDetailModalProps) {
   const [activeTab, setActiveTab] = useState('overview');
 
+  // Early return if no account
+  if (!account) return null;
+
   // Fetch account details based on provider
   const { data: accountDetails, isLoading: detailsLoading } = useQuery({
     queryKey: [`/api/accounts/${account.provider}/${account.id}/details`],
-    enabled: isOpen,
+    enabled: isOpen && !!account,
   });
 
   // Fetch holdings for investment accounts
   const { data: holdings, isLoading: holdingsLoading } = useQuery<Holding[]>({
     queryKey: [`/api/accounts/${account.provider}/${account.id}/holdings`],
-    enabled: isOpen && account.type === 'investment',
+    enabled: isOpen && !!account && account.type === 'investment',
   });
 
   // Fetch transactions
   const { data: transactions, isLoading: transactionsLoading } = useQuery<Transaction[]>({
     queryKey: [`/api/accounts/${account.provider}/${account.id}/transactions`],
-    enabled: isOpen,
+    enabled: isOpen && !!account,
   });
 
   const handleRefresh = async () => {
+    if (!account) return;
     // Trigger account sync
     await apiRequest('POST', `/api/accounts/${account.provider}/${account.id}/sync`);
   };

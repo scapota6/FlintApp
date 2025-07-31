@@ -11,10 +11,10 @@ import { eq, and } from "drizzle-orm";
 
 // Validate environment variables
 const clientId = process.env.SNAPTRADE_CLIENT_ID?.trim();
-const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY?.trim();
+const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET?.trim();
 
 if (!clientId || !consumerKey) {
-  throw new Error('Missing SnapTrade environment variables: SNAPTRADE_CLIENT_ID and SNAPTRADE_CONSUMER_KEY required');
+  throw new Error('Missing SnapTrade environment variables: SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET required');
 }
 
 // Enhanced startup logging for verification

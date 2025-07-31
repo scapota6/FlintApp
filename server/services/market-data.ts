@@ -27,7 +27,7 @@ class MarketDataService {
   constructor() {
     this.snaptrade = new Snaptrade({
       clientId: process.env.SNAPTRADE_CLIENT_ID!,
-      consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
+      consumerKey: process.env.SNAPTRADE_CLIENT_SECRET!,
     });
     
     this.alphaVantageKey = process.env.ALPHA_VANTAGE_API_KEY || '';
