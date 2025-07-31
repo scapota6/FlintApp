@@ -63,9 +63,24 @@ export default function DisconnectButton({
   const handleConfirmDisconnect = async () => {
     setIsDisconnecting(true);
     try {
-      const response = await apiRequest('DELETE', `/api/accounts/${provider}/${accountId}`);
+      let endpoint: string;
+      let method: 'DELETE' | 'POST' = 'DELETE';
       
-      if (response.status === 204) {
+      // Use different endpoints based on provider
+      if (provider.toLowerCase() === 'teller') {
+        endpoint = `/api/banking/accounts/${accountId}/disconnect`;
+      } else if (provider.toLowerCase() === 'snaptrade') {
+        endpoint = `/api/accounts/${provider}/${accountId}`;
+      } else {
+        // Default to main disconnect endpoint
+        endpoint = `/api/accounts/${provider}/${accountId}`;
+      }
+
+      console.log(`Disconnecting ${provider} account ${accountId} via ${endpoint}`);
+      
+      const response = await apiRequest(method, endpoint);
+      
+      if (response.status === 204 || response.status === 200 || response.success) {
         toast({
           title: "Account Disconnected",
           description: `${accountName} has been disconnected successfully.`,
