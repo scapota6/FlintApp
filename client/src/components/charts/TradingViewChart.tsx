@@ -99,7 +99,7 @@ export function TradingViewChart({
 
     const widgetId = `tradingview_${symbol.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
 
-    script.innerHTML = JSON.stringify({
+    script.textContent = JSON.stringify({
       autosize: false,
       width: '100%',
       height: height,
