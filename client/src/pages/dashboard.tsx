@@ -10,6 +10,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SimpleWatchlist from '@/components/watchlist/simple-watchlist';
 import RealTimeHoldings from '@/components/portfolio/real-time-holdings';
+import HoldingsBreakdown from '@/components/portfolio/holdings-breakdown';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -72,7 +73,6 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-black text-white">
-        <Navigation />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-800 rounded w-1/3 mb-6"></div>
@@ -83,7 +83,6 @@ export default function Dashboard() {
             </div>
           </div>
         </main>
-        <MobileNav />
       </div>
     );
   }
@@ -91,14 +90,12 @@ export default function Dashboard() {
   if (error) {
     return (
       <div className="min-h-screen bg-black text-white">
-        <Navigation />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
           <div className="text-center py-12">
             <h2 className="text-2xl font-semibold mb-4">Error Loading Dashboard</h2>
             <p className="text-gray-400">Please try refreshing the page</p>
           </div>
         </main>
-        <MobileNav />
       </div>
     );
   }
@@ -116,6 +113,11 @@ export default function Dashboard() {
 
         {/* Unified Dashboard - Real API Data Only */}
         <UnifiedDashboard />
+
+        {/* Holdings Breakdown Section */}
+        <div className="mt-12">
+          <HoldingsBreakdown />
+        </div>
 
         {/* Real-Time Market Data Section */}
         <div className="mt-12">

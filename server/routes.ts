@@ -313,6 +313,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Holdings endpoint for SnapTrade positions
+  app.get('/api/holdings', rateLimits.data, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      if (!snapTradeClient) {
+        return res.status(500).json({ message: 'SnapTrade client not initialized' });
+      }
+
+      console.log(`Fetching holdings for user: ${user.email}`);
+      
+      // Get all connected SnapTrade accounts
+      const accountsResponse = await snapTradeClient.accountInformation.listUserAccounts({
+        userId: user.email,
+        userSecret: user.snaptradeUserSecret || '',
+      });
+
+      const accounts = accountsResponse.data || [];
+      console.log(`Found ${accounts.length} connected accounts`);
+
+      // Fetch positions for each account
+      const holdingsPromises = accounts.map(async (account) => {
+        try {
+          const positionsResponse = await snapTradeClient.accountInformation.getUserAccountPositions({
+            userId: user.email,
+            userSecret: user.snaptradeUserSecret || '',
+            accountId: account.id,
+          });
+
+          const positions = positionsResponse.data?.positions || [];
+          
+          // Transform positions with real-time data
+          return positions.map(position => {
+            const symbol = position.symbol?.symbol || '';
+            const quantity = position.units || 0;
+            const averageCost = position.price || 0;
+            const currentPrice = position.price || 0; // Will be updated with real-time data
+            const currentValue = quantity * currentPrice;
+            const totalCost = quantity * averageCost;
+            const profitLoss = currentValue - totalCost;
+            const profitLossPercent = totalCost > 0 ? (profitLoss / totalCost) * 100 : 0;
+
+            return {
+              accountId: account.id,
+              accountName: account.name,
+              brokerageName: account.institution_name || 'Unknown',
+              symbol: symbol,
+              name: position.symbol?.description || symbol,
+              quantity: quantity,
+              averageCost: averageCost,
+              currentPrice: currentPrice,
+              currentValue: currentValue,
+              totalCost: totalCost,
+              profitLoss: profitLoss,
+              profitLossPercent: profitLossPercent,
+              currency: position.symbol?.currency?.code || 'USD',
+              type: position.symbol?.type || 'stock',
+            };
+          });
+        } catch (error) {
+          console.error(`Error fetching positions for account ${account.id}:`, error);
+          return [];
+        }
+      });
+
+      const allHoldings = await Promise.all(holdingsPromises);
+      const flattenedHoldings = allHoldings.flat();
+
+      console.log(`Found ${flattenedHoldings.length} holdings for user`);
+
+      // Calculate portfolio summary
+      const totalValue = flattenedHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+      const totalCost = flattenedHoldings.reduce((sum, h) => sum + h.totalCost, 0);
+      const totalProfitLoss = totalValue - totalCost;
+      const totalProfitLossPercent = totalCost > 0 ? (totalProfitLoss / totalCost) * 100 : 0;
+
+      res.json({
+        holdings: flattenedHoldings,
+        summary: {
+          totalValue,
+          totalCost,
+          totalProfitLoss,
+          totalProfitLossPercent,
+          positionCount: flattenedHoldings.length,
+          accountCount: accounts.length,
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Error fetching holdings:', error);
+      res.status(500).json({ 
+        message: 'Failed to fetch holdings', 
+        error: error.message 
+      });
+    }
+  });
+
   // Trading Aggregation Routes
   app.get('/api/trading/positions', rateLimits.data, isAuthenticated, async (req: any, res) => {
     try {

@@ -1,179 +1,226 @@
-import { Router } from "express";
-import { isAuthenticated } from "../replitAuth";
-import { storage } from "../storage";
+import { Router } from 'express';
+import { db } from '../db';
+import { users } from '@/shared/schema';
+import { eq } from 'drizzle-orm';
+import { Snaptrade } from 'snaptrade-typescript-sdk';
 
 const router = Router();
 
-// Get user's portfolio holdings with real-time market data
-router.get("/", isAuthenticated, async (req: any, res) => {
+// Middleware to check authentication
+const requireAuth = (req: any, res: any, next: any) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+  next();
+};
+
+// Initialize SnapTrade client
+const getSnapTradeClient = () => {
+  const clientId = process.env.SNAPTRADE_CLIENT_ID;
+  const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET;
+
+  if (!clientId || !consumerKey) {
+    throw new Error('Missing SnapTrade credentials');
+  }
+
+  return new Snaptrade({
+    clientId,
+    consumerKey,
+  });
+};
+
+// Get holdings for all connected accounts
+router.get('/holdings', requireAuth, async (req, res) => {
   try {
-    const userId = req.user.claims.sub;
-    const userEmail = req.user.claims.email;
-    
-    console.log('Fetching holdings for user:', userEmail);
-    
-    const user = await storage.getUser(userId);
-    const enrichedHoldings = [];
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
 
-    // Fetch holdings from SnapTrade if connected
-    if ((global as any).snapTradeClient && user?.snaptradeUserId && user?.snaptradeUserSecret) {
+    console.log(`Fetching holdings for user: ${req.user?.email}`);
+    
+    const snaptrade = await getSnapTradeClient();
+    
+    // Get all connected accounts
+    const accountsResponse = await snaptrade.accountInformation.listUserAccounts({
+      userId: req.user?.email || userId,
+      userSecret: req.user?.snapTradeUserSecret || '',
+    });
+
+    const accounts = accountsResponse.data || [];
+    console.log(`Found ${accounts.length} connected accounts`);
+
+    // Fetch positions for each account
+    const holdingsPromises = accounts.map(async (account) => {
       try {
-        // Get all user accounts
-        const accounts = await (global as any).snapTradeClient.accountInformation.listUserAccounts({
-          userId: user.snaptradeUserId,
-          userSecret: user.snaptradeUserSecret,
+        const positionsResponse = await snaptrade.accountInformation.getUserAccountPositions({
+          userId: req.user?.email || userId,
+          userSecret: req.user?.snapTradeUserSecret || '',
+          accountId: account.id,
         });
 
-        if (accounts.data && Array.isArray(accounts.data)) {
-          // Get holdings for each account
-          for (const account of accounts.data) {
-            try {
-              const holdings = await (global as any).snapTradeClient.accountInformation.getUserAccountPositions({
-                userId: user.snaptradeUserId,
-                userSecret: user.snaptradeUserSecret,
-                accountId: account.id,
+        const positions = positionsResponse.data?.positions || [];
+        
+        // Get real-time quotes for all positions
+        const symbols = positions.map(p => p.symbol?.symbol).filter(Boolean);
+        const quotesMap = new Map();
+        
+        if (symbols.length > 0) {
+          try {
+            // Get quotes from market data service
+            const quotesResponse = await apiRequest('POST', '/api/quotes/batch', { symbols });
+            const quotesData = await quotesResponse.json();
+            
+            if (quotesData.quotes) {
+              quotesData.quotes.forEach((quote: any) => {
+                quotesMap.set(quote.symbol, quote.price);
               });
-
-              if (holdings.data && Array.isArray(holdings.data)) {
-                for (const position of holdings.data) {
-                  if (position.symbol && position.quantity && parseFloat(position.quantity) > 0) {
-                    // Get current market price
-                    let currentPrice = parseFloat(position.price?.amount || '0');
-                    
-                    // Fetch real-time price from our market data service
-                    try {
-                      const priceResponse = await fetch(`http://localhost:5000/api/quotes/${position.symbol.symbol}`);
-                      if (priceResponse.ok) {
-                        const priceData = await priceResponse.json();
-                        currentPrice = priceData.price || currentPrice;
-                      }
-                    } catch (error) {
-                      console.error(`Error fetching price for ${position.symbol.symbol}:`, error);
-                    }
-                    
-                    const quantity = parseFloat(position.quantity);
-                    const avgCost = parseFloat(position.average_purchase_price?.amount || '0');
-                    const marketValue = currentPrice * quantity;
-                    const totalCost = avgCost * quantity;
-                    const totalGainLoss = marketValue - totalCost;
-                    const totalGainLossPct = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
-                    
-                    enrichedHoldings.push({
-                      id: `${account.id}-${position.symbol.symbol}`,
-                      symbol: position.symbol.symbol || 'N/A',
-                      name: position.symbol.description || position.symbol.symbol || 'Unknown',
-                      type: getAssetType(position.symbol.symbol),
-                      quantity: quantity,
-                      avgCost: avgCost,
-                      currentPrice: currentPrice,
-                      marketValue: marketValue,
-                      totalGainLoss: totalGainLoss,
-                      totalGainLossPct: totalGainLossPct,
-                      dayChange: 0, // Would need additional API call for daily change
-                      dayChangePct: 0,
-                      accountProvider: account.institution_name || 'SnapTrade',
-                      logo: getAssetLogo(position.symbol.symbol)
-                    });
-                  }
-                }
-              }
-            } catch (error) {
-              console.error(`Error fetching holdings for account ${account.id}:`, error);
             }
+          } catch (error) {
+            console.error('Error fetching quotes:', error);
           }
         }
-      } catch (error) {
-        console.error('Error fetching SnapTrade holdings:', error);
-      }
-    }
 
-    // Add any local holdings from our database
-    try {
-      const localHoldings = await storage.getHoldings(userId);
-      
-      for (const holding of localHoldings) {
-        // Enrich with real-time market data
-        let currentPrice = holding.currentPrice || 0;
-        
-        try {
-          const priceResponse = await fetch(`http://localhost:5000/api/quotes/${holding.symbol}`);
-          if (priceResponse.ok) {
-            const priceData = await priceResponse.json();
-            currentPrice = priceData.price || currentPrice;
-          }
-        } catch (error) {
-          console.error(`Error fetching price for ${holding.symbol}:`, error);
-        }
-        
-        const quantity = parseFloat(holding.quantity);
-        const avgCost = parseFloat(holding.averagePrice);
-        const marketValue = currentPrice * quantity;
-        const totalCost = avgCost * quantity;
-        const totalGainLoss = marketValue - totalCost;
-        const totalGainLossPct = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
-        
-        enrichedHoldings.push({
-          id: holding.id,
-          symbol: holding.symbol,
-          name: holding.symbol, // Could be enhanced with company name lookup
-          type: getAssetType(holding.symbol),
-          quantity: quantity,
-          avgCost: avgCost,
-          currentPrice: currentPrice,
-          marketValue: marketValue,
-          totalGainLoss: totalGainLoss,
-          totalGainLossPct: totalGainLossPct,
-          dayChange: 0,
-          dayChangePct: 0,
-          accountProvider: 'Flint',
-          logo: getAssetLogo(holding.symbol)
+        // Transform positions with real-time data
+        return positions.map(position => {
+          const symbol = position.symbol?.symbol || '';
+          const quantity = position.quantity || 0;
+          const averageCost = position.price || 0;
+          const currentPrice = quotesMap.get(symbol) || position.price || 0;
+          const currentValue = quantity * currentPrice;
+          const totalCost = quantity * averageCost;
+          const profitLoss = currentValue - totalCost;
+          const profitLossPercent = totalCost > 0 ? (profitLoss / totalCost) * 100 : 0;
+
+          return {
+            accountId: account.id,
+            accountName: account.name,
+            brokerageName: account.institution_name || 'Unknown',
+            symbol: symbol,
+            name: position.symbol?.description || symbol,
+            quantity: quantity,
+            averageCost: averageCost,
+            currentPrice: currentPrice,
+            currentValue: currentValue,
+            totalCost: totalCost,
+            profitLoss: profitLoss,
+            profitLossPercent: profitLossPercent,
+            currency: position.symbol?.currency || 'USD',
+            type: position.symbol?.type || 'stock',
+          };
         });
+      } catch (error) {
+        console.error(`Error fetching positions for account ${account.id}:`, error);
+        return [];
       }
-    } catch (error) {
-      console.error('Error fetching local holdings:', error);
-    }
+    });
 
-    console.log(`Found ${enrichedHoldings.length} holdings for user`);
-    res.json(enrichedHoldings);
-    
+    const allHoldings = await Promise.all(holdingsPromises);
+    const flattenedHoldings = allHoldings.flat();
+
+    console.log(`Found ${flattenedHoldings.length} total holdings across all accounts`);
+
+    // Calculate portfolio summary
+    const totalValue = flattenedHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+    const totalCost = flattenedHoldings.reduce((sum, h) => sum + h.totalCost, 0);
+    const totalProfitLoss = totalValue - totalCost;
+    const totalProfitLossPercent = totalCost > 0 ? (totalProfitLoss / totalCost) * 100 : 0;
+
+    res.json({
+      holdings: flattenedHoldings,
+      summary: {
+        totalValue,
+        totalCost,
+        totalProfitLoss,
+        totalProfitLossPercent,
+        positionCount: flattenedHoldings.length,
+        accountCount: accounts.length,
+      }
+    });
+
   } catch (error: any) {
     console.error('Error fetching holdings:', error);
     res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Failed to fetch holdings' 
+      message: 'Failed to fetch holdings', 
+      error: error.message 
     });
   }
 });
 
-// Helper function to determine asset type
-function getAssetType(symbol: string): 'stock' | 'crypto' | 'etf' {
-  if (symbol.includes('-USD') || symbol.includes('BTC') || symbol.includes('ETH')) {
-    return 'crypto';
-  }
-  
-  const etfSymbols = ['SPY', 'QQQ', 'VTI', 'VOO', 'IWM', 'EFA', 'EEM', 'TLT', 'GLD', 'SLV'];
-  if (etfSymbols.includes(symbol.toUpperCase())) {
-    return 'etf';
-  }
-  
-  return 'stock';
-}
+// Get holdings for a specific account
+router.get('/holdings/:accountId', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { accountId } = req.params;
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
 
-// Helper function to get asset logos
-function getAssetLogo(symbol: string): string | undefined {
-  const logoMap: { [key: string]: string } = {
-    'AAPL': 'https://logo.clearbit.com/apple.com',
-    'GOOGL': 'https://logo.clearbit.com/google.com',
-    'MSFT': 'https://logo.clearbit.com/microsoft.com',
-    'TSLA': 'https://logo.clearbit.com/tesla.com',
-    'AMZN': 'https://logo.clearbit.com/amazon.com',
-    'META': 'https://logo.clearbit.com/meta.com',
-    'NVDA': 'https://logo.clearbit.com/nvidia.com',
-    'BTC-USD': 'https://cryptologos.cc/logos/bitcoin-btc-logo.png',
-    'ETH-USD': 'https://cryptologos.cc/logos/ethereum-eth-logo.png'
-  };
-  
-  return logoMap[symbol];
-}
+    const snaptrade = await getSnapTradeClient();
+    
+    const positionsResponse = await snaptrade.accountInformation.getUserAccountPositions({
+      userId: req.user?.email || userId,
+      userSecret: req.user?.snapTradeUserSecret || '',
+      accountId: accountId,
+    });
+
+    const positions = positionsResponse.data?.positions || [];
+    
+    // Get real-time quotes
+    const symbols = positions.map(p => p.symbol?.symbol).filter(Boolean);
+    const quotesMap = new Map();
+    
+    if (symbols.length > 0) {
+      try {
+        const quotesResponse = await apiRequest('POST', '/api/quotes/batch', { symbols });
+        const quotesData = await quotesResponse.json();
+        
+        if (quotesData.quotes) {
+          quotesData.quotes.forEach((quote: any) => {
+            quotesMap.set(quote.symbol, quote.price);
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching quotes:', error);
+      }
+    }
+
+    // Transform positions
+    const holdings = positions.map(position => {
+      const symbol = position.symbol?.symbol || '';
+      const quantity = position.quantity || 0;
+      const averageCost = position.price || 0;
+      const currentPrice = quotesMap.get(symbol) || position.price || 0;
+      const currentValue = quantity * currentPrice;
+      const totalCost = quantity * averageCost;
+      const profitLoss = currentValue - totalCost;
+      const profitLossPercent = totalCost > 0 ? (profitLoss / totalCost) * 100 : 0;
+
+      return {
+        symbol: symbol,
+        name: position.symbol?.description || symbol,
+        quantity: quantity,
+        averageCost: averageCost,
+        currentPrice: currentPrice,
+        currentValue: currentValue,
+        totalCost: totalCost,
+        profitLoss: profitLoss,
+        profitLossPercent: profitLossPercent,
+        currency: position.symbol?.currency || 'USD',
+        type: position.symbol?.type || 'stock',
+      };
+    });
+
+    res.json({ holdings });
+
+  } catch (error: any) {
+    console.error('Error fetching account holdings:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch account holdings', 
+      error: error.message 
+    });
+  }
+});
 
 export default router;
