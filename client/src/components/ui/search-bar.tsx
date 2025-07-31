@@ -21,12 +21,28 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
   const searchRef = useRef<HTMLDivElement>(null);
 
   const { data: results = [], isLoading } = useQuery({
-    queryKey: ['/api/snaptrade/search', query],
+    queryKey: ['/api/search/universal', query],
     queryFn: async () => {
       if (!query.trim()) return [];
-      const response = await apiRequest('GET', `/api/snaptrade/search?q=${encodeURIComponent(query)}`);
-      if (!response.ok) throw new Error('Search failed');
-      return response.json();
+      
+      try {
+        // Use universal search endpoint first
+        const response = await apiRequest('GET', `/api/search/universal?q=${encodeURIComponent(query)}`);
+        if (response.ok) {
+          return await response.json();
+        }
+        
+        // Fallback to SnapTrade search if universal search fails
+        const snapTradeResponse = await apiRequest('GET', `/api/snaptrade/search?q=${encodeURIComponent(query)}`);
+        if (snapTradeResponse.ok) {
+          return await snapTradeResponse.json();
+        }
+        
+        return [];
+      } catch (error) {
+        console.error('Search error:', error);
+        return [];
+      }
     },
     enabled: query.length > 0,
     staleTime: 30000,
@@ -48,7 +64,7 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
         <Input
           type="text"
-          placeholder="Search stocks, ETFs..."
+          placeholder="Search stocks, crypto, companies..."
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -66,25 +82,35 @@ export default function SearchBar({ className = '' }: SearchBarProps) {
               <div className="p-4 text-center text-gray-400">Searching...</div>
             ) : results.length > 0 ? (
               <div className="max-h-64 overflow-y-auto">
-                {results.slice(0, 8).map((result: SearchResult) => (
-                  <Link key={result.symbol} href={`/stock/${result.symbol}`}>
-                    <div 
-                      className="flex items-center gap-3 p-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-0 transition-colors"
-                      onClick={() => {
-                        setIsOpen(false);
-                        setQuery('');
-                      }}
-                    >
-                      <div className="flex items-center justify-center w-8 h-8 bg-purple-600 rounded-lg">
-                        <TrendingUp className="h-4 w-4 text-white" />
+                {results.slice(0, 8).map((result: SearchResult) => {
+                  // Determine if it's crypto based on symbol format
+                  const isCrypto = result.symbol.includes('-USD') || result.symbol.includes('BTC') || result.symbol.includes('ETH');
+                  const linkPath = isCrypto ? `/crypto/${result.symbol}` : `/stock/${result.symbol}`;
+                  
+                  return (
+                    <Link key={result.symbol} href={linkPath}>
+                      <div 
+                        className="flex items-center gap-3 p-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-0 transition-colors"
+                        onClick={() => {
+                          setIsOpen(false);
+                          setQuery('');
+                        }}
+                      >
+                        <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${
+                          isCrypto ? 'bg-orange-600' : 'bg-purple-600'
+                        }`}>
+                          <TrendingUp className="h-4 w-4 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-semibold text-white">{result.symbol}</div>
+                          <div className="text-sm text-gray-400">
+                            {result.name} {isCrypto ? '• Crypto' : '• Stock'}
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <div className="font-semibold text-white">{result.symbol}</div>
-                        <div className="text-sm text-gray-400">{result.name}</div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
             ) : (
               <div className="p-4 text-center text-gray-400">No results found</div>

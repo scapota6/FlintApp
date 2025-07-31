@@ -40,8 +40,13 @@ export default function Navigation() {
             </Link>
           </div>
           
+          {/* Search Bar - Always Visible */}
+          <div className="flex items-center flex-1 max-w-md mx-4 sm:mx-8">
+            <SearchBar className="w-full" />
+          </div>
+
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8 ml-8">
+          <nav className="hidden lg:flex space-x-6">
             {navItems.map((item) => (
               <Link key={item.path} href={item.path}>
                 <span
@@ -56,11 +61,6 @@ export default function Navigation() {
               </Link>
             ))}
           </nav>
-
-          {/* Search Bar */}
-          <div className="hidden md:flex md:items-center md:flex-1 md:max-w-md md:mx-8">
-            <SearchBar className="w-full" />
-          </div>
           
           {/* User Profile */}
           <div className="flex items-center space-x-4">
@@ -93,7 +93,7 @@ export default function Navigation() {
             </Button>
 
             {/* Mobile menu button */}
-            <div className="md:hidden">
+            <div className="lg:hidden">
               <Button
                 variant="ghost"
                 size="icon"
@@ -108,9 +108,8 @@ export default function Navigation() {
 
         {/* Mobile menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden">
+          <div className="lg:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1 border-t border-gray-700">
-              <SearchBar className="mb-4" />
               {navItems.map((item) => (
                 <Link key={item.path} href={item.path}>
                   <div
