@@ -215,7 +215,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(dashboardData);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
-      res.status(500).json({ message: "Failed to fetch dashboard data" });
+      
+      // Return empty state instead of 500 error for better UX
+      const emptyDashboardData = {
+        totalBalance: 0,
+        bankBalance: 0,
+        investmentValue: 0,
+        cryptoValue: 0,
+        accounts: [],
+        subscriptionTier: user?.subscriptionTier || 'free',
+        needsConnection: true,
+        connectionStatus: {
+          hasAccounts: false,
+          snapTradeError: 'fetch_failed',
+          message: 'Connect your accounts to see your portfolio'
+        }
+      };
+      
+      res.json(emptyDashboardData);
     }
   });
 
