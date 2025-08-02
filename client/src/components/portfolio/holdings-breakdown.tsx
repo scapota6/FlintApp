@@ -72,7 +72,7 @@ export default function HoldingsBreakdown() {
     );
   }
 
-  if (error) {
+  if (error || data?.needsConnection) {
     return (
       <Card className="bg-gray-900 border-gray-800">
         <CardHeader>
@@ -82,7 +82,9 @@ export default function HoldingsBreakdown() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-400">Failed to load holdings. Please try again.</p>
+          <p className="text-gray-400">
+            {data?.message || 'Connect your brokerage accounts to view holdings'}
+          </p>
         </CardContent>
       </Card>
     );

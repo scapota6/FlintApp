@@ -21,6 +21,12 @@ interface DashboardData {
   cryptoValue: number;
   accounts: AccountBalance[];
   subscriptionTier: string;
+  needsConnection?: boolean;
+  connectionStatus?: {
+    hasAccounts: boolean;
+    snapTradeError: string | null;
+    message: string | null;
+  };
 }
 
 interface ProviderSummary {
@@ -136,10 +142,13 @@ export default function UnifiedDashboard() {
           <CardTitle className="text-center">
             <div className="text-lg text-gray-400 mb-2">Total Net Worth</div>
             <div className="text-4xl font-bold text-white">
-              {formatCurrency(dashboardData.totalBalance)}
+              {dashboardData.needsConnection ? '$0.00' : formatCurrency(dashboardData.totalBalance)}
             </div>
             <div className="text-sm text-gray-400 mt-2">
-              Across {dashboardData.accounts.length} connected accounts
+              {dashboardData.needsConnection 
+                ? 'Connect your accounts to see your portfolio'
+                : `Across ${dashboardData.accounts.length} connected accounts`
+              }
             </div>
           </CardTitle>
         </CardHeader>
@@ -174,7 +183,7 @@ export default function UnifiedDashboard() {
               <CardTitle>Asset Allocation</CardTitle>
             </CardHeader>
             <CardContent>
-              {typeBreakdown.length > 0 ? (
+              {typeBreakdown.length > 0 && !dashboardData.needsConnection ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
@@ -195,8 +204,13 @@ export default function UnifiedDashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-300 flex items-center justify-center text-gray-400">
-                  No account data available
+                <div className="h-[300px] flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-gray-400 mb-2">No account data available</p>
+                    {dashboardData.needsConnection && (
+                      <p className="text-sm text-gray-500">Connect a brokerage or bank to see your allocation</p>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -207,25 +221,36 @@ export default function UnifiedDashboard() {
               <CardTitle>Account Types</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {typeBreakdown.map((type, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div 
-                      className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: type.color }}
-                    ></div>
-                    <span className="text-white">{type.name}</span>
+              {typeBreakdown.length > 0 && !dashboardData.needsConnection ? (
+                typeBreakdown.map((type, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div 
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: type.color }}
+                      ></div>
+                      <span className="text-white">{type.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-white font-semibold">
+                        {formatCurrency(type.value)}
+                      </div>
+                      <div className="text-gray-400 text-sm">
+                        {((type.value / dashboardData.totalBalance) * 100).toFixed(1)}%
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-white font-semibold">
-                      {formatCurrency(type.value)}
-                    </div>
-                    <div className="text-gray-400 text-sm">
-                      {((type.value / dashboardData.totalBalance) * 100).toFixed(1)}%
-                    </div>
+                ))
+              ) : (
+                <div className="h-[200px] flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-gray-400 mb-2">No account data available</p>
+                    {dashboardData.needsConnection && (
+                      <p className="text-sm text-gray-500">Connect accounts to see breakdown</p>
+                    )}
                   </div>
                 </div>
-              ))}
+              )}
             </CardContent>
           </Card>
         </div>

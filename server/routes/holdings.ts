@@ -140,6 +140,24 @@ router.get('/holdings', requireAuth, async (req, res) => {
 
   } catch (error: any) {
     console.error('Error fetching holdings:', error);
+    
+    // Check if it's an authentication error - user needs to connect accounts
+    if (error.status === 401 || error.message?.includes('401') || error.message?.includes('Missing SnapTrade credentials')) {
+      return res.json({
+        holdings: [],
+        summary: {
+          totalValue: 0,
+          totalCost: 0,
+          totalProfitLoss: 0,
+          totalProfitLossPercent: 0,
+          positionCount: 0,
+          accountCount: 0,
+        },
+        needsConnection: true,
+        message: 'Connect your brokerage accounts to view holdings'
+      });
+    }
+    
     res.status(500).json({ 
       message: 'Failed to fetch holdings', 
       error: error.message 

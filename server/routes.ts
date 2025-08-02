@@ -163,10 +163,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Add any legacy connected accounts that aren't covered above
+      // Skip placeholder accounts to avoid showing false data
       for (const account of connectedAccounts) {
         const existingAccount = enrichedAccounts.find(ea => ea.id === account.id);
-        if (!existingAccount) {
+        if (!existingAccount && account.provider !== 'placeholder') {
           const accountBalance = parseFloat(account.balance?.toString() || '0') || 0;
+          
+          // Skip accounts with exactly 100000 balance (placeholder)
+          if (accountBalance === 100000) continue;
           
           let accountType: 'bank' | 'investment' | 'crypto' = 'investment';
           if (account.provider === 'teller') accountType = 'bank';
@@ -189,13 +193,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Check if we have any connected accounts
+      const hasConnectedAccounts = enrichedAccounts.length > 0;
+      const needsConnection = !hasConnectedAccounts || snapTradeError === 'not_connected';
+      
       const dashboardData = {
-        totalBalance,
+        totalBalance: hasConnectedAccounts ? totalBalance : 0,
         bankBalance,
         investmentValue,
         cryptoValue,
         accounts: enrichedAccounts,
-        subscriptionTier: user?.subscriptionTier || 'free'
+        subscriptionTier: user?.subscriptionTier || 'free',
+        needsConnection,
+        connectionStatus: {
+          hasAccounts: hasConnectedAccounts,
+          snapTradeError: snapTradeError,
+          message: needsConnection ? 'Connect your accounts to see your portfolio' : null
+        }
       };
       
       res.json(dashboardData);
