@@ -242,7 +242,9 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
     // If missing credentials, register with SnapTrade using official SDK
     if (!user.snaptradeUserId || !user.snaptradeUserSecret) {
       try {
-        const registerPayload = { userId: email };
+        // Create a unique userId for SnapTrade (not email)
+        const uniqueUserId = `flint_${user.id}_${Date.now()}`;
+        const registerPayload = { userId: uniqueUserId };
         console.log('SnapTrade Register: Calling registerSnapTradeUser with payload:', registerPayload);
         
         const { data } = await snaptrade.authentication.registerSnapTradeUser(registerPayload);
@@ -304,7 +306,7 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
             console.log('SnapTrade Register: Successfully deleted existing user');
             
             // Now re-register the user
-            const { data: newRegData } = await snaptrade.authentication.registerSnapTradeUser({ userId: email });
+            const { data: newRegData } = await snaptrade.authentication.registerSnapTradeUser({ userId: `flint_${user.id}_${Date.now()}` });
             console.log('SnapTrade Register: Re-registration successful:', {
               userId: newRegData.userId,
               hasUserSecret: !!newRegData.userSecret
@@ -1119,6 +1121,42 @@ router.post("/quotes", isAuthenticated, async (req: any, res) => {
     res.status(500).json({ 
       success: false, 
       message: error.message || 'Failed to fetch quotes' 
+    });
+  }
+});
+
+// Debug endpoint to reset SnapTrade credentials
+router.delete("/debug-reset-credentials", isAuthenticated, async (req: any, res) => {
+  try {
+    const email = req.user.claims.email?.toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: "User email required" });
+    }
+    
+    const user = await getUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    // Clear the SnapTrade credentials from database
+    await db.update(users)
+      .set({ 
+        snaptradeUserId: null,
+        snaptradeUserSecret: null 
+      })
+      .where(eq(users.id, user.id));
+    
+    console.log('SnapTrade credentials reset for user:', email);
+    
+    return res.json({ 
+      success: true, 
+      message: "SnapTrade credentials reset. Please reconnect your brokerage account." 
+    });
+  } catch (err: any) {
+    console.error('Error resetting SnapTrade credentials:', err);
+    return res.status(500).json({ 
+      error: "Failed to reset credentials",
+      message: err.message 
     });
   }
 });

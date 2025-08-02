@@ -55,12 +55,21 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
   const loadAccounts = async () => {
     try {
       const response = await apiRequest("GET", "/api/snaptrade/accounts");
-      const accountsData = await response.json();
-      setAccounts(accountsData);
-      if (accountsData.length > 0) {
-        setSelectedAccount(accountsData[0].id);
+      const data = await response.json();
+      
+      // Handle the response structure properly
+      const accountsList = data.accounts || [];
+      setAccounts(accountsList);
+      
+      if (accountsList.length > 0) {
+        setSelectedAccount(accountsList[0].id);
+      } else if (data.needsReconnect) {
+        setError("Your brokerage connection has expired. Please reconnect from the dashboard.");
+      } else {
+        setError("No trading accounts found. Please connect a brokerage account first.");
       }
     } catch (err) {
+      console.error("Failed to load accounts:", err);
       setError("Failed to load accounts");
     }
   };
