@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { users } from '@/shared/schema';
+import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { Snaptrade } from 'snaptrade-typescript-sdk';
 
@@ -41,12 +41,32 @@ router.get('/holdings', requireAuth, async (req, res) => {
     
     const snaptrade = getSnapTradeClient();
     
+    // Check if user has SnapTrade credentials first
+    const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const userRecord = user[0];
+    
+    if (!userRecord?.snaptradeUserId || !userRecord?.snaptradeUserSecret) {
+      return res.json({
+        holdings: [],
+        summary: {
+          totalValue: 0,
+          totalCost: 0,
+          totalProfitLoss: 0,
+          totalProfitLossPercent: 0,
+          positionCount: 0,
+          accountCount: 0,
+        },
+        needsConnection: true,
+        message: 'Connect your brokerage accounts to view holdings'
+      });
+    }
+
     // Get all connected accounts - wrap in try/catch for auth errors
     let accountsResponse;
     try {
       accountsResponse = await snaptrade.accountInformation.listUserAccounts({
-        userId: req.user?.email || userId,
-        userSecret: req.user?.snapTradeUserSecret || '',
+        userId: userRecord.snaptradeUserId,
+        userSecret: userRecord.snaptradeUserSecret,
       });
     } catch (authError: any) {
       // Handle SnapTrade authentication errors gracefully
@@ -73,8 +93,8 @@ router.get('/holdings', requireAuth, async (req, res) => {
     const holdingsPromises = accounts.map(async (account) => {
       try {
         const positionsResponse = await snaptrade.accountInformation.getUserAccountPositions({
-          userId: req.user?.email || userId,
-          userSecret: req.user?.snapTradeUserSecret || '',
+          userId: userRecord.snaptradeUserId,
+          userSecret: userRecord.snaptradeUserSecret,
           accountId: account.id,
         });
 
@@ -157,7 +177,7 @@ router.get('/holdings', requireAuth, async (req, res) => {
     });
 
   } catch (error: any) {
-    console.error('Error fetching holdings:', error);
+    console.error('Error fetching holdings (returning empty state):', error.message);
     
     // Always return empty state instead of 500 error for better UX
     // This handles authentication errors, network issues, and other failures gracefully
@@ -172,9 +192,7 @@ router.get('/holdings', requireAuth, async (req, res) => {
         accountCount: 0,
       },
       needsConnection: true,
-      message: error.status === 401 || error.message?.includes('401') || error.message?.includes('Missing SnapTrade credentials')
-        ? 'Connect your brokerage accounts to view holdings'
-        : 'Unable to fetch holdings. Please check your connections or try again later.'
+      message: 'Connect your brokerage accounts to view holdings'
     });
   }
 });
@@ -191,9 +209,17 @@ router.get('/holdings/:accountId', requireAuth, async (req, res) => {
 
     const snaptrade = await getSnapTradeClient();
     
+    // Get user's SnapTrade credentials
+    const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const userRecord = user[0];
+    
+    if (!userRecord?.snaptradeUserId || !userRecord?.snaptradeUserSecret) {
+      return res.status(400).json({ message: 'SnapTrade credentials not found' });
+    }
+
     const positionsResponse = await snaptrade.accountInformation.getUserAccountPositions({
-      userId: req.user?.email || userId,
-      userSecret: req.user?.snapTradeUserSecret || '',
+      userId: userRecord.snaptradeUserId,
+      userSecret: userRecord.snaptradeUserSecret,
       accountId: accountId,
     });
 
