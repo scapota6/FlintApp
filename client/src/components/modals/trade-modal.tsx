@@ -58,7 +58,7 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
       const data = await response.json();
       
       // Handle the response structure properly
-      const accountsList = data.accounts || [];
+      const accountsList = Array.isArray(data.accounts) ? data.accounts : [];
       setAccounts(accountsList);
       
       if (accountsList.length > 0) {
@@ -125,7 +125,7 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
     }
   };
 
-  const selectedAccountData = accounts.find(acc => acc.id === selectedAccount);
+  const selectedAccountData = Array.isArray(accounts) ? accounts.find(acc => acc.id === selectedAccount) : undefined;
   const availableBalance = selectedAccountData?.balance?.total?.amount || 0;
   const estimatedTotal = calculateEstimatedTotal();
   const canAfford = action === "BUY" ? estimatedTotal <= availableBalance : true;
