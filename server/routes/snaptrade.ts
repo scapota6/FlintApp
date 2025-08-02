@@ -331,6 +331,7 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
       error: "Failed to register SnapTrade user",
       message: error.message
     });
+  }
 });
 
 // POST /api/snaptrade/sync - Connection callback endpoint  
@@ -369,25 +370,26 @@ router.post("/sync", isAuthenticated, async (req: any, res) => {
     for (const account of accounts) {
       try {
         const connectedAccount = {
-          id: `snaptrade-${account.id}`, 
           userId: user.id,
           accountType: 'brokerage' as const,
-          institution: account.brokerage_authorization?.name || 'Unknown',
-          accountNumber: account.number || account.id,
-          balance: account.cash_restrictions?.[0]?.type === 'CASH' ? 
-            (account.cash_restrictions[0].amount || 0) : 0,
+          provider: 'snaptrade' as const,
+          institutionName: (account as any).brokerage_authorization?.name || account.institution_name || 'Unknown',
+          accountName: (account as any).name || account.institution_name || 'Investment Account',
+          accountNumber: (account as any).number || account.id,
+          balance: (account as any).cash_restrictions?.[0]?.type === 'CASH' ? 
+            ((account as any).cash_restrictions[0].amount || 0).toString() : '0',
           currency: 'USD',
-          status: 'active' as const,
-          lastSyncAt: new Date(),
-          createdAt: new Date(),
-          snaptradeAccountId: account.id
+          isActive: true,
+          lastSynced: new Date(),
+          externalAccountId: account.id,
+          connectionId: account.id
         };
 
         // Check if account already exists
         const existingAccounts = await db
           .select()
           .from(connectedAccounts)
-          .where(eq(connectedAccounts.snaptradeAccountId, account.id))
+          .where(eq(connectedAccounts.externalAccountId, account.id))
           .limit(1);
 
         if (existingAccounts.length > 0) {
@@ -396,109 +398,7 @@ router.post("/sync", isAuthenticated, async (req: any, res) => {
             .update(connectedAccounts)
             .set({ 
               balance: connectedAccount.balance, 
-              lastSyncAt: new Date() 
-            })
-            .where(eq(connectedAccounts.id, existingAccounts[0].id));
-          
-          syncedAccounts.push({ ...existingAccounts[0], ...connectedAccount });
-        } else {
-          // Create new account
-          const [newAccount] = await db
-            .insert(connectedAccounts)
-            .values(connectedAccount)
-            .returning();
-          
-          syncedAccounts.push(newAccount);
-        }
-      } catch (accountErr: any) {
-        console.error('SnapTrade Sync: Error syncing account:', account.id, accountErr);
-      }
-    }
-
-    console.log('SnapTrade Sync: Successfully synced accounts:', syncedAccounts.length);
-
-    return res.json({ 
-      success: true, 
-      syncedCount: syncedAccounts.length,
-      accounts: syncedAccounts 
-    });
-  } catch (err: any) {
-      path: req.originalUrl,
-      payload: { email: req.user?.claims?.email },
-      responseData: err.response?.data,
-      responseHeaders: err.response?.headers,
-      message: err.message
-    });
-    return next(err);
-  }
-});
-
-// Removed duplicate - using enhanced version below
-
-// POST /api/snaptrade/sync → sync SnapTrade accounts to database
-router.post("/sync", isAuthenticated, async (req: any, res) => {
-  try {
-    const email = req.user.claims.email?.toLowerCase();
-    const userId = req.user.claims.sub;
-    
-    if (!email) {
-      return res.status(400).json({ error: "User email required" });
-    }
-    
-    const user = await getUserByEmail(email);
-    
-    if (!user?.snaptradeUserSecret) {
-      return res.status(401).json({ error: "Please connect your brokerage first" });
-    }
-
-    console.log('SnapTrade Sync: Fetching accounts for user:', email);
-
-    // Fetch accounts from SnapTrade
-    const { data: snapTradeAccounts } = await snaptrade.accountInformation.listUserAccounts({
-      userId: user.snaptradeUserId!,
-      userSecret: user.snaptradeUserSecret!,
-    });
-
-    console.log('SnapTrade Sync: Found accounts:', snapTradeAccounts.length);
-
-    // Sync each account to the database
-    const syncedAccounts = [];
-    for (const account of snapTradeAccounts) {
-      try {
-        // Calculate total balance from account data
-        const totalBalance = account.balance?.total?.amount || 0;
-        
-        // Create or update connected account in database
-        const connectedAccount = {
-          userId,
-          provider: 'snaptrade' as const,
-          externalAccountId: account.id,
-          accountType: account.type || 'investment',
-          accountName: account.name || account.institution_name || 'Investment Account',
-          institutionName: account.institution_name || 'SnapTrade Brokerage',
-          balance: totalBalance.toString(),
-          currency: account.balance?.total?.currency || 'USD',
-          isActive: true,
-          lastSynced: new Date(),
-        };
-
-        // Check if account already exists
-        const existingAccounts = await db
-          .select()
-          .from(connectedAccounts)
-          .where(and(
-            eq(connectedAccounts.userId, userId),
-            eq(connectedAccounts.externalAccountId, account.id)
-          ));
-
-        if (existingAccounts.length > 0) {
-          // Update existing account
-          await db
-            .update(connectedAccounts)
-            .set({
-              balance: connectedAccount.balance,
-              lastSynced: connectedAccount.lastSynced,
-              isActive: true,
+              lastSynced: new Date() 
             })
             .where(eq(connectedAccounts.id, existingAccounts[0].id));
           
@@ -530,13 +430,12 @@ router.post("/sync", isAuthenticated, async (req: any, res) => {
       payload: { email: req.user?.claims?.email },
       responseData: err.response?.data,
       responseHeaders: err.response?.headers,
-      status: err.response?.status,
       message: err.message
     });
-    
-    const status = err.response?.status || 500;
-    const body = err.response?.data || { message: err.message };
-    return res.status(status).json(body);
+    return res.status(500).json({
+      error: "Failed to sync SnapTrade accounts",
+      message: err.message
+    });
   }
 });
 
@@ -555,15 +454,17 @@ router.get("/quote", isAuthenticated, async (req: any, res) => {
 
     // Get user from database
     const user = await getUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
     
-    if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
+    // Get SnapTrade credentials from separate table
+    let credentials;
+    try {
+      credentials = await getUserSnapTradeCredentials(user.id);
+    } catch (error) {
       return res.status(400).json({ error: "SnapTrade user not registered" });
     }
-
-    const credentials = {
-      userId: user.snaptradeUserId,
-      userSecret: user.snaptradeUserSecret
-    };
 
     // Get user's accounts to use for quotes
     const { data: userAccounts } = await snaptrade.accountInformation.listUserAccounts({
@@ -796,7 +697,15 @@ router.get("/accounts", isAuthenticated, async (req: any, res) => {
     const userEmail = req.user.claims.email;
     const user = await getUserByEmail(userEmail);
     
-    if (!user || !user.snaptradeUserSecret || !user.snaptradeUserId) {
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Get SnapTrade credentials
+    let credentials;
+    try {
+      credentials = await getUserSnapTradeCredentials(user.id);
+    } catch (error) {
       return res.json({ 
         message: "Please connect your brokerage first",
         accounts: [] 
@@ -805,8 +714,8 @@ router.get("/accounts", isAuthenticated, async (req: any, res) => {
 
     try {
       const { data: accounts } = await snaptrade.accountInformation.listUserAccounts({
-        userId: user.snaptradeUserId,
-        userSecret: user.snaptradeUserSecret
+        userId: credentials.userId,
+        userSecret: credentials.userSecret
       });
 
       console.log('SnapTrade accounts fetched:', accounts?.length || 0);
@@ -849,13 +758,21 @@ router.get("/accounts/:accountId", isAuthenticated, async (req: any, res) => {
     const userEmail = req.user.claims.email;
     const user = await getUserByEmail(userEmail);
     
-    if (!user || !user.snaptradeUserSecret) {
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Get SnapTrade credentials
+    let credentials;
+    try {
+      credentials = await getUserSnapTradeCredentials(user.id);
+    } catch (error) {
       return res.status(401).json({ message: "SnapTrade not connected" });
     }
 
     const accountDetails = await snaptrade.accountInformation.getUserAccountDetails({
-      userId: userEmail,
-      userSecret: user.snaptradeUserSecret,
+      userId: credentials.userId,
+      userSecret: credentials.userSecret,
       accountId
     });
 
@@ -877,13 +794,21 @@ router.get("/accounts/:accountId/positions", isAuthenticated, async (req: any, r
     const userEmail = req.user.claims.email;
     const user = await getUserByEmail(userEmail);
     
-    if (!user || !user.snaptradeUserSecret) {
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Get SnapTrade credentials
+    let credentials;
+    try {
+      credentials = await getUserSnapTradeCredentials(user.id);
+    } catch (error) {
       return res.status(401).json({ message: "SnapTrade not connected" });
     }
 
     const positions = await snaptrade.accountInformation.getUserAccountPositions({
-      userId: userEmail,
-      userSecret: user.snaptradeUserSecret,
+      userId: credentials.userId,
+      userSecret: credentials.userSecret,
       accountId
     });
 
@@ -905,13 +830,21 @@ router.get("/accounts/:accountId/orders", isAuthenticated, async (req: any, res)
     const userEmail = req.user.claims.email;
     const user = await getUserByEmail(userEmail);
     
-    if (!user || !user.snaptradeUserSecret) {
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Get SnapTrade credentials
+    let credentials;
+    try {
+      credentials = await getUserSnapTradeCredentials(user.id);
+    } catch (error) {
       return res.status(401).json({ message: "SnapTrade not connected" });
     }
 
     const orders = await snaptrade.accountInformation.getUserAccountOrders({
-      userId: userEmail,
-      userSecret: user.snaptradeUserSecret,
+      userId: credentials.userId,
+      userSecret: credentials.userSecret,
       accountId
     });
 
@@ -937,21 +870,17 @@ router.get("/symbols/search", isAuthenticated, async (req: any, res) => {
     const userEmail = req.user.claims.email;
     const user = await getUserByEmail(userEmail);
     
-    if (!user || !user.snaptradeUserSecret) {
-      // Fallback to mock symbol data for demo
-      const mockSymbols = [
-        {
-          id: `symbol_${query}_equity`,
-          symbol: query.toString().toUpperCase(),
-          raw_symbol: query.toString().toUpperCase(),
-          description: `${query.toString().toUpperCase()} Stock`,
-          currency: 'USD',
-          exchange: 'NASDAQ',
-          type: 'Equity'
-        }
-      ];
-      
-      return res.json(mockSymbols);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if SnapTrade credentials exist
+    let credentials;
+    try {
+      credentials = await getUserSnapTradeCredentials(user.id);
+    } catch (error) {
+      // Return empty results for non-connected users
+      return res.json([]);
     }
 
     // Note: Using fallback data as SnapTrade API method signature needs verification
@@ -990,33 +919,21 @@ router.post("/orders/place", isAuthenticated, async (req: any, res) => {
     const { v4: uuidv4 } = await import('uuid');
     const tradeId = uuidv4();
     
-    if (!user || !user.snaptradeUserSecret) {
-      // Demo mode - simulate order placement
-      console.log('Demo mode: Simulating equity order placement');
-      const simulatedOrder = {
-        id: tradeId,
-        symbol: symbolId.replace('symbol_', '').replace('_equity', ''),
-        status: 'FILLED',
-        units: parseFloat(units),
-        action: 'BUY',
-        order_type: orderType,
-        time_in_force: timeInForce,
-        filled_units: parseFloat(units),
-        price: limitPrice || 100 + Math.random() * 200,
-        created_at: new Date().toISOString()
-      };
-      
-      return res.json({
-        success: true,
-        order: simulatedOrder,
-        tradeId,
-        demo: true
-      });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if SnapTrade credentials exist
+    let credentials;
+    try {
+      credentials = await getUserSnapTradeCredentials(user.id);
+    } catch (error) {
+      return res.status(401).json({ error: "SnapTrade not connected" });
     }
 
     const orderRequest = {
-      userId: userEmail,
-      userSecret: user.snaptradeUserSecret,
+      userId: credentials.userId,
+      userSecret: credentials.userSecret,
       accountId,
       symbolId,
       units: parseFloat(units),
@@ -1031,13 +948,6 @@ router.post("/orders/place", isAuthenticated, async (req: any, res) => {
 
     // Note: Using demo mode as SnapTrade API method signature needs verification
     throw new Error("Demo mode - order placement not implemented");
-
-    console.log('Order placed successfully:', orderResult.data);
-    res.json({
-      success: true,
-      order: orderResult.data,
-      tradeId
-    });
   } catch (error: any) {
     console.error('Error placing order:', error);
     res.status(500).json({ 
@@ -1058,33 +968,21 @@ router.post("/orders/place-crypto", isAuthenticated, async (req: any, res) => {
     const { v4: uuidv4 } = await import('uuid');
     const tradeId = uuidv4();
     
-    if (!user || !user.snaptradeUserSecret) {
-      // Demo mode - simulate crypto order placement
-      console.log('Demo mode: Simulating crypto order placement');
-      const simulatedOrder = {
-        id: tradeId,
-        symbol: symbolId.replace('symbol_', '').replace('_crypto', ''),
-        status: 'FILLED',
-        units: parseFloat(units),
-        action: 'BUY',
-        order_type: orderType,
-        time_in_force: timeInForce,
-        filled_units: parseFloat(units),
-        price: 50000 + Math.random() * 20000, // Crypto price range
-        created_at: new Date().toISOString()
-      };
-      
-      return res.json({
-        success: true,
-        order: simulatedOrder,
-        tradeId,
-        demo: true
-      });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if SnapTrade credentials exist
+    let credentials;
+    try {
+      credentials = await getUserSnapTradeCredentials(user.id);
+    } catch (error) {
+      return res.status(401).json({ error: "SnapTrade not connected" });
     }
 
     const orderRequest = {
-      userId: userEmail,
-      userSecret: user.snaptradeUserSecret,
+      userId: credentials.userId,
+      userSecret: credentials.userSecret,
       accountId,
       symbolId,
       units: parseFloat(units),
@@ -1097,13 +995,6 @@ router.post("/orders/place-crypto", isAuthenticated, async (req: any, res) => {
 
     // Note: Using demo mode as SnapTrade API method signature needs verification
     throw new Error("Demo mode - crypto order placement not implemented");
-
-    console.log('Crypto order placed successfully:', orderResult.data);
-    res.json({
-      success: true,
-      order: orderResult.data,
-      tradeId
-    });
   } catch (error: any) {
     console.error('Error placing crypto order:', error);
     res.status(500).json({ 
@@ -1121,7 +1012,15 @@ router.delete("/orders/:orderId", isAuthenticated, async (req: any, res) => {
     const userEmail = req.user.claims.email;
     const user = await getUserByEmail(userEmail);
     
-    if (!user || !user.snaptradeUserSecret) {
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Get SnapTrade credentials
+    let credentials;
+    try {
+      credentials = await getUserSnapTradeCredentials(user.id);
+    } catch (error) {
       return res.status(401).json({ message: "SnapTrade not connected" });
     }
 
@@ -1149,15 +1048,23 @@ router.post("/quotes", isAuthenticated, async (req: any, res) => {
     const userEmail = req.user.claims.email;
     const user = await getUserByEmail(userEmail);
     
-    if (!user || !user.snaptradeUserSecret) {
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Get SnapTrade credentials
+    let credentials;
+    try {
+      credentials = await getUserSnapTradeCredentials(user.id);
+    } catch (error) {
       return res.status(401).json({ message: "SnapTrade not connected" });
     }
 
     // Note: Using getUserAccountQuotes method instead as getQuotes may not exist
     // Get user's first account for quotes
     const { data: userAccounts } = await snaptrade.accountInformation.listUserAccounts({
-      userId: user.snaptradeUserId!,
-      userSecret: user.snaptradeUserSecret
+      userId: credentials.userId,
+      userSecret: credentials.userSecret
     });
     
     if (!userAccounts.length) {
@@ -1167,8 +1074,8 @@ router.post("/quotes", isAuthenticated, async (req: any, res) => {
     }
     
     const quotes = await snaptrade.trading.getUserAccountQuotes({
-      userId: user.snaptradeUserId!,
-      userSecret: user.snaptradeUserSecret,
+      userId: credentials.userId,
+      userSecret: credentials.userSecret,
       symbols: symbols.join(','),
       accountId: userAccounts[0].id,
       useTicker: true
@@ -1198,13 +1105,9 @@ router.delete("/debug-reset-credentials", isAuthenticated, async (req: any, res)
       return res.status(404).json({ error: "User not found" });
     }
     
-    // Clear the SnapTrade credentials from database
-    await db.update(users)
-      .set({ 
-        snaptradeUserId: null,
-        snaptradeUserSecret: null 
-      })
-      .where(eq(users.id, user.id));
+    // Clear the SnapTrade credentials from separate table
+    await db.delete(snaptradeUsers)
+      .where(eq(snaptradeUsers.flintUserId, user.id));
     
     console.log('SnapTrade credentials reset for user:', email);
     
