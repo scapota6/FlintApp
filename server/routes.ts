@@ -1305,6 +1305,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SnapTrade registration endpoint (Saturday night working version)
+  app.post('/api/snaptrade/register', rateLimits.auth, isAuthenticated, async (req: any, res) => {
+    try {
+      const email = req.user.claims.email?.toLowerCase();
+      
+      if (!email) {
+        return res.status(400).json({
+          error: "User email required",
+          details: "Authenticated user email is missing",
+        });
+      }
+
+      console.log('SnapTrade Register: Starting for email:', email);
+      
+      let user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      if (!snapTradeClient) {
+        return res.status(500).json({ error: "SnapTrade client not initialized" });
+      }
+
+      // Use email as userId for SnapTrade (Saturday night working version)
+      const snaptradeUserId = email;
+      
+      try {
+        console.log('SnapTrade Register: Calling registerSnapTradeUser...');
+        
+        const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
+          userId: snaptradeUserId
+        });
+        
+        console.log('SnapTrade Register: Registration successful:', {
+          userId: data.userId,
+          hasUserSecret: !!data.userSecret
+        });
+        
+        // Save credentials to the user record
+        await storage.updateUser(user.id, {
+          snaptradeUserId: data.userId!,
+          snaptradeUserSecret: data.userSecret!
+        });
+        
+        // Get login portal URL
+        const loginPayload = {
+          userId: data.userId!,
+          userSecret: data.userSecret!,
+        };
+        
+        const { data: portal } = await snapTradeClient.authentication.loginSnapTradeUser(loginPayload);
+        
+        console.log('SnapTrade Register: Portal response received:', {
+          hasRedirectURI: !!(portal as any).redirectURI
+        });
+        
+        return res.json({ url: (portal as any).redirectURI });
+        
+      } catch (err: any) {
+        console.error('SnapTrade Registration Error:', err);
+        
+        // Handle USER_EXISTS error gracefully (user already registered) 
+        const errData = err.response?.data || err.responseBody;
+        if (errData?.code === "USER_EXISTS" || errData?.code === "1010") {
+          console.log('SnapTrade Register: User already exists, returning success');
+          
+          // Return a success response - the connection flow can proceed
+          return res.json({ 
+            url: `https://connect.snaptrade.com/portal?clientId=${process.env.SNAPTRADE_CLIENT_ID}&userId=${encodeURIComponent(snaptradeUserId)}`,
+            message: "User already registered" 
+          });
+        } else {
+          // Other registration errors
+          const status = err.response?.status || 500;
+          const body = err.response?.data || { message: err.message };
+          return res.status(status).json(body);
+        }
+      }
+      
+    } catch (error: any) {
+      console.error('SnapTrade Register Error:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      return res.status(500).json({
+        error: "Failed to register SnapTrade user",
+        message: error.message
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

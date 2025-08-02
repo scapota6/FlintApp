@@ -183,8 +183,9 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
       console.log('📈 SnapTrade Connect: Starting brokerage connection process');
       try {
         console.log('📈 SnapTrade Connect: Calling backend for connection URL...');
-        // The backend now handles registration automatically
-        const { url } = await SnapTradeAPI.getConnectionUrl();
+        // Call our Saturday night working registration endpoint
+        const response = await apiRequest('POST', '/api/snaptrade/register');
+        const { url } = await response.json();
         console.log('📈 SnapTrade Connect: Successfully got connection URL:', url);
         
         // Open SnapTrade portal in new window (user will complete connection there)
