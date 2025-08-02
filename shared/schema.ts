@@ -9,6 +9,7 @@ import {
   integer,
   boolean,
   serial,
+  unique,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -35,11 +36,24 @@ export const users = pgTable("users", {
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   subscriptionTier: varchar("subscription_tier").default("free"), // free, basic, pro, premium
   subscriptionStatus: varchar("subscription_status").default("active"), // active, cancelled, expired
-  snaptradeUserId: varchar("snaptrade_user_id"), // SnapTrade user ID
-  snaptradeUserSecret: varchar("snaptrade_user_secret"), // SnapTrade user secret
+  // SnapTrade credentials moved to separate table
+  // snaptradeUserId: varchar("snaptrade_user_id"), // SnapTrade user ID
+  // snaptradeUserSecret: varchar("snaptrade_user_secret"), // SnapTrade user secret
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Separate table for SnapTrade credentials with unique constraint
+export const snaptradeUsers = pgTable('snaptrade_users', {
+  id: serial('id').primaryKey(),
+  flintUserId: varchar('flint_user_id').notNull().references(() => users.id),
+  snaptradeUserId: varchar('snaptrade_user_id').notNull(),
+  snaptradeUserSecret: varchar('snaptrade_user_secret').notNull(),
+  connectedAt: timestamp('connected_at').defaultNow(),
+  lastSyncAt: timestamp('last_sync_at'),
+}, (table) => ({
+  uniqueFlintUser: unique().on(table.flintUserId), // Ensure only one SnapTrade user per Flint user
+}));
 
 // Connected accounts (banks, brokerages, crypto)
 export const connectedAccounts = pgTable("connected_accounts", {

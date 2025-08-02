@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { users } from '@shared/schema';
+import { users, snaptradeUsers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { Snaptrade } from 'snaptrade-typescript-sdk';
 
@@ -41,9 +41,9 @@ router.get('/holdings', requireAuth, async (req, res) => {
     
     const snaptrade = getSnapTradeClient();
     
-    // Check if user has SnapTrade credentials first
-    const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const userRecord = user[0];
+    // Check if user has SnapTrade credentials in new table
+    const snaptradeRecord = await db.select().from(snaptradeUsers).where(eq(snaptradeUsers.flintUserId, userId)).limit(1);
+    const userRecord = snaptradeRecord[0];
     
     if (!userRecord?.snaptradeUserId || !userRecord?.snaptradeUserSecret) {
       return res.json({
@@ -209,9 +209,9 @@ router.get('/holdings/:accountId', requireAuth, async (req, res) => {
 
     const snaptrade = await getSnapTradeClient();
     
-    // Get user's SnapTrade credentials
-    const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const userRecord = user[0];
+    // Get user's SnapTrade credentials from new table
+    const snaptradeRecord = await db.select().from(snaptradeUsers).where(eq(snaptradeUsers.flintUserId, userId)).limit(1);
+    const userRecord = snaptradeRecord[0];
     
     if (!userRecord?.snaptradeUserId || !userRecord?.snaptradeUserSecret) {
       return res.status(400).json({ message: 'SnapTrade credentials not found' });

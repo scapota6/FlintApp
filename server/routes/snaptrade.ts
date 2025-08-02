@@ -6,7 +6,7 @@ import { Snaptrade } from "snaptrade-typescript-sdk";
 import { storage } from "../storage";
 import { isAuthenticated } from "../replitAuth";
 import { db } from "../db";
-import { users, connectedAccounts } from "@shared/schema";
+import { users, connectedAccounts, snaptradeUsers } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 
 // Validate environment variables
@@ -39,29 +39,48 @@ async function getUserByEmail(email: string) {
   return result[0];
 }
 
-// Get user's SnapTrade credentials
-async function getUserSnapTradeCredentials(email: string) {
-  const result = await db.select().from(users).where(eq(users.email, email));
-  const user = result[0];
+// Get user's SnapTrade credentials from new table
+async function getUserSnapTradeCredentials(flintUserId: string) {
+  const result = await db.select().from(snaptradeUsers).where(eq(snaptradeUsers.flintUserId, flintUserId));
+  const snaptradeUser = result[0];
   
-  if (!user?.snaptradeUserId || !user?.snaptradeUserSecret) {
+  if (!snaptradeUser) {
     throw new Error("SnapTrade credentials not found");
   }
   
   return {
-    userId: user.snaptradeUserId,
-    userSecret: user.snaptradeUserSecret
+    userId: snaptradeUser.snaptradeUserId,
+    userSecret: snaptradeUser.snaptradeUserSecret
   };
 }
 
 async function saveSnaptradeCredentials(
-  email: string,
+  flintUserId: string,
   snaptradeUserId: string,
   userSecret: string,
 ) {
-  const user = await getUserByEmail(email);
-  if (user) {
-    await storage.createSnapTradeUser(user.id, snaptradeUserId, userSecret);
+  try {
+    await db.insert(snaptradeUsers).values({
+      flintUserId,
+      snaptradeUserId,
+      snaptradeUserSecret: userSecret,
+      connectedAt: new Date(),
+    });
+  } catch (error: any) {
+    // Handle unique constraint violation
+    if (error.code === '23505') { // PostgreSQL unique violation
+      console.log('SnapTrade user already exists for this Flint user');
+      // Update existing record instead
+      await db.update(snaptradeUsers)
+        .set({
+          snaptradeUserId,
+          snaptradeUserSecret: userSecret,
+          lastSyncAt: new Date(),
+        })
+        .where(eq(snaptradeUsers.flintUserId, flintUserId));
+    } else {
+      throw error;
+    }
   }
 }
 
@@ -235,42 +254,47 @@ router.post("/connection-portal", isAuthenticated, async (req: any, res) => {
 router.post("/register", isAuthenticated, async (req: any, res, next) => {
   try {
     const email = req.user.claims.email?.toLowerCase();
-    if (!email) {
+    const flintUserId = req.user.claims.sub;
+    
+    if (!email || !flintUserId) {
       return res.status(400).json({
-        error: "User email required",
-        details: "Authenticated user email is missing",
+        error: "User credentials required",
+        details: "Authenticated user email and ID are missing",
       });
     }
 
-    console.log('SnapTrade Register: Starting for email:', email);
+    console.log('SnapTrade Register: Starting for user:', flintUserId);
     
-    let user = await getUserByEmail(email);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+    // 1. Look up existing SnapTrade record
+    let snaptradeRecord;
+    try {
+      const credentials = await getUserSnapTradeCredentials(flintUserId);
+      snaptradeRecord = credentials;
+      console.log('SnapTrade Register: Found existing credentials');
+    } catch (error) {
+      console.log('SnapTrade Register: No existing credentials found');
     }
-    
-    console.log('SnapTrade Register: User found with credentials:', {
-      hasUserId: !!user.snaptradeUserId,
-      hasUserSecret: !!user.snaptradeUserSecret
-    });
 
-    // If missing credentials, register with SnapTrade using official SDK
-    if (!user.snaptradeUserId || !user.snaptradeUserSecret) {
+    // 2. If no record exists, register a new SnapTrade user
+    if (!snaptradeRecord) {
       try {
-        // Create a unique userId for SnapTrade (not email)
-        const uniqueUserId = `flint_${user.id}_${Date.now()}`;
-        const registerPayload = { userId: uniqueUserId };
-        console.log('SnapTrade Register: Calling registerSnapTradeUser with payload:', registerPayload);
+        console.log('SnapTrade Register: Calling registerOrLogin...');
         
-        const { data } = await snaptrade.authentication.registerSnapTradeUser(registerPayload);
+        const { data } = await snaptrade.authentication.registerOrLogin({
+          clientId: clientId,
+          consumerKey: consumerKey
+        });
         
         console.log('SnapTrade Register: Registration successful:', {
           userId: data.userId,
           hasUserSecret: !!data.userSecret
         });
         
-        await saveSnaptradeCredentials(email, data.userId!, data.userSecret!);
-        user = await getUserByEmail(email);
+        await saveSnaptradeCredentials(flintUserId, data.userId!, data.userSecret!);
+        snaptradeRecord = {
+          userId: data.userId!,
+          userSecret: data.userSecret!
+        };
       } catch (err: any) {
         // Parse the actual response body from the SDK error message
         let actualResponseData = null;
@@ -327,8 +351,11 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
               hasUserSecret: !!newRegData.userSecret
             });
             
-            await saveSnaptradeCredentials(email, newRegData.userId!, newRegData.userSecret!);
-            user = await getUserByEmail(email);
+            await saveSnaptradeCredentials(flintUserId, newRegData.userId!, newRegData.userSecret!);
+            snaptradeRecord = {
+              userId: newRegData.userId!,
+              userSecret: newRegData.userSecret!
+            };
           } catch (deleteErr: any) {
             console.error('SnapTrade Register: Failed to delete and re-register:', deleteErr);
             return res.status(409).json({
@@ -347,18 +374,24 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
           return res.status(status).json(body);
         }
       }
+    } else {
+      // 3. Already registered? Update last sync time
+      await db.update(snaptradeUsers)
+        .set({ lastSyncAt: new Date() })
+        .where(eq(snaptradeUsers.flintUserId, flintUserId));
+      console.log('SnapTrade Register: Using existing credentials');
     }
 
-    // Generate connection URL using stored credentials and official SDK
+    // Generate connection URL using stored credentials
     console.log('SnapTrade Register: Logging in user with credentials:', {
-      userId: user.snaptradeUserId,
-      userSecretLength: user.snaptradeUserSecret?.length
+      userId: snaptradeRecord.userId,
+      userSecretLength: snaptradeRecord.userSecret?.length
     });
     
     try {
       const loginPayload = {
-        userId: user.snaptradeUserId!,
-        userSecret: user.snaptradeUserSecret!,
+        userId: snaptradeRecord.userId,
+        userSecret: snaptradeRecord.userSecret,
       };
       
       const { data: portal } = await snaptrade.authentication.loginSnapTradeUser(loginPayload);
@@ -369,11 +402,11 @@ router.post("/register", isAuthenticated, async (req: any, res, next) => {
       
       return res.json({ url: (portal as any).redirectURI });
     } catch (loginErr: any) {
-      console.error('SnapTrade Error:', {
+      console.error('SnapTrade Login Error:', {
         path: req.originalUrl,
         payload: {
-          userId: user.snaptradeUserId,
-          userSecretLength: user.snaptradeUserSecret?.length
+          userId: snaptradeRecord.userId,
+          userSecretLength: snaptradeRecord.userSecret?.length
         },
         responseData: loginErr.response?.data,
         responseHeaders: loginErr.response?.headers,
