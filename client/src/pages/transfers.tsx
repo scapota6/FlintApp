@@ -158,7 +158,7 @@ export default function Transfers() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {quickTransferOptions.map((option) => {
+                {quickTransferOptions.map((option: any) => {
                   const Icon = getAccountIcon(option.type);
                   return (
                     <div

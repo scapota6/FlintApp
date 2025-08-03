@@ -220,10 +220,10 @@ export default function Activity() {
         </div>
 
         {/* Comprehensive Transaction History */}
-        <TransactionHistory 
+        {/* <TransactionHistory 
           transactions={activitiesList} 
           isLoading={isLoading} 
-        />
+        /> */}
 
         {/* System Activity List */}
         <Card className="trade-card shadow-lg">

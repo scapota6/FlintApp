@@ -32,12 +32,12 @@ const getSnapTradeClient = () => {
 // Get holdings for all connected accounts
 router.get('/holdings', requireAuth, async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = (req.user as any)?.id;
     if (!userId) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    console.log(`Fetching holdings for user: ${req.user?.email}`);
+    console.log(`Fetching holdings for user: ${(req.user as any)?.email}`);
     
     const snaptrade = getSnapTradeClient();
     
@@ -98,10 +98,10 @@ router.get('/holdings', requireAuth, async (req, res) => {
           accountId: account.id,
         });
 
-        const positions = positionsResponse.data?.positions || [];
+        const positions = positionsResponse.data || [];
         
         // Get real-time quotes for all positions
-        const symbols = positions.map(p => p.symbol?.symbol).filter(Boolean);
+        const symbols = positions.map((p: any) => p.symbol?.symbol).filter(Boolean);
         const quotesMap = new Map();
         
         if (symbols.length > 0) {
@@ -111,7 +111,7 @@ router.get('/holdings', requireAuth, async (req, res) => {
             // const quotesData = await quotesResponse.json();
             
             // Mock quotes - in production would use real market data
-            symbols.forEach(symbol => {
+            symbols.forEach((symbol: string) => {
               quotesMap.set(symbol, Math.random() * 100 + 50); // Random price between 50-150
             });
           } catch (error) {
@@ -120,7 +120,7 @@ router.get('/holdings', requireAuth, async (req, res) => {
         }
 
         // Transform positions with real-time data
-        return positions.map(position => {
+        return positions.map((position: any) => {
           const symbol = position.symbol?.symbol || '';
           const quantity = position.quantity || 0;
           const averageCost = position.price || 0;
@@ -159,8 +159,8 @@ router.get('/holdings', requireAuth, async (req, res) => {
     console.log(`Found ${flattenedHoldings.length} total holdings across all accounts`);
 
     // Calculate portfolio summary
-    const totalValue = flattenedHoldings.reduce((sum, h) => sum + h.currentValue, 0);
-    const totalCost = flattenedHoldings.reduce((sum, h) => sum + h.totalCost, 0);
+    const totalValue = flattenedHoldings.reduce((sum: number, h: any) => sum + h.currentValue, 0);
+    const totalCost = flattenedHoldings.reduce((sum: number, h: any) => sum + h.totalCost, 0);
     const totalProfitLoss = totalValue - totalCost;
     const totalProfitLossPercent = totalCost > 0 ? (totalProfitLoss / totalCost) * 100 : 0;
 
@@ -200,14 +200,14 @@ router.get('/holdings', requireAuth, async (req, res) => {
 // Get holdings for a specific account
 router.get('/holdings/:accountId', requireAuth, async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = (req.user as any)?.id;
     const { accountId } = req.params;
     
     if (!userId) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    const snaptrade = await getSnapTradeClient();
+    const snaptrade = getSnapTradeClient();
     
     // Get user's SnapTrade credentials from new table
     const snaptradeRecord = await db.select().from(snaptradeUsers).where(eq(snaptradeUsers.flintUserId, userId)).limit(1);
