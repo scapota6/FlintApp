@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import snaptradeRouter from "./routes/snaptrade";
@@ -7,6 +8,7 @@ import watchlistRouter from "./routes/watchlist";
 import quotesRouter from "./routes/quotes";
 
 const app = express();
+app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

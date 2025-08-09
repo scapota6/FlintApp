@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import TradeModal from "@/components/modals/trade-modal";
+import { lazy, Suspense } from "react";
+const TradeModal = lazy(() => import("@/components/modals/trade-modal"));
 import { FinancialAPI } from "@/lib/financial-api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -375,6 +376,9 @@ export default function Trading() {
           setPresetAction(null);
         }}
       />
+      
+      {/* Suspense fallback for modal lazy-load */}
+      <Suspense fallback={null} />
     </PageTransition>
   );
 }

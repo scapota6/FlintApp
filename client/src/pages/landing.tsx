@@ -1,6 +1,9 @@
-import { motion } from "framer-motion";
-import { PageTransition, FadeTransition, SlideUpTransition, ScaleTransition } from "@/components/auth/page-transition";
-import { SparkleTitle } from "@/components/auth/sparkle-animation";
+import { lazy, Suspense } from "react";
+const PageTransition = lazy(() => import("@/components/auth/page-transition").then(m => ({ default: m.PageTransition })));
+const FadeTransition = lazy(() => import("@/components/auth/page-transition").then(m => ({ default: m.FadeTransition })));
+const SlideUpTransition = lazy(() => import("@/components/auth/page-transition").then(m => ({ default: m.SlideUpTransition })));
+const ScaleTransition = lazy(() => import("@/components/auth/page-transition").then(m => ({ default: m.ScaleTransition })));
+const SparkleTitle = lazy(() => import("@/components/auth/sparkle-animation").then(m => ({ default: m.SparkleTitle })));
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
@@ -43,7 +46,8 @@ export default function Landing() {
   };
 
   return (
-    <PageTransition className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white overflow-hidden">
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white" />}> 
+      <PageTransition className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white overflow-hidden">
       {/* Hero Section */}
       <div className="relative">
         {/* Background Effects */}
@@ -52,11 +56,13 @@ export default function Landing() {
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
           <div className="text-center">
-            <FadeTransition>
-              <SparkleTitle>
-                Welcome to Flint
-              </SparkleTitle>
-            </FadeTransition>
+            <Suspense fallback={<h1 className="text-4xl font-bold">Welcome to Flint</h1>}>
+              <FadeTransition>
+                <SparkleTitle>
+                  Welcome to Flint
+                </SparkleTitle>
+              </FadeTransition>
+            </Suspense>
             
             <SlideUpTransition delay={0.2}>
               <p className="mt-6 text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
@@ -104,14 +110,7 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {features.map((feature, index) => (
               <SlideUpTransition key={feature.title} delay={0.8 + index * 0.1}>
-                <motion.div
-                  whileHover={{ 
-                    scale: 1.05,
-                    y: -5
-                  }}
-                  transition={{ duration: 0.2 }}
-                  className="h-full"
-                >
+                <div className="h-full transform transition-transform duration-200 hover:scale-[1.05] hover:-translate-y-1">
                   <Card className="flint-card h-full border border-gray-800 hover:border-purple-500/50 transition-all duration-300">
                     <CardContent className="p-6 text-center h-full flex flex-col">
                       <div className="w-12 h-12 bg-purple-600/20 rounded-lg flex items-center justify-center mb-4 mx-auto">
@@ -125,7 +124,7 @@ export default function Landing() {
                       </p>
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
               </SlideUpTransition>
             ))}
           </div>
@@ -174,6 +173,7 @@ export default function Landing() {
           </SlideUpTransition>
         </div>
       </div>
-    </PageTransition>
+      </PageTransition>
+    </Suspense>
   );
 }
