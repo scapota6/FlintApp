@@ -50,6 +50,30 @@ return function (App $app) {
         $group->get('/quotes/{symbol}', [TradingController::class, 'getQuote']);
         $group->get('/search', [TradingController::class, 'searchSymbols']);
         
+        // Authentication endpoints
+        $group->post('/auth/login', [AuthController::class, 'login']);
+        $group->post('/auth/register', [AuthController::class, 'register']);
+        $group->post('/auth/refresh', [AuthController::class, 'refresh']);
+        $group->post('/auth/demo', [AuthController::class, 'createDemoUser']);
+        
+        // Protected routes (require authentication)
+        $group->group('', function (RouteCollectorProxy $protectedGroup) {
+            $protectedGroup->get('/auth/me', [AuthController::class, 'me']);
+            $protectedGroup->post('/auth/logout', [AuthController::class, 'logout']);
+            
+            // Dashboard routes
+            $protectedGroup->get('/dashboard', [DashboardController::class, 'getDashboard']);
+            $protectedGroup->get('/dashboard/summary', [DashboardController::class, 'getAccountSummary']);
+            $protectedGroup->get('/dashboard/performance', [DashboardController::class, 'getPortfolioPerformance']);
+            
+            // Trading routes
+            $protectedGroup->get('/holdings', [TradingController::class, 'getHoldings']);
+            $protectedGroup->get('/positions', [TradingController::class, 'getPositions']);
+            $protectedGroup->get('/trades', [TradingController::class, 'getTrades']);
+            $protectedGroup->post('/trades', [TradingController::class, 'placeTrade']);
+            
+        })->add(new \App\Http\Middleware\AuthMiddleware($container->get(\App\Services\AuthService::class)));
+
         // Demo endpoints with sample data
         $group->get('/demo/dashboard', function (Request $request, Response $response) {
             $demoData = [
