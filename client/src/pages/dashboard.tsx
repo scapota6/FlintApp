@@ -1,18 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import UnifiedDashboard from "@/components/dashboard/unified-dashboard";
-import SimpleConnectButtons from "@/components/dashboard/simple-connect-buttons";
-import AccountDetailModal from "@/components/dashboard/account-detail-modal";
-import AccountCard from "@/components/dashboard/account-card";
+import { useEffect, useState, lazy, Suspense } from "react";
+const UnifiedDashboard = lazy(() => import("@/components/dashboard/unified-dashboard"));
+const SimpleConnectButtons = lazy(() => import("@/components/dashboard/simple-connect-buttons"));
+const AccountDetailModal = lazy(() => import("@/components/dashboard/account-detail-modal"));
+const AccountCard = lazy(() => import("@/components/dashboard/account-card"));
 import SnapTradeConnectionAlert from "@/components/dashboard/snaptrade-connection-alert";
 import { FinancialAPI } from "@/lib/financial-api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import SimpleWatchlist from '@/components/watchlist/simple-watchlist';
-import RealTimeHoldings from '@/components/portfolio/real-time-holdings';
-import HoldingsBreakdown from '@/components/portfolio/holdings-breakdown';
+const SimpleWatchlist = lazy(() => import('@/components/watchlist/simple-watchlist'));
+const RealTimeHoldings = lazy(() => import('@/components/portfolio/real-time-holdings'));
+const HoldingsBreakdown = lazy(() => import('@/components/portfolio/holdings-breakdown'));
 // import TransactionHistory from '@/components/activity/transaction-history';
 import AssetSearch from '@/components/search/asset-search';
 
@@ -119,11 +119,15 @@ export default function Dashboard() {
         </div>
 
         {/* Unified Dashboard - Real API Data Only */}
-        <UnifiedDashboard />
+        <Suspense fallback={<div className="h-64 bg-gray-800 rounded-xl animate-pulse" />}> 
+          <UnifiedDashboard />
+        </Suspense>
 
         {/* Holdings Breakdown Section */}
         <div className="mt-12">
-          <HoldingsBreakdown />
+          <Suspense fallback={<div className="h-48 bg-gray-800 rounded-xl animate-pulse" />}> 
+            <HoldingsBreakdown />
+          </Suspense>
         </div>
 
         {/* Transaction History Section */}
@@ -135,26 +139,34 @@ export default function Dashboard() {
         <div className="mt-12">
           <h3 className="text-xl font-semibold mb-6">Real-Time Market Data</h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SimpleWatchlist />
-            <RealTimeHoldings showAccountProvider={true} />
+            <Suspense fallback={<div className="h-64 bg-gray-800 rounded-xl animate-pulse" />}> 
+              <SimpleWatchlist />
+            </Suspense>
+            <Suspense fallback={<div className="h-64 bg-gray-800 rounded-xl animate-pulse" />}> 
+              <RealTimeHoldings showAccountProvider={true} />
+            </Suspense>
           </div>
         </div>
 
         {/* Connection Options */}
         <div className="mt-12">
-          <SimpleConnectButtons 
-            accounts={dashboardData?.accounts || []} 
-            userTier="basic"
-          />
+          <Suspense fallback={<div className="h-24 bg-gray-800 rounded-xl animate-pulse" />}> 
+            <SimpleConnectButtons 
+              accounts={dashboardData?.accounts || []} 
+              userTier="basic"
+            />
+          </Suspense>
         </div>
       </main>
 
       {/* Account Detail Modal */}
-      <AccountDetailModal
-        isOpen={isAccountModalOpen}
-        onClose={() => setIsAccountModalOpen(false)}
-        account={selectedAccount}
-      />
+      <Suspense>
+        <AccountDetailModal
+          isOpen={isAccountModalOpen}
+          onClose={() => setIsAccountModalOpen(false)}
+          account={selectedAccount}
+        />
+      </Suspense>
     </div>
   );
 }
