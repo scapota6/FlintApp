@@ -7,6 +7,7 @@ import { Snaptrade } from "snaptrade-typescript-sdk";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { rateLimits } from "./middleware/rateLimiter";
+import { cacheConfigs } from "./middleware/cache";
 import { WalletService } from "./services/WalletService";
 import { TradingAggregator } from "./services/TradingAggregator";
 import { marketDataService } from "./services/market-data";
@@ -72,7 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard data (with data rate limiting) - Enhanced with real API integration
-  app.get('/api/dashboard', rateLimits.data, isAuthenticated, async (req: any, res) => {
+  app.get('/api/dashboard', rateLimits.data, cacheConfigs.userData, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const userEmail = req.user.claims.email;
@@ -228,7 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Account connection management
-  app.get('/api/connected-accounts', isAuthenticated, async (req: any, res) => {
+  app.get('/api/connected-accounts', cacheConfigs.userData, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const accounts = await storage.getConnectedAccounts(userId);
@@ -240,7 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Watchlist management
-  app.get('/api/watchlist', isAuthenticated, async (req: any, res) => {
+  app.get('/api/watchlist', cacheConfigs.userData, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const watchlist = await storage.getWatchlist(userId);
@@ -562,7 +563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Holdings endpoint for SnapTrade positions
-  app.get('/api/holdings', rateLimits.data, isAuthenticated, async (req: any, res) => {
+  app.get('/api/holdings', rateLimits.data, cacheConfigs.userData, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -1232,7 +1233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Live stock quotes endpoint
-  app.get('/api/quotes/:symbol', rateLimits.data, async (req, res) => {
+  app.get('/api/quotes/:symbol', rateLimits.data, cacheConfigs.marketData, async (req, res) => {
     try {
       const { symbol } = req.params;
       

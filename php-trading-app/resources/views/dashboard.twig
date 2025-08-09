@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Dashboard - {{ user.name ?? user.email }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-gray-800 border-b border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold">TradingApp</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/trading" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Trading</a>
+                    <a href="/portfolio" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Portfolio</a>
+                    <a href="/watchlist" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Watchlist</a>
+                    <a href="/activity" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Activity</a>
+                    <div class="text-gray-300 text-sm">{{ user.email }}</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Total Balance -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div class="flex items-center">
+                    <div class="p-2 bg-blue-500 rounded-lg">
+                        <i class="fas fa-wallet text-white text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-400 text-sm">Total Balance</p>
+                        <p class="text-2xl font-bold">${{ summary.totalBalance|number_format(2) }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bank Balance -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div class="flex items-center">
+                    <div class="p-2 bg-green-500 rounded-lg">
+                        <i class="fas fa-university text-white text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-400 text-sm">Bank Balance</p>
+                        <p class="text-2xl font-bold">${{ summary.bankBalance|number_format(2) }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Investment Value -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div class="flex items-center">
+                    <div class="p-2 bg-purple-500 rounded-lg">
+                        <i class="fas fa-chart-line text-white text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-400 text-sm">Investments</p>
+                        <p class="text-2xl font-bold">${{ summary.investmentValue|number_format(2) }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Crypto Value -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div class="flex items-center">
+                    <div class="p-2 bg-orange-500 rounded-lg">
+                        <i class="fab fa-bitcoin text-white text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-400 text-sm">Crypto</p>
+                        <p class="text-2xl font-bold">${{ summary.cryptoValue|number_format(2) }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Dashboard Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Portfolio Performance Chart -->
+            <div class="lg:col-span-2">
+                <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                    <h3 class="text-lg font-semibold mb-4">Portfolio Performance</h3>
+                    <canvas id="portfolioChart" height="300"></canvas>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="space-y-6">
+                <!-- Quick Trade -->
+                <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                    <h3 class="text-lg font-semibold mb-4">Quick Trade</h3>
+                    <form id="quickTradeForm" class="space-y-4">
+                        <div>
+                            <input type="text" id="symbol" placeholder="Symbol (e.g., AAPL)" 
+                                   class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="number" id="quantity" placeholder="Quantity" 
+                                   class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <select id="action" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="BUY">Buy</option>
+                                <option value="SELL">Sell</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200">
+                            Place Order
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Market Summary -->
+                <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                    <h3 class="text-lg font-semibold mb-4">Market Summary</h3>
+                    {% if marketSummary %}
+                        <div class="space-y-3">
+                            {% for index in marketSummary %}
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-300">{{ index.name }}</span>
+                                <div class="text-right">
+                                    <div class="font-semibold">{{ index.value }}</div>
+                                    <div class="text-sm {{ index.change >= 0 ? 'text-green-400' : 'text-red-400' }}">
+                                        {{ index.change >= 0 ? '+' : '' }}{{ index.change }}%
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-gray-400">Market data unavailable</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Connected Accounts & Watchlist -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+            <!-- Connected Accounts -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h3 class="text-lg font-semibold mb-4">Connected Accounts</h3>
+                {% if accounts %}
+                    <div class="space-y-4">
+                        {% for account in accounts %}
+                        <div class="flex items-center justify-between p-4 bg-gray-700 rounded-md">
+                            <div>
+                                <h4 class="font-medium">{{ account.institution ?? account.name }}</h4>
+                                <p class="text-sm text-gray-400">{{ account.type|title }} Account</p>
+                            </div>
+                            <div class="text-right">
+                                {% if account.balance %}
+                                    <div class="font-semibold">${{ account.balance|number_format(2) }}</div>
+                                {% elseif account.value %}
+                                    <div class="font-semibold">${{ account.value|number_format(2) }}</div>
+                                {% endif %}
+                                <div class="text-sm text-gray-400">
+                                    <i class="fas fa-circle text-green-400 mr-1"></i>Connected
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-8">
+                        <i class="fas fa-link text-4xl text-gray-600 mb-4"></i>
+                        <p class="text-gray-400 mb-4">No accounts connected</p>
+                        <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200">
+                            Connect Account
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Watchlist -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h3 class="text-lg font-semibold mb-4">Watchlist</h3>
+                {% if watchlist %}
+                    <div class="space-y-3">
+                        {% for item in watchlist %}
+                        <div class="flex items-center justify-between p-3 bg-gray-700 rounded-md hover:bg-gray-600 cursor-pointer">
+                            <div>
+                                <h4 class="font-medium">{{ item.symbol }}</h4>
+                                <p class="text-sm text-gray-400">{{ item.name }}</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-semibold">${{ item.price|number_format(2) }}</div>
+                                <div class="text-sm {{ item.change >= 0 ? 'text-green-400' : 'text-red-400' }}">
+                                    {{ item.change >= 0 ? '+' : '' }}{{ item.changePercent|number_format(2) }}%
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-8">
+                        <i class="fas fa-eye text-4xl text-gray-600 mb-4"></i>
+                        <p class="text-gray-400 mb-4">Your watchlist is empty</p>
+                        <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200">
+                            Add Symbols
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        {% if recentTransactions %}
+        <div class="mt-8">
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h3 class="text-lg font-semibold mb-4">Recent Transactions</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-gray-700">
+                                <th class="text-left py-2">Date</th>
+                                <th class="text-left py-2">Symbol</th>
+                                <th class="text-left py-2">Action</th>
+                                <th class="text-right py-2">Quantity</th>
+                                <th class="text-right py-2">Price</th>
+                                <th class="text-right py-2">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in recentTransactions %}
+                            <tr class="border-b border-gray-700 hover:bg-gray-700">
+                                <td class="py-3">{{ transaction.date|date('M d, Y') }}</td>
+                                <td class="py-3 font-medium">{{ transaction.symbol }}</td>
+                                <td class="py-3">
+                                    <span class="px-2 py-1 text-xs rounded {{ transaction.action == 'BUY' ? 'bg-green-600' : 'bg-red-600' }}">
+                                        {{ transaction.action }}
+                                    </span>
+                                </td>
+                                <td class="py-3 text-right">{{ transaction.quantity }}</td>
+                                <td class="py-3 text-right">${{ transaction.price|number_format(2) }}</td>
+                                <td class="py-3 text-right font-medium">${{ (transaction.quantity * transaction.price)|number_format(2) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- JavaScript for interactivity -->
+    <script>
+        // Portfolio chart
+        const ctx = document.getElementById('portfolioChart').getContext('2d');
+        const portfolioChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Portfolio Value',
+                    data: [{{ summary.totalBalance * 0.8 }}, {{ summary.totalBalance * 0.85 }}, {{ summary.totalBalance * 0.9 }}, {{ summary.totalBalance * 0.95 }}, {{ summary.totalBalance * 0.98 }}, {{ summary.totalBalance }}],
+                    borderColor: '#3B82F6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#D1D5DB'
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#9CA3AF'
+                        },
+                        grid: {
+                            color: '#374151'
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            color: '#9CA3AF',
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        },
+                        grid: {
+                            color: '#374151'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Quick trade form
+        document.getElementById('quickTradeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const symbol = document.getElementById('symbol').value;
+            const quantity = document.getElementById('quantity').value;
+            const action = document.getElementById('action').value;
+            
+            if (!symbol || !quantity) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            // Redirect to trading page with pre-filled data
+            window.location.href = `/trading?symbol=${symbol}&quantity=${quantity}&action=${action}`;
+        });
+
+        // Auto-refresh dashboard data every 30 seconds
+        setInterval(function() {
+            // In a real app, this would make an AJAX call to refresh data
+            console.log('Auto-refreshing dashboard data...');
+        }, 30000);
+    </script>
+</body>
+</html>

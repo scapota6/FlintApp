@@ -5,10 +5,32 @@ import snaptradeRouter from "./routes/snaptrade";
 import ordersRouter from "./routes/orders";
 import watchlistRouter from "./routes/watchlist";
 import quotesRouter from "./routes/quotes";
+import { compression } from "./middleware/compression";
+import { cacheConfigs } from "./middleware/cache";
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+
+// Add compression middleware early in the stack
+app.use(compression);
+
+// Performance headers
+app.use((req, res, next) => {
+  // Security and performance headers
+  res.setHeader('X-DNS-Prefetch-Control', 'on');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'origin-when-cross-origin');
+  
+  // Cache control for static assets
+  if (req.path.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$/)) {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+  
+  next();
+});
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 app.use((req, res, next) => {
   const start = Date.now();
