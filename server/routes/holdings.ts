@@ -32,12 +32,15 @@ const getSnapTradeClient = () => {
 // Get holdings for all connected accounts
 router.get('/holdings', requireAuth, async (req, res) => {
   try {
-    const userId = (req.user as any)?.id;
+    // Get user ID from claims (Replit Auth)
+    const userId = (req.user as any)?.claims?.sub;
+    const userEmail = (req.user as any)?.claims?.email;
+    
     if (!userId) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    console.log(`Fetching holdings for user: ${(req.user as any)?.email}`);
+    console.log(`Fetching holdings for user: ${userEmail}`);
     
     const snaptrade = getSnapTradeClient();
     

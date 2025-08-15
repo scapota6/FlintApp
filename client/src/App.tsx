@@ -27,6 +27,7 @@ import Connections from "@/pages/connections";
 import Portfolio from "@/pages/Portfolio";
 import Settings from "@/pages/Settings";
 import Security from "@/pages/Security";
+import Monitoring from "@/pages/Monitoring";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -67,6 +68,7 @@ function Router() {
               <Route path="/connections" component={Connections} />
               <Route path="/settings" component={Settings} />
               <Route path="/security" component={Security} />
+              <Route path="/monitoring" component={Monitoring} />
             </>
           )}
           <Route component={NotFound} />

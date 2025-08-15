@@ -1505,6 +1505,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { registerSecurityRoutes } = await import('./routes/security');
   registerSecurityRoutes(app);
   
+  // Register health routes
+  const { registerHealthRoutes } = await import('./routes/health');
+  registerHealthRoutes(app);
+  
+  // Register demo routes
+  const { registerDemoRoutes } = await import('./routes/demo');
+  registerDemoRoutes(app);
+  
   const tradingRouter = await import('./routes/trading');
   app.use('/api/trade', tradingRouter.default);
 

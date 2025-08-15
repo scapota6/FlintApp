@@ -21,6 +21,11 @@ class AlertMonitorService {
     
     console.log('Starting alert monitoring service...');
     
+    // Set global status for health monitoring
+    global.alertMonitorRunning = true;
+    global.alertMonitorProcessedCount = 0;
+    global.alertMonitorErrorCount = 0;
+    
     // Run immediately on start
     this.checkAlerts();
     
