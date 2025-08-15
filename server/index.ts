@@ -1,10 +1,15 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { initSentry, sentryErrorHandler } from "./lib/sentry";
+import { logger } from "@shared/logger";
 import snaptradeRouter from "./routes/snaptrade";
 import ordersRouter from "./routes/orders";
 import watchlistRouter from "./routes/watchlist";
 import quotesRouter from "./routes/quotes";
+
+// Initialize Sentry for error tracking
+initSentry();
 
 const app = express();
 app.use(express.json());

@@ -10,6 +10,9 @@ import { rateLimits } from "./middleware/rateLimiter";
 import { WalletService } from "./services/WalletService";
 import { TradingAggregator } from "./services/TradingAggregator";
 import { marketDataService } from "./services/market-data";
+import { getServerFeatureFlags } from "@shared/feature-flags";
+import { logger } from "@shared/logger";
+import { demoMode } from "@shared/demo-mode";
 import { 
   insertConnectedAccountSchema,
   insertWatchlistItemSchema,
@@ -59,14 +62,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
+  // Feature flags endpoint (public, no auth required for demo mode)
+  app.get('/api/feature-flags', (req, res) => {
+    const flags = getServerFeatureFlags();
+    logger.info('Feature flags requested', { flags });
+    res.json(flags);
+  });
+
   // Auth routes (with rate limiting)
   app.get('/api/auth/user', rateLimits.auth, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
+      
+      // Enable demo mode if feature flag is set
+      if (getServerFeatureFlags().FF_DEMO_MODE && !user) {
+        const demoUser = {
+          id: 'demo-user',
+          email: 'demo@flint.finance',
+          firstName: 'Demo',
+          lastName: 'User',
+          profileImageUrl: null,
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
+          subscriptionTier: 'premium',
+          subscriptionStatus: 'active',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        logger.info('Demo mode: returning demo user');
+        return res.json(demoUser);
+      }
+      
       res.json(user);
     } catch (error) {
-      console.error("Error fetching user:", error);
+      logger.error("Error fetching user", { error });
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
