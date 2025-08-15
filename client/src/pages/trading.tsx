@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Search, TrendingUp, TrendingDown, Eye, Plus } from "lucide-react";
 import { Link } from "wouter";
+import { ComplianceDisclaimer } from "@/components/compliance/ComplianceDisclaimer";
 
 export default function Trading() {
   const { user } = useAuth();
@@ -165,6 +166,11 @@ export default function Trading() {
             <span className="sparkle-title">Trading</span>
           </h1>
           <p className="text-gray-400">Execute trades and monitor your positions</p>
+        </div>
+
+        {/* Trading Compliance Disclaimer */}
+        <div className="mb-6">
+          <ComplianceDisclaimer type="trading" compact showOnce />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

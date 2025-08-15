@@ -4,7 +4,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ThemeProvider } from "@/hooks/useTheme";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import GlobalNavbar from "@/components/layout/global-navbar";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
@@ -25,6 +25,8 @@ import BrokerageDetail from "@/pages/BrokerageDetail";
 import BankDetail from "@/pages/BankDetail";
 import Connections from "@/pages/connections";
 import Portfolio from "@/pages/Portfolio";
+import Settings from "@/pages/Settings";
+import Security from "@/pages/Security";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -63,6 +65,8 @@ function Router() {
               <Route path="/accounts/brokerage/:id" component={BrokerageDetail} />
               <Route path="/accounts/bank/:id" component={BankDetail} />
               <Route path="/connections" component={Connections} />
+              <Route path="/settings" component={Settings} />
+              <Route path="/security" component={Security} />
             </>
           )}
           <Route component={NotFound} />

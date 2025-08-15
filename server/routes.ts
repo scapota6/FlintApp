@@ -1497,6 +1497,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const watchlistRouter = await import('./routes/watchlist');
   app.use(watchlistRouter.default);
   
+  // Register settings routes
+  const { registerSettingsRoutes } = await import('./routes/settings');
+  registerSettingsRoutes(app);
+  
+  // Register security routes
+  const { registerSecurityRoutes } = await import('./routes/security');
+  registerSecurityRoutes(app);
+  
   const tradingRouter = await import('./routes/trading');
   app.use('/api/trade', tradingRouter.default);
 

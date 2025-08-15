@@ -29,10 +29,12 @@ Preferred communication style: Simple, everyday language.
 - **Alert Monitoring System**: Background service that checks price alerts every minute, with debouncing (5-minute cooldown), quiet hours support, and email/push notification capabilities.
 - **Financial Data Management**: Supports multi-account connections, real-time balance tracking, portfolio management, trade execution simulation, transfer management, and watchlist functionality.
 - **Subscription System**: Implements a three-tier model (Basic, Pro, Premium) with Stripe integration for payment processing and feature gating.
-- **Security Framework**: AES-256-GCM encryption for sensitive credentials, multi-tier rate limiting with brute-force protection (auth, trading, data, external APIs), comprehensive activity logging with sensitive data hashing, secure PostgreSQL-backed sessions with httpOnly/SameSite cookies, CSRF protection on state-changing routes, and proper session revocation on logout.
+- **Security Framework**: AES-256-GCM encryption for sensitive credentials, multi-tier rate limiting with brute-force protection (auth, trading, data, external APIs), comprehensive activity logging with sensitive data hashing, secure PostgreSQL-backed sessions with httpOnly/SameSite cookies, CSRF protection on state-changing routes, proper session revocation on logout, RBAC middleware with role-based permissions, encrypted token storage at rest, automatic secret rotation capabilities, and SOC 2 compliant infrastructure.
 - **Wallet Service Architecture**: Provides internal fund management with pre-authorization and hold/release capabilities, integrated ACH transfers via Teller.
 - **Trading Aggregation Engine**: Intelligent trade routing based on multiple factors, real-time position consolidation across brokerages, and pre-trade validation for risk management.
 - **Modular Architecture**: Clean separation of concerns with dedicated service layers for encryption, wallet management, and trading aggregation, ensuring a scalable and maintainable design.
+- **Compliance Framework**: Comprehensive legal disclaimers system clearly stating Flint is not a financial advisor, custodian, or broker-dealer. Interactive disclaimer components with user acknowledgment tracking, role-based access control (RBAC) groundwork for future multi-role support, and security dashboard for monitoring encryption status and audit logs.
+- **Settings Management**: Complete settings page with profile management, notification preferences (email/push with quiet hours), connected accounts management with revoke functionality, data export to CSV (holdings and transactions), and account deletion with full data removal.
 
 ## External Dependencies
 
