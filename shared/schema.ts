@@ -167,6 +167,57 @@ export const marketData = pgTable("market_data", {
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
+// Price alerts table
+export const priceAlerts = pgTable("price_alerts", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  symbol: varchar("symbol", { length: 10 }).notNull(),
+  abovePrice: decimal("above_price", { precision: 10, scale: 2 }),
+  belowPrice: decimal("below_price", { precision: 10, scale: 2 }),
+  active: boolean("active").default(true).notNull(),
+  lastTriggered: timestamp("last_triggered"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("alerts_user_idx").on(table.userId),
+  index("alerts_symbol_idx").on(table.symbol),
+  index("alerts_active_idx").on(table.active),
+]);
+
+// Alert history for debouncing
+export const alertHistory = pgTable("alert_history", {
+  id: serial("id").primaryKey(),
+  alertId: integer("alert_id").notNull().references(() => priceAlerts.id, { onDelete: 'cascade' }),
+  triggeredAt: timestamp("triggered_at").defaultNow().notNull(),
+  triggerPrice: decimal("trigger_price", { precision: 10, scale: 2 }).notNull(),
+  triggerType: varchar("trigger_type", { length: 10 }).notNull(), // 'above' or 'below'
+  notificationSent: boolean("notification_sent").default(false).notNull(),
+}, (table) => [
+  index("history_alert_idx").on(table.alertId),
+  index("history_triggered_idx").on(table.triggeredAt),
+]);
+
+// User notification preferences
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
+  emailAlerts: boolean("email_alerts").default(true).notNull(),
+  pushAlerts: boolean("push_alerts").default(true).notNull(),
+  quietHoursStart: integer("quiet_hours_start"), // Hour in 24h format (0-23)
+  quietHoursEnd: integer("quiet_hours_end"), // Hour in 24h format (0-23)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type Watchlist = typeof watchlist.$inferSelect;
+export type InsertWatchlist = typeof watchlist.$inferInsert;
+export type PriceAlert = typeof priceAlerts.$inferSelect;
+export type InsertPriceAlert = typeof priceAlerts.$inferInsert;
+export type AlertHistory = typeof alertHistory.$inferSelect;
+export type InsertAlertHistory = typeof alertHistory.$inferInsert;
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
+export type InsertNotificationPreferences = typeof notificationPreferences.$inferInsert;
+
 export type InsertConnectedAccount = typeof connectedAccounts.$inferInsert;
 export type ConnectedAccount = typeof connectedAccounts.$inferSelect;
 

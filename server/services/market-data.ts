@@ -33,6 +33,18 @@ class MarketDataService {
     this.alphaVantageKey = process.env.ALPHA_VANTAGE_API_KEY || '';
   }
 
+  async getQuote(symbol: string): Promise<{ price: number; change: number; changePercent: number; volume: number } | null> {
+    const data = await this.getMarketData(symbol);
+    if (!data) return null;
+    
+    return {
+      price: data.price,
+      change: data.price * (data.changePct / 100),
+      changePercent: data.changePct,
+      volume: data.volume
+    };
+  }
+
   async getMarketData(symbol: string, userId?: string, userSecret?: string): Promise<MarketData | null> {
     const cacheKey = symbol.toUpperCase();
     const now = Date.now();

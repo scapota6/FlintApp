@@ -10,6 +10,7 @@ import { rateLimits } from "./middleware/rateLimiter";
 import { WalletService } from "./services/WalletService";
 import { TradingAggregator } from "./services/TradingAggregator";
 import { marketDataService } from "./services/market-data";
+import { alertMonitor } from "./services/alert-monitor";
 import { getServerFeatureFlags } from "@shared/feature-flags";
 import { logger } from "@shared/logger";
 import { demoMode } from "@shared/demo-mode";
@@ -61,6 +62,9 @@ if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET) {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+  
+  // Start alert monitoring service
+  alertMonitor.start();
 
   // Feature flags endpoint (public, no auth required for demo mode)
   app.get('/api/feature-flags', (req, res) => {
@@ -1489,6 +1493,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   const marketRouter = await import('./routes/market');
   app.use('/api/market', marketRouter.default);
+  
+  const watchlistRouter = await import('./routes/watchlist');
+  app.use(watchlistRouter.default);
   
   const tradingRouter = await import('./routes/trading');
   app.use('/api/trade', tradingRouter.default);

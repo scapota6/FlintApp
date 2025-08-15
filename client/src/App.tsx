@@ -12,7 +12,7 @@ import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Trading from "@/pages/trading";
 import Transfers from "@/pages/transfers";
-import WatchlistPage from "@/pages/watchlist";
+import WatchlistPage from "@/pages/Watchlist";
 import Activity from "@/pages/activity";
 import Subscribe from "@/pages/subscribe";
 import Admin from "@/pages/admin";
