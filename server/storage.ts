@@ -1,5 +1,6 @@
 import {
   users,
+  snaptradeUsers,
   connectedAccounts,
   holdings,
   watchlist,
@@ -117,21 +118,17 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // SnapTrade user management
+  // SnapTrade user management - using separate snaptradeUsers table
   async getSnapTradeUser(userId: string): Promise<{ snaptradeUserId: string | null, userSecret: string } | undefined> {
-    const [user] = await db
-      .select({ 
-        snaptradeUserId: users.snaptradeUserId,
-        userSecret: users.snaptradeUserSecret 
-      })
-      .from(users)
-      .where(eq(users.id, userId));
+    const [snaptradeUser] = await db
+      .select()
+      .from(snaptradeUsers)
+      .where(eq(snaptradeUsers.flintUserId, userId));
     
-    if (user?.userSecret) {
-      // Return userSecret directly from DB without decryption
+    if (snaptradeUser) {
       return { 
-        snaptradeUserId: user.snaptradeUserId, 
-        userSecret: user.userSecret 
+        snaptradeUserId: snaptradeUser.snaptradeUserId, 
+        userSecret: snaptradeUser.snaptradeUserSecret 
       };
     }
     
@@ -139,26 +136,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSnapTradeUser(userId: string, snaptradeUserId: string, userSecret: string): Promise<void> {
-    // Store userSecret directly in DB without encryption
+    // Store in separate snaptradeUsers table
     await db
-      .update(users)
-      .set({
+      .insert(snaptradeUsers)
+      .values({
+        flintUserId: userId,
         snaptradeUserId: snaptradeUserId,
-        snaptradeUserSecret: userSecret, // Store userSecret directly
-        updatedAt: new Date(),
+        snaptradeUserSecret: userSecret,
+        connectedAt: new Date(),
       })
-      .where(eq(users.id, userId));
+      .onConflictDoUpdate({
+        target: snaptradeUsers.flintUserId,
+        set: {
+          snaptradeUserId: snaptradeUserId,
+          snaptradeUserSecret: userSecret,
+          lastSyncAt: new Date(),
+        }
+      });
   }
 
   async deleteSnapTradeUser(userId: string): Promise<void> {
     await db
-      .update(users)
-      .set({
-        snaptradeUserId: null,
-        snaptradeUserSecret: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, userId));
+      .delete(snaptradeUsers)
+      .where(eq(snaptradeUsers.flintUserId, userId));
   }
 
   // Connected accounts
@@ -357,16 +357,12 @@ export class DatabaseStorage implements IStorage {
 
   async getAllSnapTradeUsers(): Promise<Array<{ userId: string; snaptradeUserId: string; snaptradeUserSecret: string }>> {
     const result = await db.select({
-      userId: users.id,
-      snaptradeUserId: users.snaptradeUserId,
-      snaptradeUserSecret: users.snaptradeUserSecret
-    }).from(users).where(isNotNull(users.snaptradeUserSecret));
+      userId: snaptradeUsers.flintUserId,
+      snaptradeUserId: snaptradeUsers.snaptradeUserId,
+      snaptradeUserSecret: snaptradeUsers.snaptradeUserSecret
+    }).from(snaptradeUsers);
     
-    // Filter out null values at runtime
-    return result.filter(user => 
-      user.snaptradeUserId !== null && 
-      user.snaptradeUserSecret !== null
-    ) as Array<{ userId: string; snaptradeUserId: string; snaptradeUserSecret: string }>;
+    return result;
   }
   
   // Additional methods used by routes.ts  

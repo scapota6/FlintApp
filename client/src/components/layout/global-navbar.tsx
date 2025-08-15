@@ -15,6 +15,7 @@ import ThemeToggle from './theme-toggle';
 
 const navLinks = [
   { href: '/', label: 'Dashboard' },
+  { href: '/accounts', label: 'Accounts' },
   { href: '/trading', label: 'Trading' },
   { href: '/transfers', label: 'Transfers' },
   { href: '/watchlist', label: 'Watchlist' },

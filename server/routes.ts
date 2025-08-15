@@ -1477,6 +1477,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mount connections and accounts routers
+  const connectionsRouter = await import('./routes/connections');
+  app.use('/api/connections', connectionsRouter.default);
+  
+  const accountsRouter = await import('./routes/accounts');
+  app.use('/api', accountsRouter.default);
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -1,0 +1,318 @@
+/**
+ * Connections Hub - Unified endpoint for managing SnapTrade and Teller connections
+ */
+
+import { Router } from "express";
+import { Snaptrade } from "snaptrade-typescript-sdk";
+import { isAuthenticated } from "../replitAuth";
+import { storage } from "../storage";
+import { logger } from "@shared/logger";
+import crypto from "crypto";
+
+const router = Router();
+
+// Initialize SnapTrade SDK
+const snaptradeClient = process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET
+  ? new Snaptrade({
+      clientId: process.env.SNAPTRADE_CLIENT_ID,
+      consumerKey: process.env.SNAPTRADE_CLIENT_SECRET,
+    })
+  : null;
+
+/**
+ * GET /api/connections
+ * Returns all connected accounts for the authenticated user
+ */
+router.get("/", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    
+    // Get all connected accounts from database
+    const accounts = await storage.getConnectedAccounts(userId);
+    
+    // Format response with required fields
+    const connections = accounts.map(account => ({
+      id: account.id,
+      provider: account.provider, // 'snaptrade' or 'teller'
+      type: account.accountType, // 'brokerage', 'bank', or 'card'
+      label: account.accountName,
+      institutionName: account.institutionName,
+      status: account.isActive ? 'connected' : 'disconnected',
+      balance: account.balance,
+      currency: account.currency,
+      lastSynced: account.lastSynced,
+    }));
+    
+    logger.info("Connections retrieved", { 
+      userId, 
+      count: connections.length 
+    });
+    
+    res.json(connections);
+  } catch (error) {
+    logger.error("Error fetching connections", { error });
+    res.status(500).json({ 
+      message: "Failed to fetch connections",
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
+
+/**
+ * POST /api/connections/snaptrade/register
+ * Registers a user with SnapTrade and returns the redirect URL
+ */
+router.post("/snaptrade/register", isAuthenticated, async (req: any, res) => {
+  try {
+    if (!snaptradeClient) {
+      return res.status(503).json({ 
+        message: "SnapTrade integration not configured",
+        error: "SNAPTRADE_NOT_CONFIGURED"
+      });
+    }
+
+    const userId = req.user.claims.sub;
+    const userEmail = req.user.claims.email || `user${userId}@flint.app`;
+    
+    // Check if user already has SnapTrade credentials
+    let snaptradeUser = await storage.getSnapTradeUser(userId);
+    
+    if (!snaptradeUser) {
+      // Generate a unique SnapTrade user ID and secret
+      const snaptradeUserId = `flint_${userId}`;
+      const userSecret = crypto.randomBytes(32).toString('hex');
+      
+      try {
+        // Register user with SnapTrade
+        const { data: registerData } = await snaptradeClient.authentication.registerSnapTradeUser({
+          userId: snaptradeUserId,
+          userSecret: userSecret
+        });
+        
+        // Store credentials in database
+        await storage.createSnapTradeUser(userId, snaptradeUserId, userSecret);
+        
+        snaptradeUser = { snaptradeUserId, userSecret };
+        
+        logger.info("SnapTrade user registered", { 
+          userId, 
+          snaptradeUserId 
+        });
+      } catch (error: any) {
+        // If user already exists, retrieve their secret
+        if (error.response?.status === 409) {
+          logger.info("SnapTrade user already exists, using existing", { userId });
+        } else {
+          throw error;
+        }
+      }
+    }
+    
+    // Generate redirect URL for connection portal
+    const { data: redirectData } = await snaptradeClient.authentication.loginSnapTradeUser({
+      userId: snaptradeUser.snaptradeUserId!,
+      userSecret: snaptradeUser.userSecret,
+      broker: req.body.broker,
+      immediateRedirect: true,
+      customRedirect: `${req.protocol}://${req.hostname}/api/connections/snaptrade/callback`,
+      reconnect: req.body.reconnect,
+      connectionType: req.body.connectionType || "read",
+      connectionPortalVersion: "v3"
+    });
+    
+    res.json({ 
+      redirectUrl: redirectData.redirectURI,
+      message: "Redirect user to SnapTrade connection portal"
+    });
+    
+  } catch (error: any) {
+    logger.error("SnapTrade registration error", { 
+      error: error.response?.data || error.message,
+      userId: req.user.claims.sub
+    });
+    
+    res.status(500).json({ 
+      message: "Failed to register with SnapTrade",
+      error: error.response?.data || error.message
+    });
+  }
+});
+
+/**
+ * GET /api/connections/snaptrade/callback
+ * Handles the OAuth callback from SnapTrade
+ */
+router.get("/snaptrade/callback", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { status, message } = req.query;
+    
+    if (status === 'error') {
+      logger.error("SnapTrade connection failed", { 
+        userId, 
+        message 
+      });
+      return res.redirect(`/?error=${encodeURIComponent(message || 'Connection failed')}`);
+    }
+    
+    // Get user's SnapTrade credentials
+    const snaptradeUser = await storage.getSnapTradeUser(userId);
+    
+    if (!snaptradeUser || !snaptradeClient) {
+      return res.redirect("/?error=SnapTrade+not+configured");
+    }
+    
+    // Fetch connected accounts from SnapTrade
+    const { data: accounts } = await snaptradeClient.accountInformation.listUserAccounts({
+      userId: snaptradeUser.snaptradeUserId!,
+      userSecret: snaptradeUser.userSecret
+    });
+    
+    // Store connected accounts in database
+    for (const account of accounts) {
+      await storage.createConnectedAccount({
+        userId,
+        accountType: 'brokerage',
+        provider: 'snaptrade',
+        institutionName: account.institution_name || 'Unknown Institution',
+        accountName: account.name || account.number || 'Brokerage Account',
+        accountNumber: account.number,
+        balance: String(account.balance?.total?.amount || 0),
+        currency: account.balance?.total?.currency || 'USD',
+        isActive: true,
+        externalAccountId: account.id,
+        connectionId: account.id,
+        institutionId: account.brokerage_authorization,
+        accessToken: snaptradeUser.userSecret,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+    
+    logger.info("SnapTrade accounts connected", { 
+      userId, 
+      count: accounts.length 
+    });
+    
+    // Redirect back to connections page
+    res.redirect("/connections?success=true");
+    
+  } catch (error: any) {
+    logger.error("SnapTrade callback error", { 
+      error: error.response?.data || error.message 
+    });
+    res.redirect("/?error=Connection+failed");
+  }
+});
+
+/**
+ * POST /api/connections/teller/exchange
+ * Exchanges Teller enrollment ID for access token
+ */
+router.post("/teller/exchange", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { enrollmentId } = req.body;
+    
+    if (!enrollmentId) {
+      return res.status(400).json({ 
+        message: "Enrollment ID required" 
+      });
+    }
+    
+    // Exchange enrollment ID for access token
+    const response = await fetch("https://api.teller.io/accounts/", {
+      method: "GET",
+      headers: {
+        "Authorization": `Basic ${Buffer.from(enrollmentId + ":").toString("base64")}`,
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Teller API error: ${response.status}`);
+    }
+    
+    const accounts = await response.json();
+    
+    // Store connected accounts in database
+    for (const account of accounts) {
+      await storage.createConnectedAccount({
+        userId,
+        accountType: account.type === 'depository' ? 'bank' : 'card',
+        provider: 'teller',
+        institutionName: account.institution?.name || 'Unknown Bank',
+        accountName: account.name,
+        accountNumber: account.last_four,
+        balance: String(account.balance?.available || 0),
+        currency: account.currency || 'USD',
+        isActive: true,
+        externalAccountId: account.id,
+        connectionId: account.enrollment_id,
+        institutionId: account.institution?.id,
+        accessToken: enrollmentId, // Store enrollment ID as token
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+    
+    logger.info("Teller accounts connected", { 
+      userId, 
+      count: accounts.length 
+    });
+    
+    res.json({ 
+      success: true,
+      accounts: accounts.length,
+      message: "Bank accounts connected successfully"
+    });
+    
+  } catch (error: any) {
+    logger.error("Teller exchange error", { error: error.message });
+    res.status(500).json({ 
+      message: "Failed to connect bank accounts",
+      error: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/connections/:id
+ * Removes a connection
+ */
+router.delete("/:id", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const connectionId = parseInt(req.params.id);
+    
+    // Get the account to verify ownership
+    const account = await storage.getConnectedAccount(connectionId);
+    
+    if (!account || account.userId !== userId) {
+      return res.status(404).json({ 
+        message: "Connection not found" 
+      });
+    }
+    
+    // Delete the connection
+    await storage.deleteConnectedAccount(userId, account.provider, String(account.id));
+    
+    logger.info("Connection deleted", { 
+      userId, 
+      connectionId,
+      provider: account.provider 
+    });
+    
+    res.json({ 
+      success: true,
+      message: "Connection removed successfully"
+    });
+    
+  } catch (error) {
+    logger.error("Error deleting connection", { error });
+    res.status(500).json({ 
+      message: "Failed to delete connection" 
+    });
+  }
+});
+
+export default router;

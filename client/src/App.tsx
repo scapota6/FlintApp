@@ -20,6 +20,10 @@ import Profile from "@/pages/profile";
 import News from "@/pages/news";
 import StockDetail from "@/pages/stock-detail";
 import AssetDetail from "@/pages/asset-detail";
+import Accounts from "@/pages/Accounts";
+import BrokerageDetail from "@/pages/BrokerageDetail";
+import BankDetail from "@/pages/BankDetail";
+import Connections from "@/pages/connections";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -53,6 +57,10 @@ function Router() {
               <Route path="/news" component={News} />
               <Route path="/stock/:symbol" component={StockDetail} />
               <Route path="/asset/:symbol" component={AssetDetail} />
+              <Route path="/accounts" component={Accounts} />
+              <Route path="/accounts/brokerage/:id" component={BrokerageDetail} />
+              <Route path="/accounts/bank/:id" component={BankDetail} />
+              <Route path="/connections" component={Connections} />
             </>
           )}
           <Route component={NotFound} />
