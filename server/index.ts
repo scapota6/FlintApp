@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initSentry, sentryErrorHandler } from "./lib/sentry";
 import { logger } from "@shared/logger";
+import { attachCSRFToken, validateCSRFToken } from "./middleware/csrf";
 import snaptradeRouter from "./routes/snaptrade";
 import ordersRouter from "./routes/orders";
 import watchlistRouter from "./routes/watchlist";
@@ -47,6 +48,12 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+  
+  // Add CSRF protection after session middleware is initialized
+  app.use(attachCSRFToken);
+  
+  // Apply CSRF validation to state-changing routes
+  app.use("/api", validateCSRFToken);
 
   // Mount SnapTrade API router (unified routes only)
   app.use("/api/snaptrade", snaptradeRouter);

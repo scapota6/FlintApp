@@ -65,8 +65,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Feature flags endpoint (public, no auth required for demo mode)
   app.get('/api/feature-flags', (req, res) => {
     const flags = getServerFeatureFlags();
-    logger.info('Feature flags requested', { flags });
+    logger.info('Feature flags requested', { metadata: { flags } });
     res.json(flags);
+  });
+
+  // GET /api/me endpoint - returns current user info
+  app.get('/api/me', rateLimits.auth, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Return user info in required format
+      const userInfo = {
+        id: user.id,
+        email: user.email,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+        createdAt: user.createdAt || new Date().toISOString(),
+      };
+      
+      logger.info('User info requested', { 
+        userId,
+        action: 'GET_USER_INFO'
+      });
+      
+      res.json(userInfo);
+    } catch (error) {
+      logger.error("Error fetching user info", { error });
+      res.status(500).json({ message: "Failed to fetch user info" });
+    }
+  });
+
+  // GET /api/csrf-token endpoint - provides CSRF token for state-changing requests
+  app.get('/api/csrf-token', rateLimits.auth, (req, res) => {
+    // Check if session exists
+    if (!req.session) {
+      return res.status(500).json({ 
+        message: "Session not initialized",
+        error: "SESSION_NOT_INITIALIZED"
+      });
+    }
+    
+    if (!req.session.csrfToken) {
+      req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+    }
+    
+    res.json({ 
+      csrfToken: req.session.csrfToken,
+      message: "Include this token in X-CSRF-Token header for state-changing requests"
+    });
   });
 
   // Auth routes (with rate limiting)

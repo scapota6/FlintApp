@@ -36,10 +36,14 @@ export function getSession() {
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    name: 'flint.sid', // Custom session name instead of default
     cookie: {
       httpOnly: true,
       secure: true,
+      sameSite: 'strict', // CSRF protection
       maxAge: sessionTtl,
+      path: '/',
+      domain: undefined, // Let browser handle domain
     },
   });
 }
@@ -116,13 +120,34 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/logout", (req, res) => {
-    req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
+    // Properly revoke session
+    req.logout((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+      }
+      
+      // Destroy session completely
+      req.session.destroy((destroyErr) => {
+        if (destroyErr) {
+          console.error("Session destroy error:", destroyErr);
+        }
+        
+        // Clear session cookie
+        res.clearCookie('flint.sid', {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'strict',
+          path: '/'
+        });
+        
+        // Redirect to Replit logout endpoint
+        res.redirect(
+          client.buildEndSessionUrl(config, {
+            client_id: process.env.REPL_ID!,
+            post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
+          }).href
+        );
+      });
     });
   });
 }

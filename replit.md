@@ -20,7 +20,7 @@ Preferred communication style: Simple, everyday language.
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js
 - **Database**: PostgreSQL with Drizzle ORM, utilizing Neon Database for serverless deployment.
-- **Authentication**: Replit Auth with OpenID Connect and PostgreSQL-backed session management.
+- **Authentication**: Replit Auth with OpenID Connect and PostgreSQL-backed session management, enhanced with httpOnly/SameSite cookies, CSRF protection, and session revocation on logout.
 - **API Pattern**: RESTful API with JSON responses.
 
 ### Key Components
@@ -28,7 +28,7 @@ Preferred communication style: Simple, everyday language.
 - **Database Schema**: Includes tables for Users (profile, subscription), Connected Accounts (banks, brokerages, crypto), Holdings, Watchlist, Trades, Transfers, Activity Log, and Market Data.
 - **Financial Data Management**: Supports multi-account connections, real-time balance tracking, portfolio management, trade execution simulation, transfer management, and watchlist functionality.
 - **Subscription System**: Implements a three-tier model (Basic, Pro, Premium) with Stripe integration for payment processing and feature gating.
-- **Security Framework**: AES-256-GCM encryption for sensitive credentials, multi-tier rate limiting (auth, trading, data, external APIs), comprehensive activity logging with sensitive data hashing, and secure PostgreSQL-backed sessions.
+- **Security Framework**: AES-256-GCM encryption for sensitive credentials, multi-tier rate limiting with brute-force protection (auth, trading, data, external APIs), comprehensive activity logging with sensitive data hashing, secure PostgreSQL-backed sessions with httpOnly/SameSite cookies, CSRF protection on state-changing routes, and proper session revocation on logout.
 - **Wallet Service Architecture**: Provides internal fund management with pre-authorization and hold/release capabilities, integrated ACH transfers via Teller.
 - **Trading Aggregation Engine**: Intelligent trade routing based on multiple factors, real-time position consolidation across brokerages, and pre-trade validation for risk management.
 - **Modular Architecture**: Clean separation of concerns with dedicated service layers for encryption, wallet management, and trading aggregation, ensuring a scalable and maintainable design.
