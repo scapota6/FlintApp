@@ -1483,6 +1483,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   const accountsRouter = await import('./routes/accounts');
   app.use('/api', accountsRouter.default);
+  
+  const portfolioRouter = await import('./routes/portfolio');
+  app.use('/api/portfolio', portfolioRouter.default);
+  
+  const marketRouter = await import('./routes/market');
+  app.use('/api/market', marketRouter.default);
+  
+  const tradingRouter = await import('./routes/trading');
+  app.use('/api/trade', tradingRouter.default);
 
   const httpServer = createServer(app);
   return httpServer;

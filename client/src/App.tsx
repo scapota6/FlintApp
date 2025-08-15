@@ -24,6 +24,7 @@ import Accounts from "@/pages/Accounts";
 import BrokerageDetail from "@/pages/BrokerageDetail";
 import BankDetail from "@/pages/BankDetail";
 import Connections from "@/pages/connections";
+import Portfolio from "@/pages/Portfolio";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -57,6 +58,7 @@ function Router() {
               <Route path="/news" component={News} />
               <Route path="/stock/:symbol" component={StockDetail} />
               <Route path="/asset/:symbol" component={AssetDetail} />
+              <Route path="/portfolio" component={Portfolio} />
               <Route path="/accounts" component={Accounts} />
               <Route path="/accounts/brokerage/:id" component={BrokerageDetail} />
               <Route path="/accounts/bank/:id" component={BankDetail} />
