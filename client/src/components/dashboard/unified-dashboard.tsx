@@ -277,7 +277,11 @@ export default function UnifiedDashboard() {
                       {getProviderIcon(account.type)}
                     </div>
                     <div>
-                      <div className="text-white font-medium">{account.accountName}</div>
+                      <div className="text-white font-medium">
+                        {account.accountName === 'Default' && account.institutionName === 'Coinbase' 
+                          ? 'Coinbase' 
+                          : account.accountName}
+                      </div>
                       <div className="text-gray-400 text-sm capitalize">{account.provider}</div>
                     </div>
                   </div>

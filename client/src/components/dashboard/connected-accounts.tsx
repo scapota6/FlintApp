@@ -178,7 +178,11 @@ export default function ConnectedAccounts({
                     {getProviderIcon(account.provider)}
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-white">{account.accountName}</h3>
+                        <h3 className="font-semibold text-white">
+                          {account.accountName === 'Default' && account.institutionName === 'Coinbase' 
+                            ? 'Coinbase' 
+                            : account.accountName}
+                        </h3>
                         {getProviderBadge(account.provider)}
                       </div>
                       <p className="text-sm text-gray-400">
