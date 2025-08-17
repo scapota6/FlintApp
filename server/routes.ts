@@ -1438,71 +1438,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { getUser, saveUser, deleteUserLocal } = await import('./store/snapUsers');
       const { authApi, accountsApi } = await import('./lib/snaptrade');
 
-      // Repair flow: Check if we have a stale user and delete it
+      // If we already have a userSecret stored, reuse it; else register to get secret from SnapTrade
       let rec = await getUser(userEmail);
-      if (rec?.userSecret) {
-        try {
-          // Test if the existing user/secret works
-          await accountsApi.listUserAccounts({
-            userId: userEmail,
-            userSecret: rec.userSecret,
-          });
-          console.log('[SnapTrade] Existing user validated, skipping registration');
-        } catch (testErr: any) {
-          if (testErr?.responseBody?.code === '1083' || testErr?.responseBody?.code === '1076') {
-            console.log('[SnapTrade] Stale user detected, deleting and re-registering');
-            await deleteUserLocal(userEmail);
-            
-            // Try to delete user on SnapTrade side too (ignore errors)
-            try {
-              await authApi.deleteSnapTradeUser({
-                userId: userEmail,
-                userSecret: rec.userSecret,
-              });
-            } catch (delErr) {
-              console.log('[SnapTrade] Delete user failed (expected):', delErr?.message);
-            }
-            rec = null; // Force re-registration
-          } else {
-            throw testErr;
-          }
-        }
+      if (!rec) {
+        const created = await authApi.registerSnapTradeUser({ userId: userEmail }); // returns { userId, userSecret }
+        rec = { userId: created.data.userId!, userSecret: created.data.userSecret! };
+        await saveUser(rec);
+        console.log('[SnapTrade] Registered + stored secret len:', rec.userSecret.length, 'userId:', rec.userId);
+      } else {
+        console.log('[SnapTrade] Using stored secret len:', rec.userSecret.length, 'userId:', rec.userId);
       }
 
-      // Register new user if needed
-      if (!rec?.userSecret) {
-        console.log('[SnapTrade] Registering new user:', userEmail);
-        
-        // SnapTrade returns userSecret in response
-        const registerResponse = await authApi.registerSnapTradeUser({
-          userId: userEmail,
-        });
-
-        const userSecret = registerResponse.data?.userSecret;
-        if (!userSecret) {
-          throw new Error('SnapTrade registration failed: no userSecret returned');
-        }
-
-        // Store the SnapTrade-provided userSecret
-        await saveUser({ userId: userEmail, userSecret });
-        console.log('[SnapTrade] Stored userSecret len:', userSecret.length, 'for', userEmail);
-        
-        rec = { userId: userEmail, userSecret };
-      }
-
-      // Create connection URL
-      const loginResponse = await authApi.loginSnapTradeUser({
-        userId: userEmail,
+      // Generate Connection Portal URL (expires in ~5 minutes)
+      const login = await authApi.loginSnapTradeUser({
+        userId: rec.userId,
         userSecret: rec.userSecret,
         broker: 'ALPACA',
         immediateRedirect: true,
         customRedirect: process.env.SNAPTRADE_REDIRECT_URI!,
       });
-
-      return res.json({ 
-        connect: loginResponse.data,
-        userSecretSet: true 
-      });
+      
+      // Field name differs by SDK version; support a few:
+      const url = (login.data?.redirectURI || login.data?.loginRedirectURI || login.data?.url) as string;
+      return res.json({ connect: { url } });
       
     } catch (err: any) {
       console.error('[SnapTrade] Registration Error:', {
