@@ -22,7 +22,7 @@ if (process.env.STRIPE_SECRET_KEY) {
 // Initialize SnapTrade SDK (using correct parameter names from docs)
 let snapTradeClient: Snaptrade | null = null;
 if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET) {
-  console.log('Initializing SnapTrade SDK with:', {
+  // console.log('Initializing SnapTrade SDK with:', {
     clientId: process.env.SNAPTRADE_CLIENT_ID,
     consumerKeyPrefix: process.env.SNAPTRADE_CLIENT_SECRET.substring(0, 10)
   });

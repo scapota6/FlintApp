@@ -34,6 +34,7 @@ export default function Connections() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-user-id': currentUser.id
         },
         body: JSON.stringify({ userId: currentUser.id })
       });

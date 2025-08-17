@@ -201,7 +201,10 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
       
       const resp = await apiRequest("/api/connections/snaptrade/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-user-id": currentUser.id
+        },
         body: JSON.stringify({ userId: currentUser.id }),
       });
 

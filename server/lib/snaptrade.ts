@@ -9,6 +9,13 @@ export const authApi = new Snaptrade.AuthenticationApi(snaptradeConfig);
 export const accountsApi = new Snaptrade.AccountInformationApi(snaptradeConfig);
 export const portfolioApi = new Snaptrade.TransactionsAndReportingApi(snaptradeConfig);
 
+console.log('[ENV CHECK]', {
+  CLIENT_ID: process.env.SNAPTRADE_CLIENT_ID,
+  CONSUMER_KEY_LEN: process.env.SNAPTRADE_CONSUMER_KEY?.length,
+  ENV: process.env.SNAPTRADE_ENV,
+  REDIRECT: process.env.SNAPTRADE_REDIRECT_URI,
+});
+
 console.log('[SnapTrade] SDK init', {
   env: process.env.SNAPTRADE_ENV,
   clientIdTail: process.env.SNAPTRADE_CLIENT_ID?.slice(-6),
