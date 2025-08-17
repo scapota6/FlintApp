@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authApi } from '../lib/snaptrade';
 import { generateUserSecret } from '../lib/crypto';
 import { getSnapUserByEmail, upsertSnapUserSecret } from '../store/snapUserStore';
+import { isAuthenticated } from '../replitAuth';
 
 const r = Router();
 
