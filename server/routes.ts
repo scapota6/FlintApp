@@ -8,6 +8,8 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { getUser } from "./store/snapUsers";
 import { rateLimits } from "./middleware/rateLimiter";
+import { authApi } from './lib/snaptrade';
+import { deleteSnapUser, saveSnapUser } from './store/snapUsers';
 import { WalletService } from "./services/WalletService";
 import { TradingAggregator } from "./services/TradingAggregator";
 import { marketDataService } from "./services/market-data";
@@ -74,6 +76,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       userId: rec?.userId,
       userSecretLen: rec?.userSecret?.length || 0,
     });
+  });
+
+  // Dev-only repair endpoint (if a user was registered under a different secret in the past)
+  app.post('/api/debug/snaptrade/repair-user', async (req, res) => {
+    try {
+      const userId = String(req.body?.userId || '').trim();
+      if (!userId) return res.status(400).json({ message: 'userId required' });
+
+      await authApi.deleteSnapTradeUser({ userId });    // async provider-side deletion
+      await deleteSnapUser(userId);                     // wipe local
+      const created = await authApi.registerSnapTradeUser({ userId }); // fresh pair
+      await saveSnapUser({ userId: created.data.userId!, userSecret: created.data.userSecret! });
+      res.json({ ok: true, userId, userSecretLen: created.data.userSecret?.length || 0 });
+    } catch (e: any) {
+      res.status(500).json({ ok: false, error: e?.responseBody || e?.message });
+    }
   });
 
   // GET /api/me endpoint - returns current user info
