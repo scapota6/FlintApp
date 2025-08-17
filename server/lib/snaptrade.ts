@@ -111,3 +111,18 @@ export async function listOrderHistory(userId: string, userSecret: string, accou
   }
   return [];
 }
+
+// Activity / Transactions (dividends, deposits, withdrawals, trade fills, etc.)
+export async function listActivities(userId: string, userSecret: string, accountId: string) {
+  // Try common activity/transactions endpoints
+  if (hasFn(accountsApi, 'getActivities')) {
+    return (accountsApi as any).getActivities({ userId, userSecret, accountId });
+  }
+  if (hasFn(portfolioApi, 'getActivities')) {
+    return (portfolioApi as any).getActivities({ userId, userSecret, accountId });
+  }
+  if (hasFn(accountsApi, 'getTransactions')) {
+    return (accountsApi as any).getTransactions({ userId, userSecret, accountId });
+  }
+  return [];
+}
