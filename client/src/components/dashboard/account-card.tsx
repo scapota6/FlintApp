@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
-import AccountDetailModal from './account-detail-modal';
+import AccountDetailsDialog from '../AccountDetailsDialog';
 
 interface AccountCardProps {
   account: {
@@ -32,6 +33,7 @@ interface AccountCardProps {
 
 export default function AccountCard({ account }: AccountCardProps) {
   const [showDetails, setShowDetails] = useState(false);
+  const { user } = useAuth();
 
   const getAccountIcon = () => {
     switch (account.type) {
@@ -149,11 +151,12 @@ export default function AccountCard({ account }: AccountCardProps) {
         </CardContent>
       </Card>
 
-      {/* Account Detail Modal */}
-      <AccountDetailModal
-        isOpen={showDetails}
+      {/* Enhanced Account Details Dialog */}
+      <AccountDetailsDialog
+        accountId={String(account.id)}
+        open={showDetails}
         onClose={() => setShowDetails(false)}
-        account={account}
+        currentUserId={String(user?.id || '')}
       />
     </>
   );
