@@ -76,7 +76,7 @@ router.get('/search', requireAuth, async (req, res) => {
     }
 
     // If no external APIs available, search SnapTrade
-    if (results.length === 0 && process.env.SNAPTRADE_CLIENT_ID) {
+    if (results.length === 0) {
       try {
         // Note: This would require the user's SnapTrade credentials
         // For now, we'll return empty if no other search sources

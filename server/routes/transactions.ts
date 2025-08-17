@@ -34,7 +34,7 @@ router.get('/transactions', requireAuth, async (req, res) => {
     const transactions: any[] = [];
 
     // Fetch SnapTrade transactions (brokerage)
-    if (process.env.SNAPTRADE_CLIENT_ID && user[0].snaptradeUserSecret) {
+    if (snaptradeClient && user[0].snaptradeUserSecret) {
       try {
         const snaptrade = getSnapTradeClient();
         
