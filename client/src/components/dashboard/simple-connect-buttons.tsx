@@ -191,10 +191,10 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
       // Get authenticated user data first
       const userResp = await apiRequest("/api/auth/user");
       if (!userResp.ok) throw new Error("Authentication required");
-      const userData = await userResp.json();
+      const currentUser = await userResp.json();
       
-      // Use stable userId (user.id is the stable internal identifier)
-      const userId = userData.id;
+      // Use stable userId (currentUser.id is the stable internal identifier)
+      const userId = currentUser.id;
       if (!userId) throw new Error("User ID not available");
 
       console.log('📈 SnapTrade Connect: Using userId:', userId);
@@ -202,7 +202,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
       const resp = await apiRequest("/api/connections/snaptrade/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId: currentUser.id }),
       });
 
       const data = await resp.json().catch(() => ({}));

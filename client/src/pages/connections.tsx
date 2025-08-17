@@ -23,12 +23,19 @@ export default function Connections() {
     setError(null);
     
     try {
+      // Get authenticated user data first
+      const userResp = await fetch('/api/auth/user');
+      if (!userResp.ok) throw new Error("Authentication required");
+      const currentUser = await userResp.json();
+      
+      if (!currentUser.id) throw new Error("User ID not available");
+
       const response = await fetch('/api/connections/snaptrade/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({ userId: currentUser.id })
       });
 
       if (!response.ok) {
