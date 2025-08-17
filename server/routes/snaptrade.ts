@@ -23,12 +23,12 @@ r.post('/register', async (req, res) => {
     }
 
     // Idempotent; OK if already exists at SnapTrade
-    await authApi.registerUser({ userId, userSecret });
+    await authApi.registerSnapTradeUser({ userId, userSecret });
 
     const connect = await authApi.loginSnapTradeUser({
       userId,
       userSecret,
-      brokerRedirectUri: process.env.SNAPTRADE_REDIRECT_URI!,
+      customRedirect: process.env.SNAPTRADE_REDIRECT_URI!,
     });
 
     return res.json({ connect });

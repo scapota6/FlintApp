@@ -1,1 +1,10 @@
-{}
+{
+  "scapota@flint-investing.com": {
+    "userId": "scapota@flint-investing.com",
+    "snaptrade_user_secret": "5b6ee5a5d4536b745a6e055dfdac452576d22af687520bfbb199c069eab7801c"
+  },
+  "test.newuser.$(date +%s)@flint-investing.com": {
+    "userId": "test.newuser.$(date +%s)@flint-investing.com",
+    "snaptrade_user_secret": "268678c48b689411c0dbd9d1673160dd1941fea9526c05654691a8ca4955b8fb"
+  }
+}

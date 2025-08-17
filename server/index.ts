@@ -47,10 +47,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
-  
-  // Mount SnapTrade API router before CSRF validation (some endpoints don't need auth)
+  // Mount SnapTrade API router BEFORE auth setup (no auth required)
   app.use("/api/snaptrade", snaptradeRouter);
+
+  const server = await registerRoutes(app);
 
   // Add CSRF protection after session middleware is initialized
   app.use(attachCSRFToken);

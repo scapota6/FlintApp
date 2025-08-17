@@ -177,7 +177,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
     }
   });
 
-  // SnapTrade Connect mutation - no auth context needed
+  // SnapTrade Connect mutation - standalone email resolution
   const snapTradeConnectMutation = useMutation({
     mutationFn: async () => {
       const { getOrPromptUserEmail } = await import('@/lib/userEmail');

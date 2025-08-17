@@ -78,14 +78,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/snaptrade/health', async (_req, res) => {
     try {
       const { authApi } = await import('./lib/snaptrade');
-      const testUser = 'healthcheck@flint-investing.com';
-      const testSecret = 'healthcheck-secret-1234567890';
-      await authApi.registerSnapTradeUser({ userId: testUser, userSecret: testSecret });
+      // harmless idempotent call to test signatures/keys
+      await authApi.registerSnapTradeUser({
+        userId: 'healthcheck@flint-investing.com',
+        userSecret: 'healthcheck-secret-1234567890',
+      });
       res.json({ ok: true });
     } catch (e: any) {
-      console.error('Healthcheck error:', e?.responseBody || e?.message || e);
       res.status(500).json({ ok: false, error: e?.responseBody || e?.message });
     }
+  });
+
+  // Debug endpoint to check userSecret storage
+  app.get('/api/debug/snaptrade/user', async (req, res) => {
+    const { getSnapUserByEmail } = await import('./store/snapUserStore');
+    const email = (req.query.email || '').toString().trim().toLowerCase();
+    if (!email) return res.status(400).json({ message: 'email required' });
+    const rec = await getSnapUserByEmail(email);
+    res.json({
+      exists: !!rec,
+      userId: rec?.userId,
+      userSecretLen: rec?.snaptrade_user_secret?.length || 0,
+    });
   });
 
   // GET /api/me endpoint - returns current user info
