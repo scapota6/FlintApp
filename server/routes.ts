@@ -409,6 +409,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Trading page accounts endpoint - returns brokerage accounts for trading
+  app.get('/api/accounts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const brokerages = [];
+      
+      // Get SnapTrade accounts if connected
+      const snapTradeUser = await getOrLoadUserSecret(userId);
+      if (snapTradeUser && snapTradeUser.userSecret) {
+        try {
+          const accounts = await listUserAccounts(userId, snapTradeUser.userSecret);
+          
+          if (accounts.data && Array.isArray(accounts.data)) {
+            for (const account of accounts.data) {
+              brokerages.push({
+                id: account.id,
+                accountName: account.name || account.institution_name || 'Brokerage Account',
+                provider: 'snaptrade',
+                balance: account.balance?.total?.amount || account.total_value?.amount || '0',
+                externalAccountId: account.id,
+                institution: account.institution_name,
+                accountNumber: account.number
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching SnapTrade accounts for trading:', error);
+        }
+      }
+      
+      res.json({ brokerages });
+    } catch (error) {
+      console.error("Error fetching accounts for trading:", error);
+      res.status(500).json({ message: "Failed to fetch accounts", brokerages: [] });
+    }
+  });
+
   // Watchlist management
   app.get('/api/watchlist', isAuthenticated, async (req: any, res) => {
     try {
