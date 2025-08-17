@@ -65,3 +65,49 @@ export async function getPositions(userId: string, userSecret: string, accountId
     }
   }
 }
+
+// ===== ADDITIONAL VERSION-SAFE WRAPPER FUNCTIONS =====
+function hasFn(obj: any, name: string) { return obj && typeof obj[name] === 'function'; }
+
+export async function getAccountBalances(userId: string, userSecret: string, accountId: string) {
+  // Try common names across SDK versions
+  // AccountsApi: getAccountBalances or getBalances
+  if (hasFn(accountsApi, 'getAccountBalances')) {
+    return (accountsApi as any).getAccountBalances({ userId, userSecret, accountId });
+  }
+  if (hasFn(accountsApi, 'getBalances')) {
+    return (accountsApi as any).getBalances({ userId, userSecret, accountId });
+  }
+  // Some versions expose balances on PortfolioApi
+  if (hasFn((portfolioApi as any), 'getAccountBalances')) {
+    return (portfolioApi as any).getAccountBalances({ userId, userSecret, accountId });
+  }
+  throw new Error('No balances method found');
+}
+
+// Orders API name varies; attempt both AccountsApi and PortfolioApi variants
+export async function listOpenOrders(userId: string, userSecret: string, accountId: string) {
+  if (hasFn(accountsApi, 'listOrders')) {
+    return (accountsApi as any).listOrders({ userId, userSecret, accountId, status: 'OPEN' });
+  }
+  if (hasFn(accountsApi, 'getOpenOrders')) {
+    return (accountsApi as any).getOpenOrders({ userId, userSecret, accountId });
+  }
+  if (hasFn(portfolioApi, 'getOpenOrders')) {
+    return (portfolioApi as any).getOpenOrders({ userId, userSecret, accountId });
+  }
+  return [];
+}
+
+export async function listOrderHistory(userId: string, userSecret: string, accountId: string) {
+  if (hasFn(accountsApi, 'listOrders')) {
+    return (accountsApi as any).listOrders({ userId, userSecret, accountId, status: 'ALL' });
+  }
+  if (hasFn(accountsApi, 'getOrderHistory')) {
+    return (accountsApi as any).getOrderHistory({ userId, userSecret, accountId });
+  }
+  if (hasFn(portfolioApi, 'getOrderHistory')) {
+    return (portfolioApi as any).getOrderHistory({ userId, userSecret, accountId });
+  }
+  return [];
+}

@@ -1,0 +1,64 @@
+  // Parallel fetches
+    const [balances, positions, openOrders, orderHistory, activities] = await Promise.all([
+      getAccountBalances(rec.userId, rec.userSecret, accountId).catch(()=> null),
+      getPositions(rec.userId, rec.userSecret, accountId).catch(()=> []),
+      listOpenOrders(rec.userId, rec.userSecret, accountId).catch(()=> []),
+      listOrderHistory(rec.userId, rec.userSecret, accountId).catch(()=> []),
+      listActivities(rec.userId, rec.userSecret, accountId).catch(()=> []),
+    ]);
+
+    // Shape response for UI
+    const payload = {
+      accountInformation: {
+        id: account.id,
+        brokerage: account.brokerageName || account.brokerage || '—',
+        type: account.type || account.accountType || '—',
+        currency: account.currency || balances?.currency || '—',
+        balancesOverview: {
+          cash: balances?.cash || balances?.cashBalance || null,
+          equity: balances?.equity || balances?.accountValue || null,
+          buyingPower: balances?.buyingPower || balances?.marginBuyingPower || null,
+        },
+      },
+      balancesAndHoldings: {
+        balances: {
+          cashAvailableToTrade: balances?.cashAvailableToTrade ?? balances?.cash ?? null,
+          totalEquityValue: balances?.equity ?? balances?.accountValue ?? null,
+          buyingPowerOrMargin: balances?.buyingPower ?? balances?.marginBuyingPower ?? null,
+        },
+        holdings: Array.isArray(positions) ? positions.map((p:any)=> ({
+          symbol: p.symbol || p.ticker || p.instrument?.symbol || '—',
+          quantity: p.quantity ?? p.qty ?? 0,
+          costBasis: p.costBasis ?? p.avgPrice ?? null,
+          marketValue: p.marketValue ?? p.value ?? null,
+          unrealized: p.unrealizedPL ?? p.unrealizedGainLoss ?? null,
+        })) : [],
+      },
+      positionsAndOrders: {
+        activePositions: Array.isArray(positions) ? positions.filter((p:any)=> (p.quantity ?? 0) > 0) : [],
+        pendingOrders: Array.isArray(openOrders) ? openOrders : [],
+        orderHistory: Array.isArray(orderHistory) ? orderHistory : [],
+      },
+      tradingActions: {
+        canPlaceOrders: true,
+        canCancelOrders: true,
+        canGetConfirmations: true,
+      },
+      activityAndTransactions: Array.isArray(activities) ? activities.map((a:any)=> ({
+        type: a.type || a.activityType || '—',
+        symbol: a.symbol || a.ticker || a.security?.symbol || undefined,
+        amount: a.amount ?? a.value ?? undefined,
+        quantity: a.quantity ?? a.shares ?? undefined,
+        timestamp: a.timestamp || a.time || a.date || null,
+        description: a.description || a.note || '',
+      })) : [],
+    };
+
+    return res.json(payload);
+  } catch (e:any) {
+    console.error('Account details error:', e?.responseBody || e?.message || e);
+    return res.status(500).json({ message: 'Failed to load account details' });
+  }
+});
+
+export default r;

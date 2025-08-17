@@ -1,0 +1,54 @@
+      {data && (
+          <div className="space-y-8 overflow-y-auto max-h-[70vh] pr-1">
+            {/* 1. Account Information */}
+            <section>
+              <h3 className="text-lg font-medium mb-2">1. Account Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <Info label="Account ID" value={data.accountInformation.id} />
+                <Info label="Brokerage" value={data.accountInformation.brokerage} />
+                <Info label="Account Type" value={data.accountInformation.type} />
+                <Info label="Currency" value={data.accountInformation.currency} />
+              </div>
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Info label="Cash" value={fmtMoney(data.accountInformation.balancesOverview.cash)} />
+                <Info label="Equity" value={fmtMoney(data.accountInformation.balancesOverview.equity)} />
+                <Info label="Buying Power" value={fmtMoney(data.accountInformation.balancesOverview.buyingPower)} />
+              </div>
+            </section>
+
+            {/* 2. Balances and Holdings */}
+            <section>
+              <h3 className="text-lg font-medium mb-2">2. Balances and Holdings</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                <Info label="Cash Available" value={fmtMoney(data.balancesAndHoldings.balances.cashAvailableToTrade)} />
+                <Info label="Total Equity" value={fmtMoney(data.balancesAndHoldings.balances.totalEquityValue)} />
+                <Info label="Buying Power / Margin" value={fmtMoney(data.balancesAndHoldings.balances.buyingPowerOrMargin)} />
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <Th>Symbol</Th><Th className="text-right">Qty</Th><Th className="text-right">Cost Basis</Th>
+                      <Th className="text-right">Mkt Value</Th><Th className="text-right">Unrealized</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.balancesAndHoldings.holdings.map((h:any, i:number)=>(
+                      <tr key={i} className="border-b last:border-0">
+                        <Td>{h.symbol}</Td>
+                        <TdRight>{fmtNum(h.quantity)}</TdRight>
+                        <TdRight>{fmtMoney(h.costBasis)}</TdRight>
+                        <TdRight>{fmtMoney(h.marketValue)}</TdRight>
+                        <TdRight className={Number(h.unrealized) < 0 ? 'text-red-600' : 'text-green-600'}>
+                          {fmtMoney(h.unrealized)}
+                        </TdRight>
+                      </tr>
+                    ))}
+                    {data.balancesAndHoldings.holdings.length === 0 && (
+                      <tr><Td colSpan={5} className="text-center text-gray-500 py-3">No holdings</Td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
