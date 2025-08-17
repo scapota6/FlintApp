@@ -1,13 +1,20 @@
-import * as Snaptrade from 'snaptrade-typescript-sdk';
+import { Snaptrade } from 'snaptrade-typescript-sdk';
 
-const cfg = new Snaptrade.Configuration({
+// Initialize SDK exactly like the official CLI
+const snaptrade = new Snaptrade({
   clientId: process.env.SNAPTRADE_CLIENT_ID!,
   consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
 });
 
-export const authApi = new Snaptrade.AuthenticationApi(cfg);
-export const accountsApi = new Snaptrade.AccountInformationApi(cfg);
-export const portfolioApi = new Snaptrade.TransactionsAndReportingApi(cfg);
+console.log('[SnapTrade SDK] Initialized with pattern from official CLI:', {
+  clientId: process.env.SNAPTRADE_CLIENT_ID,
+  consumerKeyLength: process.env.SNAPTRADE_CONSUMER_KEY?.length || 0
+});
+
+// Export the API instances
+export const authApi = snaptrade.authentication;
+export const accountsApi = snaptrade.accountInformation;
+export const portfolioApi = snaptrade.transactionsAndReporting;
 
 // Back-compat alias in case old code referenced a client object
 export const snaptradeClient = { authApi, accountsApi, portfolioApi };
