@@ -177,58 +177,25 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
     }
   });
 
-  // SnapTrade Connect mutation - robust email resolution
+  // SnapTrade Connect mutation - no auth context needed
   const snapTradeConnectMutation = useMutation({
     mutationFn: async () => {
-      console.log('📈 SnapTrade Connect: Starting brokerage connection process');
-      
-      // Resolve user email with fallbacks
-      function resolveUserEmail(): string | null {
-        // 1) Try authenticated user
-        if (user?.email) return user.email.toLowerCase();
-        
-        // 2) Try localStorage
-        const ls = (globalThis?.localStorage?.getItem("userEmail") || "").trim().toLowerCase();
-        if (ls) return ls;
-        
-        // 3) Fallback: prompt once
-        const entered = (globalThis?.prompt?.("Enter your email to connect your brokerage:") || "")
-          .trim()
-          .toLowerCase();
-        if (entered) {
-          try { globalThis?.localStorage?.setItem("userEmail", entered); } catch {}
-          return entered;
-        }
-        return null;
-      }
-      
-      const userEmail = resolveUserEmail();
-      if (!userEmail) throw new Error("No user email available for SnapTrade Connect.");
-      
-      try {
-        console.log('📈 SnapTrade Connect: Calling backend for connection URL...');
-        // Call registration endpoint with guaranteed userEmail
-        const response = await apiRequest('POST', '/api/snaptrade/register', { 
-          userEmail 
-        });
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data?.message || "Failed to create SnapTrade connect session");
-        }
-        
-        const url = data?.connect?.redirectURL || data?.connect?.loginRedirectURI || data?.connect?.url || data?.url;
-        if (!url) throw new Error("No SnapTrade connect URL returned from backend.");
-        
-        console.log('📈 SnapTrade Connect: Successfully got connection URL:', url);
-        
-        // Redirect user into SnapTrade Connect
-        window.location.href = url;
-        return true;
-      } catch (error) {
-        console.error('📈 SnapTrade Connect Error:', error);
-        throw error;
-      }
+      const { getOrPromptUserEmail } = await import('@/lib/userEmail');
+      const userEmail = getOrPromptUserEmail();
+
+      const resp = await apiRequest("/api/snaptrade/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userEmail }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.message || "Failed to start SnapTrade Connect");
+
+      const url: string | undefined =
+        data?.connect?.redirectURI || data?.connect?.loginRedirectURI || data?.connect?.url;
+      if (!url) throw new Error("No SnapTrade Connect URL returned");
+      window.location.href = url;
+      return true;
     },
     onSuccess: () => {
       console.log('📈 SnapTrade Connect: Success callback triggered');
