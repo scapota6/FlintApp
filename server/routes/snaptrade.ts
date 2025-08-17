@@ -10,6 +10,8 @@ r.post('/register', async (req, res) => {
     const userId = String(req.body.userId || '').trim();
     if (!userId) return res.status(400).json({ message: 'userId required' });
 
+    console.log('[SnapTrade] Authenticated registration for:', userId);
+
     // If we already have a userSecret stored, reuse it; else register to get secret from SnapTrade
     let rec = await getUser(userId);
     if (!rec) {
@@ -33,8 +35,8 @@ r.post('/register', async (req, res) => {
     const url = (login.data?.redirectURI || login.data?.loginRedirectURI || login.data?.url) as string;
     return res.json({ connect: { url } });
   } catch (e: any) {
-    console.error('SnapTrade Authenticated Registration Error:', e?.responseBody || e?.message || e);
-    return res.status(500).json({ message: e?.message || 'register failed' });
+    console.log('[SnapTrade] Registration Error:', e?.responseBody || e?.message || e);
+    return res.status(401).json({ message: e?.message || 'register failed' });
   }
 });
 

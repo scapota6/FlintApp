@@ -5,11 +5,12 @@ import { isAuthenticated } from '../replitAuth';
 
 const r = Router();
 
-// Pick immutable userId you send from the client (NOT email). For now accept header/query.
+// Pick immutable userId you send from the client (use stable user.sub ID). For now accept header/query.
 function pickId(req: any) {
   console.log('[Holdings] User object:', req.user);
   console.log('[Holdings] User claims:', req.user?.claims);
-  return (req.user?.claims?.email || req.headers['x-user-id'] || req.query.userId || '').toString().trim().toLowerCase();
+  // Use stable internal user ID (sub claim) as primary, fallback to headers/query
+  return (req.user?.claims?.sub || req.headers['x-user-id'] || req.query.userId || '').toString().trim();
 }
 
 r.get('/', isAuthenticated, async (req, res) => {
@@ -23,9 +24,9 @@ r.get('/', isAuthenticated, async (req, res) => {
   try {
     const accounts = await accountsApi.listUserAccounts({ userId: rec.userId, userSecret: rec.userSecret });
     const positions = await Promise.all(
-      accounts.data.map((a: any) => portfoliosApi.listPortfolioAccountPositions({ userId: rec.userId, userSecret: rec.userSecret, accountId: a.id }))
+      accounts.data.map((a: any) => portfoliosApi.getUserAccountPositions({ userId: rec.userId, userSecret: rec.userSecret, accountId: a.id }))
     );
-    return res.json({ accounts: accounts.data, positions: positions.map(p => p.data) });
+    return res.json({ accounts: accounts.data, positions: positions.map((p: any) => p.data) });
   } catch (e: any) {
     const body = e?.responseBody || {};
     if (e?.status === 401 && String(body?.code) === '1083') {

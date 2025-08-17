@@ -8,12 +8,13 @@ console.log('[SnapTrade] SDK init', {
   env,
   clientIdTail: clientId?.slice(-6),
   consumerKeyLen: consumerKey?.length,
+  redirectUri: process.env.SNAPTRADE_REDIRECT_URI,
 });
 
 export const snaptradeConfig = new Snaptrade.Configuration({
   consumerKey,
   clientId,
-  environment: env as any, // 'sandbox' | 'production'
+  basePath: env === 'production' ? 'https://api.snaptrade.com/api/v1' : 'https://api.snaptrade.com/api/v1',
 });
 
 export const authApi = new Snaptrade.AuthenticationApi(snaptradeConfig);

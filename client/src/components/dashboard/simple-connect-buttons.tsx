@@ -193,9 +193,9 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
       if (!userResp.ok) throw new Error("Authentication required");
       const userData = await userResp.json();
       
-      // Use stable userId (email in this case)
-      const userId = userData.email;
-      if (!userId) throw new Error("User email not available");
+      // Use stable userId (user.id is the stable internal identifier)
+      const userId = userData.id;
+      if (!userId) throw new Error("User ID not available");
 
       console.log('📈 SnapTrade Connect: Using userId:', userId);
       

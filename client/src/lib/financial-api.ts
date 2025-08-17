@@ -159,7 +159,7 @@ export class FinancialAPI {
     
     const response = await apiRequest("/api/holdings", {
       headers: {
-        "x-user-id": userData.email || "",
+        "x-user-id": userData.id || "",
       },
     });
     if (!response.ok) {
