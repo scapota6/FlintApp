@@ -150,4 +150,21 @@ export class FinancialAPI {
       return { ok: false };
     }
   }
+
+  static async getHoldings() {
+    // Get authenticated user data first to include userId header
+    const userResp = await apiRequest("/api/auth/user");
+    if (!userResp.ok) throw new Error("Authentication required");
+    const userData = await userResp.json();
+    
+    const response = await apiRequest("/api/holdings", {
+      headers: {
+        "x-user-id": userData.email || "",
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`${response.status}: ${response.statusText}`);
+    }
+    return response.json();
+  }
 }

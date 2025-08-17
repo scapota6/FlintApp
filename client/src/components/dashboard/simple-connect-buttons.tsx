@@ -185,12 +185,24 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
     }
   });
 
-  // SnapTrade Connect mutation - use authenticated user email
+  // SnapTrade Connect mutation - use authenticated user ID
   const snapTradeConnectMutation = useMutation({
     mutationFn: async () => {
-      // Use authenticated session instead of prompting for email
+      // Get authenticated user data first
+      const userResp = await apiRequest("/api/auth/user");
+      if (!userResp.ok) throw new Error("Authentication required");
+      const userData = await userResp.json();
+      
+      // Use stable userId (email in this case)
+      const userId = userData.email;
+      if (!userId) throw new Error("User email not available");
+
+      console.log('📈 SnapTrade Connect: Using userId:', userId);
+      
       const resp = await apiRequest("/api/connections/snaptrade/register", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
       });
 
       const data = await resp.json().catch(() => ({}));
@@ -199,6 +211,8 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
       const url: string | undefined =
         data?.connect?.redirectURI || data?.connect?.loginRedirectURI || data?.connect?.url;
       if (!url) throw new Error("No SnapTrade Connect URL returned");
+      
+      console.log('📈 SnapTrade Connect: Redirecting to URL:', url);
       window.location.href = url;
       return true;
     },
