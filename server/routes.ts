@@ -240,8 +240,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         console.log('Fetching SnapTrade accounts for user:', userEmail);
         
-        // Use the persistent store instead of database storage
-        const snapUser = await getSnapUser(userEmail);
+        // Use the persistent store instead of database storage - use userId not email
+        const snapUser = await getSnapUser(userId);
         if (snapUser?.userSecret) {
           const { accountsApi } = await import('./lib/snaptrade');
           const accounts = await accountsApi.listUserAccounts({
@@ -250,11 +250,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           console.log('SnapTrade accounts fetched:', accounts.data?.length || 0);
+          console.log('SnapTrade raw accounts data:', JSON.stringify(accounts.data, null, 2));
           
           if (accounts.data && Array.isArray(accounts.data)) {
             for (const account of accounts.data) {
-              const balance = parseFloat(account.total_value?.amount || '0') || 0;
-              const cash = parseFloat(account.cash?.amount || '0') || 0;
+              const balance = parseFloat(account.total_value?.amount || account.balance?.total?.amount || '0') || 0;
+              const cash = parseFloat(account.cash?.amount || account.balance?.cash?.amount || '0') || 0;
               const holdings = balance - cash;
               
               investmentValue += balance;
@@ -287,9 +288,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           snapTradeError = 'auth_failed';
           
           // Trigger repair flow - delete stale user and let them re-register
-          console.log('[SnapTrade] Detected stale user credentials, triggering repair flow for:', userEmail);
+          console.log('[SnapTrade] Detected stale user credentials, triggering repair flow for:', userId);
           try {
-            await deleteUserLocal(userEmail);
+            await deleteUserLocal(userId);
             console.log('[SnapTrade] Deleted stale user credentials for repair');
           } catch (deleteError) {
             console.error('[SnapTrade] Error deleting stale user:', deleteError);
