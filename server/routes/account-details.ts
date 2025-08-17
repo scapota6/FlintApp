@@ -37,53 +37,86 @@ r.get('/accounts/:accountId/details', async (req, res) => {
       return res.status(404).json({ message: 'Account not found for user' });
     }
 
-    // Fetch all account data in parallel for better performance
-    const [
-      balances,
-      positions,
-      openOrders,
-      orderHistory,
-      activities
-    ] = await Promise.allSettled([
-      getAccountBalances(rec.userId, rec.userSecret, accountId),
-      getPositions(rec.userId, rec.userSecret, accountId),
-      listOpenOrders(rec.userId, rec.userSecret, accountId),
-      listOrderHistory(rec.userId, rec.userSecret, accountId),
-      listActivities(rec.userId, rec.userSecret, accountId)
+    // Parallel fetches with error handling
+    const [balances, positions, openOrders, orderHistory, activities] = await Promise.all([
+      getAccountBalances(rec.userId, rec.userSecret, accountId).catch(() => null),
+      getPositions(rec.userId, rec.userSecret, accountId).catch(() => []),
+      listOpenOrders(rec.userId, rec.userSecret, accountId).catch(() => []),
+      listOrderHistory(rec.userId, rec.userSecret, accountId).catch(() => []),
+      listActivities(rec.userId, rec.userSecret, accountId).catch(() => []),
     ]);
 
-    // Helper function to safely extract data or return fallback
-    const safeData = (result: PromiseSettledResult<any>, fallback: any = null) => {
-      if (result.status === 'fulfilled') {
-        return result.value?.data || result.value || fallback;
-      } else {
-        console.error('SnapTrade API error:', result.reason?.message || result.reason);
-        return fallback;
-      }
-    };
-
-    // Build comprehensive response
+    // Shape response for UI
     const response = {
-      account: {
+      accountInformation: {
         id: account.id,
         name: account.name,
         number: account.number,
-        institution: account.institution_name,
-        type: account.meta?.type || account.raw_type,
+        brokerage: account.institution_name || '—',
+        type: account.meta?.type || account.raw_type || '—',
         status: account.meta?.status || 'ACTIVE',
-        balance: account.balance
+        currency: account.balance?.total?.currency || 'USD',
+        balancesOverview: {
+          cash: balances?.cash || balances?.cashBalance || null,
+          equity: balances?.equity || balances?.accountValue || account.balance?.total?.amount || null,
+          buyingPower: balances?.buyingPower || balances?.marginBuyingPower || null,
+        },
       },
-      balances: safeData(balances, {}),
-      positions: safeData(positions, []),
+      balancesAndHoldings: {
+        balances: {
+          cashAvailableToTrade: balances?.cashAvailableToTrade ?? balances?.cash ?? null,
+          totalEquityValue: balances?.equity ?? balances?.accountValue ?? account.balance?.total?.amount ?? null,
+          buyingPowerOrMargin: balances?.buyingPower ?? balances?.marginBuyingPower ?? null,
+        },
+        holdings: Array.isArray(positions) ? positions.map((p: any) => ({
+          symbol: p.symbol?.symbol || p.symbol || p.ticker || p.instrument?.symbol || '—',
+          name: p.symbol?.name || p.name || '—',
+          quantity: p.quantity ?? p.qty ?? 0,
+          costBasis: p.average_purchase_price ?? p.costBasis ?? p.avgPrice ?? null,
+          marketValue: p.market_value ?? p.marketValue ?? p.value ?? null,
+          currentPrice: p.current_price ?? p.price ?? null,
+          unrealized: p.unrealized_pl ?? p.unrealizedPL ?? p.unrealizedGainLoss ?? null,
+        })) : [],
+      },
       orders: {
-        open: safeData(openOrders, []),
-        history: safeData(orderHistory, [])
+        open: Array.isArray(openOrders) ? openOrders.map((o: any) => ({
+          id: o.id,
+          symbol: o.symbol?.symbol || o.symbol || '—',
+          quantity: o.quantity ?? 0,
+          action: o.action || o.side || '—',
+          orderType: o.order_type || o.type || '—',
+          price: o.price ?? null,
+          timeInForce: o.time_in_force || o.tif || '—',
+          status: o.status || '—',
+          createdAt: o.created_at || o.timestamp || null,
+        })) : [],
+        history: Array.isArray(orderHistory) ? orderHistory.slice(0, 50).map((o: any) => ({
+          id: o.id,
+          symbol: o.symbol?.symbol || o.symbol || '—',
+          quantity: o.quantity ?? 0,
+          action: o.action || o.side || '—',
+          orderType: o.order_type || o.type || '—',
+          price: o.price ?? null,
+          executedAt: o.executed_at || o.filled_at || o.timestamp || null,
+          status: o.status || '—',
+        })) : [],
       },
-      activities: safeData(activities, []),
+      activities: Array.isArray(activities) ? activities.slice(0, 100).map((a: any) => ({
+        id: a.id,
+        type: a.type || a.activity_type || '—',
+        symbol: a.symbol?.symbol || a.symbol || null,
+        description: a.description || `${a.type || 'Activity'} ${a.symbol?.symbol || ''}`.trim(),
+        quantity: a.quantity ?? null,
+        price: a.price ?? null,
+        fee: a.fee ?? null,
+        netAmount: a.net_amount ?? a.amount ?? null,
+        settlementDate: a.settlement_date || a.date || a.timestamp || null,
+      })) : [],
       metadata: {
         fetched_at: new Date().toISOString(),
         last_sync: account.sync_status,
-        cash_restrictions: account.cash_restrictions || []
+        cash_restrictions: account.cash_restrictions || [],
+        account_created: account.created_date,
       }
     };
 

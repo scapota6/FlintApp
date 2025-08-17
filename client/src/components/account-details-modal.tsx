@@ -14,60 +14,75 @@ interface AccountDetailsModalProps {
 }
 
 interface AccountDetails {
-  account: {
+  accountInformation: {
     id: string;
     name: string;
     number: string;
-    institution: string;
+    brokerage: string;
     type: string;
     status: string;
-    balance: { total: { amount: number; currency: string } };
+    currency: string;
+    balancesOverview: {
+      cash: number | null;
+      equity: number | null;
+      buyingPower: number | null;
+    };
   };
-  balances: any;
-  positions: Array<{
-    symbol: { symbol: string; name: string };
-    quantity: number;
-    average_purchase_price: number;
-    current_price: number;
-    market_value: number;
-    unrealized_pl: number;
-  }>;
+  balancesAndHoldings: {
+    balances: {
+      cashAvailableToTrade: number | null;
+      totalEquityValue: number | null;
+      buyingPowerOrMargin: number | null;
+    };
+    holdings: Array<{
+      symbol: string;
+      name: string;
+      quantity: number;
+      costBasis: number | null;
+      marketValue: number | null;
+      currentPrice: number | null;
+      unrealized: number | null;
+    }>;
+  };
   orders: {
     open: Array<{
       id: string;
       symbol: string;
       quantity: number;
       action: string;
-      order_type: string;
-      price: number;
-      time_in_force: string;
+      orderType: string;
+      price: number | null;
+      timeInForce: string;
       status: string;
+      createdAt: string | null;
     }>;
     history: Array<{
       id: string;
       symbol: string;
       quantity: number;
       action: string;
-      order_type: string;
-      price: number;
-      executed_at: string;
+      orderType: string;
+      price: number | null;
+      executedAt: string | null;
       status: string;
     }>;
   };
   activities: Array<{
     id: string;
     type: string;
-    symbol?: string;
-    quantity?: number;
-    price?: number;
-    fee?: number;
-    settlement_date: string;
+    symbol: string | null;
     description: string;
+    quantity: number | null;
+    price: number | null;
+    fee: number | null;
+    netAmount: number | null;
+    settlementDate: string | null;
   }>;
   metadata: {
     fetched_at: string;
     last_sync: any;
     cash_restrictions: string[];
+    account_created: string;
   };
 }
 
@@ -136,43 +151,46 @@ export function AccountDetailsModal({ accountId, accountName, onClose }: Account
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
+                  <CardTitle className="text-sm font-medium">Total Equity</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {formatCurrency(details.account.balance.total.amount)}
+                    {formatCurrency(details.accountInformation.balancesOverview.equity || 0, details.accountInformation.currency)}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {details.account.institution} • {details.account.number}
+                    {details.accountInformation.brokerage} • ****{details.accountInformation.number.slice(-4)}
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Account Type</CardTitle>
+                  <CardTitle className="text-sm font-medium">Cash Available</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Badge variant="outline" className="mb-2">
-                    {details.account.type}
+                  <div className="text-xl font-bold">
+                    {formatCurrency(details.balancesAndHoldings.balances.cashAvailableToTrade || 0, details.accountInformation.currency)}
+                  </div>
+                  <Badge variant="outline" className="mt-1">
+                    {details.accountInformation.type}
                   </Badge>
-                  <p className="text-xs text-muted-foreground">
-                    Status: {details.account.status}
-                  </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Last Updated</CardTitle>
+                  <CardTitle className="text-sm font-medium">Buying Power</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
-                    <span className="text-sm">
-                      {new Date(details.metadata.fetched_at).toLocaleString()}
-                    </span>
+                  <div className="text-xl font-bold">
+                    {details.balancesAndHoldings.balances.buyingPowerOrMargin 
+                      ? formatCurrency(details.balancesAndHoldings.balances.buyingPowerOrMargin, details.accountInformation.currency)
+                      : '—'
+                    }
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Status: {details.accountInformation.status}
+                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -181,7 +199,7 @@ export function AccountDetailsModal({ accountId, accountName, onClose }: Account
             <Tabs defaultValue="positions" className="space-y-4">
               <TabsList>
                 <TabsTrigger value="positions">
-                  Positions ({details.positions?.length || 0})
+                  Positions ({details.balancesAndHoldings?.holdings?.length || 0})
                 </TabsTrigger>
                 <TabsTrigger value="orders">
                   Orders ({details.orders?.open?.length || 0} open)
@@ -192,30 +210,37 @@ export function AccountDetailsModal({ accountId, accountName, onClose }: Account
               </TabsList>
 
               <TabsContent value="positions" className="space-y-4">
-                {details.positions && details.positions.length > 0 ? (
+                {details.balancesAndHoldings?.holdings && details.balancesAndHoldings.holdings.length > 0 ? (
                   <div className="space-y-2">
-                    {details.positions.map((position, index) => (
+                    {details.balancesAndHoldings.holdings.map((position, index) => (
                       <Card key={index}>
                         <CardContent className="p-4">
                           <div className="flex justify-between items-start">
                             <div>
-                              <h4 className="font-medium">{position.symbol?.symbol}</h4>
+                              <h4 className="font-medium">{position.symbol}</h4>
                               <p className="text-sm text-muted-foreground">
-                                {position.symbol?.name}
+                                {position.name}
                               </p>
                               <p className="text-xs">
-                                {position.quantity} shares @ {formatCurrency(position.average_purchase_price)}
+                                {position.quantity} shares {position.costBasis ? `@ ${formatCurrency(position.costBasis)}` : ''}
                               </p>
                             </div>
                             <div className="text-right">
                               <div className="font-medium">
-                                {formatCurrency(position.market_value)}
+                                {position.marketValue ? formatCurrency(position.marketValue) : '—'}
                               </div>
-                              <div className={`text-sm ${
-                                position.unrealized_pl >= 0 ? 'text-green-600' : 'text-red-600'
-                              }`}>
-                                {formatCurrency(position.unrealized_pl)}
-                              </div>
+                              {position.unrealized !== null && (
+                                <div className={`text-sm ${
+                                  position.unrealized >= 0 ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  {formatCurrency(position.unrealized)}
+                                </div>
+                              )}
+                              {position.currentPrice && (
+                                <div className="text-xs text-muted-foreground">
+                                  {formatCurrency(position.currentPrice)} per share
+                                </div>
+                              )}
                             </div>
                           </div>
                         </CardContent>
@@ -243,16 +268,21 @@ export function AccountDetailsModal({ accountId, accountName, onClose }: Account
                                 {order.action} {order.quantity} shares
                               </p>
                               <Badge variant="outline" className="text-xs">
-                                {order.order_type}
+                                {order.orderType}
                               </Badge>
                             </div>
                             <div className="text-right">
                               <div className="font-medium">
-                                {formatCurrency(order.price)}
+                                {order.price ? formatCurrency(order.price) : '—'}
                               </div>
                               <Badge variant={order.status === 'PENDING' ? 'default' : 'secondary'}>
                                 {order.status}
                               </Badge>
+                              {order.createdAt && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {new Date(order.createdAt).toLocaleDateString()}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </CardContent>
@@ -280,14 +310,24 @@ export function AccountDetailsModal({ accountId, accountName, onClose }: Account
                                   <h4 className="font-medium">{activity.description}</h4>
                                   <p className="text-sm text-muted-foreground">
                                     {activity.symbol && `${activity.symbol} • `}
-                                    {new Date(activity.settlement_date).toLocaleDateString()}
+                                    {activity.settlementDate && new Date(activity.settlementDate).toLocaleDateString()}
                                   </p>
                                 </div>
                                 <div className="text-right">
                                   <Badge variant="outline">{activity.type}</Badge>
-                                  {activity.quantity && (
-                                    <p className="text-sm mt-1">
-                                      {activity.quantity} @ {formatCurrency(activity.price || 0)}
+                                  {activity.netAmount && (
+                                    <p className="text-sm mt-1 font-medium">
+                                      {formatCurrency(activity.netAmount)}
+                                    </p>
+                                  )}
+                                  {activity.quantity && activity.price && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {activity.quantity} @ {formatCurrency(activity.price)}
+                                    </p>
+                                  )}
+                                  {activity.fee && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Fee: {formatCurrency(activity.fee)}
                                     </p>
                                   )}
                                 </div>
