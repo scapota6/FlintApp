@@ -30,7 +30,17 @@ r.get('/holdings', async (req, res) => {
           console.log(`DEBUG: Raw position data sample:`, JSON.stringify(positions[0], null, 2));
           
           return positions.map((pos: any) => {
-            const symbol = pos.symbol?.symbol || pos.symbol || pos.universal_symbol?.symbol || 'N/A';
+            // Extract symbol from deeply nested structure  
+            let symbol = 'N/A';
+            if (pos.symbol?.symbol?.symbol) {
+              symbol = pos.symbol.symbol.symbol;
+            } else if (typeof pos.symbol === 'string') {
+              symbol = pos.symbol;
+            } else if (pos.universal_symbol?.symbol) {
+              symbol = pos.universal_symbol.symbol;
+            }
+            
+            console.log(`DEBUG: Symbol extraction - pos.symbol type:`, typeof pos.symbol, 'symbol value:', symbol);
             const units = parseFloat(pos.units || pos.quantity) || 0;
             const avgPrice = parseFloat(pos.average_purchase_price || pos.average_cost || pos.avg_cost) || 0;
             const currentPrice = parseFloat(pos.price || pos.current_price || pos.market_value) || 0;
@@ -42,7 +52,7 @@ r.get('/holdings', async (req, res) => {
               accountName: a.name || 'Unknown Account',
               brokerageName: a.institution_name || 'Unknown',
               symbol: symbol,
-              name: pos.universal_symbol?.description || pos.instrument?.name || pos.symbol?.description || symbol,
+              name: pos.symbol?.symbol?.description || pos.universal_symbol?.description || pos.instrument?.name || symbol,
               quantity: units,
               averageCost: avgPrice,
               currentPrice: currentPrice,
@@ -50,8 +60,8 @@ r.get('/holdings', async (req, res) => {
               totalCost: avgPrice * units,
               profitLoss: (currentPrice - avgPrice) * units,
               profitLossPercent: avgPrice ? ((currentPrice - avgPrice) / avgPrice) * 100 : 0,
-              currency: pos.universal_symbol?.currency?.code || pos.currency || 'USD',
-              type: pos.universal_symbol?.type || pos.type || 'stock',
+              currency: pos.symbol?.symbol?.currency?.code || pos.universal_symbol?.currency?.code || pos.currency?.code || 'USD',
+              type: pos.symbol?.symbol?.type?.description || pos.universal_symbol?.type || pos.type || 'stock',
             };
           });
         })
