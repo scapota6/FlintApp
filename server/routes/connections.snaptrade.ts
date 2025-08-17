@@ -15,9 +15,9 @@ r.post('/connections/snaptrade/register', async (req, res) => {
     // 1) Register (idempotent) and store the SECRET RETURNED BY SNAPTRADE
     let rec = await getUser(userId);
     if (!rec) {
-      const created = await authApi.registerSnapTradeUser({ userId }); // returns { userId, userSecret }
-      if (!created.data?.userSecret) throw new Error('SnapTrade did not return userSecret');
-      rec = { userId: created.data.userId as string, userSecret: created.data.userSecret as string };
+      const created = await authApi.registerUser({ userId }); // returns userSecret
+      if (!created.userSecret) throw new Error('SnapTrade did not return userSecret');
+      rec = { userId: created.userId!, userSecret: created.userSecret! };
       await saveUser(rec);
       console.log('[SnapTrade] Registered & stored userSecret len:', rec.userSecret.length, 'userId:', rec.userId);
     } else {
@@ -28,11 +28,9 @@ r.post('/connections/snaptrade/register', async (req, res) => {
     const login = await authApi.loginSnapTradeUser({
       userId: rec.userId,
       userSecret: rec.userSecret,
-      broker: 'ALPACA',
-      immediateRedirect: true,
-      customRedirect: process.env.SNAPTRADE_REDIRECT_URI || 'https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/snaptrade/callback',
+      brokerRedirectUri: process.env.SNAPTRADE_REDIRECT_URI!,
     });
-    const url = (login.data as any).redirectURI || (login.data as any).url;
+    const url = login.redirectURI || login.loginRedirectURI || login.url;
     if (!url) throw new Error('No Connection Portal URL returned');
     return res.json({ connect: { url } });
   } catch (e: any) {
