@@ -122,6 +122,20 @@ const fmtNum = (num: number | null | undefined) => {
   }).format(num);
 };
 
+// Time formatting helper
+const fmtTime = (time: string | null | undefined) => {
+  if (!time) return '—';
+  try {
+    return new Date(time).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: '2-digit'
+    });
+  } catch {
+    return '—';
+  }
+};
+
 // Table component helpers
 const Th = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
   <th className={`px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider ${className}`}>
@@ -295,16 +309,40 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                   )}/>
                 </InfoCard>
               </div>
+              
+              <div className="mt-4">
+                <InfoCard title="Order History">
+                  <List items={data.positionsAndOrders.orderHistory} empty="No order history" render={(o: any) => (
+                    <div className="grid grid-cols-5 gap-2">
+                      <span>{o.symbol || o.ticker || '—'}</span>
+                      <span className="text-right">{(o.side || o.action || '').toUpperCase()}</span>
+                      <span className="text-right">{fmtNum(o.quantity || o.qty)}</span>
+                      <span className="text-right">{fmtMoney(o.avgFillPrice ?? o.fillPrice ?? o.price)}</span>
+                      <span className="text-right text-gray-500">{fmtTime(o.time || o.timestamp || o.date)}</span>
+                    </div>
+                  )}/>
+                </InfoCard>
+              </div>
             </section>
 
             {/* 4. Trading Actions */}
             <section>
               <h3 className="text-lg font-medium mb-2">4. Trading Actions</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Info label="Can Place Orders" value={data.tradingActions.canPlaceOrders ? 'Yes' : 'No'} />
-                <Info label="Can Cancel Orders" value={data.tradingActions.canCancelOrders ? 'Yes' : 'No'} />
-                <Info label="Can Get Confirmations" value={data.tradingActions.canGetConfirmations ? 'Yes' : 'No'} />
+              <div className="flex flex-wrap gap-2">
+                <button className="rounded-xl border border-gray-300 dark:border-gray-600 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm">
+                  Buy
+                </button>
+                <button className="rounded-xl border border-gray-300 dark:border-gray-600 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm">
+                  Sell
+                </button>
+                <button className="rounded-xl border border-gray-300 dark:border-gray-600 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm">
+                  Cancel Open Orders
+                </button>
+                <button className="rounded-xl border border-gray-300 dark:border-gray-600 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm">
+                  Get Confirmations
+                </button>
               </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Wire these to your trade endpoints when ready.</p>
             </section>
 
             {/* 5. Activity & Transactions */}
