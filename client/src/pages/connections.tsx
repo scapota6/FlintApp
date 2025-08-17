@@ -47,9 +47,36 @@ export default function Connections() {
       const data = await response.json();
       const redirectUrl = data?.connect?.url;
       
-      // Redirect to SnapTrade connection portal
+      // Open SnapTrade connection portal in popup window
       if (redirectUrl) {
-        window.location.href = redirectUrl;
+        // Calculate center position for popup
+        const width = 500;
+        const height = 700;
+        const left = (window.screen.width / 2) - (width / 2);
+        const top = (window.screen.height / 2) - (height / 2);
+        
+        const popup = window.open(
+          redirectUrl,
+          'SnapTradeConnect',
+          `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
+        );
+        
+        // Check if popup was blocked
+        if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+          setError('Please allow popups for this site to connect your account');
+          setIsConnecting(false);
+          return;
+        }
+        
+        // Monitor popup for closure
+        const checkClosed = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkClosed);
+            setIsConnecting(false);
+            // Refresh the page to check if connection was successful
+            window.location.reload();
+          }
+        }, 1000);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed');
