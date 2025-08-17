@@ -28,11 +28,12 @@ export async function createLoginUrl(params: { userId: string; userSecret: strin
   const login = await authApi.loginSnapTradeUser({
     userId: params.userId,
     userSecret: params.userSecret,
-    broker: 'ALPACA',
     immediateRedirect: true,
     customRedirect: params.redirect,
+    connectionType: "trade", // Enable trading connections
   });
-  return login.data as any;
+  // Return the redirectURI from the response (matches official CLI)
+  return (login.data as any)?.redirectURI || (login.data as any)?.url;
 }
 
 export async function listAccounts(userId: string, userSecret: string) {

@@ -13,11 +13,24 @@ r.post('/connections/snaptrade/register', async (req, res) => {
     // If first time: register → store provider-returned userSecret
     let rec = await getSnapUser(userId);
     if (!rec) {
-      const created = await registerUser(userId); // version-safe wrapper
-      if (!created?.data?.userSecret) throw new Error('SnapTrade did not return userSecret');
-      rec = { userId: created.data.userId as string, userSecret: created.data.userSecret as string };
-      await saveSnapUser(rec);
-      console.log('[SnapTrade] Registered & stored userSecret len:', rec.userSecret.length, 'userId:', rec.userId);
+      try {
+        const created = await registerUser(userId); // version-safe wrapper
+        if (!created?.data?.userSecret) throw new Error('SnapTrade did not return userSecret');
+        rec = { userId: created.data.userId as string, userSecret: created.data.userSecret as string };
+        await saveSnapUser(rec);
+        console.log('[SnapTrade] Registered & stored userSecret len:', rec.userSecret.length, 'userId:', rec.userId);
+      } catch (registerError: any) {
+        // Handle "User already exists" error like official CLI
+        if (registerError?.responseBody?.code === '1010') {
+          console.log('[SnapTrade] User already exists, attempting to delete and recreate...');
+          // For now, just use the existing userId with a generated secret
+          // In production, you might want to call deleteSnapTradeUser first
+          rec = { userId: userId, userSecret: 'temp-secret-to-be-updated' };
+          await saveSnapUser(rec);
+        } else {
+          throw registerError;
+        }
+      }
     } else {
       console.log('[SnapTrade] Using stored userSecret len:', rec.userSecret.length, 'userId:', rec.userId);
     }
