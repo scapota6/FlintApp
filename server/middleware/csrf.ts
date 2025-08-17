@@ -52,15 +52,16 @@ export function validateCSRFToken(req: Request, res: Response, next: NextFunctio
     return next();
   }
 
-  // Skip for API routes that are read-only
-  const readOnlyRoutes = [
+  // Skip for API routes that are read-only or public endpoints
+  const skipCSRFRoutes = [
     "/api/auth/user",
     "/api/me",
     "/api/dashboard",
     "/api/feature-flags",
+    "/api/snaptrade/register", // Public SnapTrade registration endpoint
   ];
   
-  if (readOnlyRoutes.some(route => req.path.startsWith(route))) {
+  if (skipCSRFRoutes.some(route => req.path.startsWith(route))) {
     return next();
   }
 

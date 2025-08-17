@@ -1,4 +1,3 @@
-// server/lib/snaptrade.ts
 import { Snaptrade } from 'snaptrade-typescript-sdk';
 
 const env = process.env.SNAPTRADE_ENV || 'sandbox';

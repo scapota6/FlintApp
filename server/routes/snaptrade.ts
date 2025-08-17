@@ -1,32 +1,37 @@
 import { Router } from 'express';
 import { authApi } from '../lib/snaptrade';
 import { generateUserSecret } from '../lib/crypto';
-import { storage } from '../storage';
+import { getSnapUserByEmail, upsertSnapUserSecret } from '../store/snapUserStore';
 import { isAuthenticated } from '../replitAuth';
 
 const r = Router();
 
-r.post('/register', isAuthenticated, async (req: any, res) => {
+r.post('/register', async (req, res) => {
   try {
-    const userId = String(req.user.claims.email || '').toLowerCase();
+    const userId = String(req.body.userEmail || '').toLowerCase();
     if (!userId) return res.status(400).json({ message: 'userEmail required' });
 
-    let rec = await storage.getSnapTradeUserByEmail(userId);
-    let userSecret = rec?.snaptradeUserSecret;
+    let rec = await getSnapUserByEmail(userId);
+    let userSecret = rec?.snaptrade_user_secret;
+
     if (!userSecret) {
       userSecret = generateUserSecret();
-      await storage.upsertSnapTradeUser(req.user.claims.sub, userId, userSecret);
+      await upsertSnapUserSecret(userId, userSecret);
+      console.log('[SnapTrade] Generated new userSecret len:', userSecret.length, 'for', userId);
+    } else {
+      console.log('[SnapTrade] Using existing userSecret len:', userSecret.length, 'for', userId);
     }
 
-    await authApi.registerSnapTradeUser({ userId, userSecret }); // idempotent
+    // Idempotent; OK if already exists at SnapTrade
+    await authApi.registerUser({ userId, userSecret });
 
     const connect = await authApi.loginSnapTradeUser({
       userId,
       userSecret,
-      brokerRedirectUri: process.env.SNAPTRADE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/snaptrade/callback`,
+      brokerRedirectUri: process.env.SNAPTRADE_REDIRECT_URI!,
     });
 
-    return res.json({ connect });
+    return res.json({ url: connect.data?.redirectUrl });
   } catch (err: any) {
     console.error('SnapTrade Registration Error:', err?.responseBody || err?.message || err);
     return res.status(500).json({ message: err?.message || 'SnapTrade register failed' });

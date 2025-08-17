@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Snaptrade } from "snaptrade-typescript-sdk";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { getSnapUserByEmail } from "./store/snapUserStore";
 import { rateLimits } from "./middleware/rateLimiter";
 import { WalletService } from "./services/WalletService";
 import { TradingAggregator } from "./services/TradingAggregator";
@@ -213,10 +214,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         console.log('Fetching SnapTrade accounts for user:', userEmail);
         
-        if (snapTradeClient && user?.snaptradeUserId && user?.snaptradeUserSecret) {
+        // Use the persistent store instead of database storage
+        const snapUser = await getSnapUserByEmail(userEmail);
+        if (snapUser?.snaptrade_user_secret) {
           const accounts = await snapTradeClient.accountInformation.listUserAccounts({
-            userId: user.snaptradeUserId,
-            userSecret: user.snaptradeUserSecret,
+            userId: snapUser.userId,
+            userSecret: snapUser.snaptrade_user_secret,
           });
           
           console.log('SnapTrade accounts fetched:', accounts.data?.length || 0);

@@ -184,7 +184,9 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
       try {
         console.log('📈 SnapTrade Connect: Calling backend for connection URL...');
         // Call our Saturday night working registration endpoint
-        const response = await apiRequest('POST', '/api/snaptrade/register');
+        const response = await apiRequest('POST', '/api/snaptrade/register', { 
+          userEmail: user?.email 
+        });
         const { url } = await response.json();
         console.log('📈 SnapTrade Connect: Successfully got connection URL:', url);
         

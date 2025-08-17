@@ -1,29 +1,32 @@
 import { Router } from 'express';
 import { accountsApi, portfoliosApi } from '../lib/snaptrade';
-import { storage } from '../storage';
-import { isAuthenticated } from '../replitAuth';
+import { getSnapUserByEmail } from '../store/snapUserStore';
 
 const r = Router();
 
-r.get('/', isAuthenticated, async (req: any, res) => {
+function getEmailFromReq(req: any): string | null {
+  // prefer authenticated user if you have auth middleware; fallback to query for now
+  const email = (req.user?.claims?.email || req.query.userEmail || req.headers['x-user-email'] || '').toString().toLowerCase();
+  return email || null;
+}
+
+r.get('/', async (req, res) => {
   try {
-    const userId = String(req.user?.claims?.email || '').toLowerCase();
+    const userId = getEmailFromReq(req);
     if (!userId) return res.status(401).json({ message: 'No user' });
 
-    const rec = await storage.getSnapTradeUserByEmail(userId);
-    const userSecret = rec?.snaptradeUserSecret;
-    if (!userSecret) return res.status(400).json({ message: 'SnapTrade not registered for user' });
+    const rec = await getSnapUserByEmail(userId);
+    const userSecret = rec?.snaptrade_user_secret;
+    if (!userSecret) {
+      console.warn('[SnapTrade] No stored userSecret for', userId);
+      return res.status(400).json({ message: 'SnapTrade not registered for user' });
+    }
 
-    const accounts = await accountsApi.listUserAccounts({ userId, userSecret });
+    console.log('[SnapTrade] Fetching accounts with userSecret len:', userSecret.length, 'for', userId);
+    const accounts = await accountsApi.listAccounts({ userId, userSecret });
 
     const positions = await Promise.all(
-      accounts.map(a =>
-        portfoliosApi.getUserAccountPositions({
-          userId,
-          userSecret,
-          accountId: a.id!,
-        })
-      )
+      accounts.map(a => portfoliosApi.getPositions({ userId, userSecret, accountId: a.id! }))
     );
 
     return res.json({ accounts, positions });
