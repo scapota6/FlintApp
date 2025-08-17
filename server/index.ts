@@ -88,6 +88,10 @@ app.use((req, res, next) => {
   const accountsBrokerageRouter = (await import("./routes/accounts-brokerage")).default;
   app.use("/api", accountsBrokerageRouter);
   
+  // Mount Account Details API router
+  const accountDetailsRouter = (await import("./routes/account-details")).default;
+  app.use("/api", accountDetailsRouter);
+  
   // Mount Watchlist API router
   app.use("/api/watchlist", watchlistRouter);
 
@@ -104,8 +108,8 @@ app.use((req, res, next) => {
         await authApi.deleteSnapTradeUser({ userId }); // provider-side async delete
         await deleteSnapUser(userId);
         const created = await authApi.registerSnapTradeUser({ userId });
-        await saveSnapUser({ userId: created.userId!, userSecret: created.userSecret! });
-        res.json({ ok: true, userId, userSecretLen: created.userSecret?.length || 0 });
+        await saveSnapUser({ userId: created.data.userId!, userSecret: created.data.userSecret! });
+        res.json({ ok: true, userId, userSecretLen: created.data.userSecret?.length || 0 });
       } catch (e: any) {
         res.status(500).json({ ok: false, error: e?.responseBody || e?.message });
       }

@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { AccountDetailsModal } from "@/components/account-details-modal";
 import { 
   Building2, 
   CreditCard, 
@@ -19,7 +20,8 @@ import {
   Unlink,
   Trash2,
   CheckCircle,
-  Clock
+  Clock,
+  Eye
 } from "lucide-react";
 
 // Type definitions
@@ -46,6 +48,8 @@ export default function Connections() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [disconnectingAccount, setDisconnectingAccount] = useState<string | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [selectedAccountName, setSelectedAccountName] = useState<string | undefined>(undefined);
 
   // Fetch connected accounts
   const { data: holdingsData, isLoading: isLoadingAccounts } = useQuery<HoldingsResponse>({
@@ -322,6 +326,19 @@ export default function Connections() {
                           <CheckCircle className="h-3 w-3 text-green-500" />
                           <span>Active</span>
                         </div>
+                        {account.provider === 'snaptrade' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedAccountId(account.id);
+                              setSelectedAccountName(account.accountName);
+                            }}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View Details
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
@@ -467,6 +484,16 @@ export default function Connections() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Account Details Modal */}
+      <AccountDetailsModal
+        accountId={selectedAccountId}
+        accountName={selectedAccountName}
+        onClose={() => {
+          setSelectedAccountId(null);
+          setSelectedAccountName(undefined);
+        }}
+      />
     </div>
   );
 }
