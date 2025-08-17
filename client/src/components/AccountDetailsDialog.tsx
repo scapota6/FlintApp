@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatCurrency } from '@/lib/utils';
 import { 
@@ -94,93 +94,60 @@ const getActivityIcon = (type: string) => {
   }
 };
 
-// Helper component for displaying key-value information
-const Info = ({ label, value, className = '' }: { label: string; value: string | null | undefined; className?: string }) => (
-  <div className={`rounded-xl border border-gray-200 dark:border-gray-700 p-3 ${className}`}>
-    <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
-    <div className="font-medium text-gray-900 dark:text-white">{value ?? '—'}</div>
-  </div>
-);
-
-// Money formatting helper
-const fmtMoney = (amount: number | null | undefined, currency: string = 'USD') => {
-  if (amount === null || amount === undefined) return '—';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency
-  }).format(amount);
-};
-
-// Number formatting helper
-const fmtNum = (num: number | null | undefined) => {
-  if (num === null || num === undefined) return '—';
-  return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 4
-  }).format(num);
-};
-
-// Time formatting helper
-const fmtTime = (time: string | null | undefined) => {
-  if (!time) return '—';
-  try {
-    return new Date(time).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: '2-digit'
-    });
-  } catch {
-    return '—';
-  }
-};
-
-// Table component helpers
-const Th = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <th className={`px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider ${className}`}>
-    {children}
-  </th>
-);
-
-const Td = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <td className={`px-3 py-2 text-sm text-gray-900 dark:text-white ${className}`}>
-    {children}
-  </td>
-);
-
-const TdRight = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <td className={`px-3 py-2 text-sm text-right text-gray-900 dark:text-white ${className}`}>
-    {children}
-  </td>
-);
-
-// InfoCard component helper
-const InfoCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-    <h4 className="font-medium text-gray-900 dark:text-white mb-3">{title}</h4>
-    {children}
-  </div>
-);
-
-// List component helper
-const List = ({ items, empty, render }: { 
-  items: any[] | null | undefined; 
-  empty: string; 
-  render: (item: any, index: number) => React.ReactNode;
-}) => {
-  if (!items || items.length === 0) {
-    return <div className="text-center text-gray-500 dark:text-gray-400 py-4">{empty}</div>;
-  }
-  
+// Helper components and utilities
+function Info({ label, value, className = '' }: any) {
   return (
-    <div className="space-y-2">
-      {items.map((item, index) => (
-        <div key={index} className="text-sm">
-          {render(item, index)}
-        </div>
-      ))}
+    <div className={`rounded-xl border p-3 ${className}`}>
+      <div className="text-xs text-gray-500">{label}</div>
+      <div className="font-medium">{value ?? '—'}</div>
     </div>
   );
-};
+}
+
+function Card({ title, children }: any) {
+  return (
+    <div className="rounded-xl border p-3">
+      <div className="mb-2 font-medium">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function List({ items, empty, render }: any) {
+  if (!items || items.length === 0) return <div className="text-gray-500 text-sm">{empty}</div>;
+  return <div className="space-y-2">{items.map((x: any, i: number) => <div key={i}>{render(x)}</div>)}</div>;
+}
+
+function Th({ children, className = '' }: any) { 
+  return <th className={`text-left px-3 py-2 text-xs font-semibold ${className}`}>{children}</th>; 
+}
+
+function Td({ children, className = '', ...rest }: any) { 
+  return <td className={`px-3 py-2 ${className}`} {...rest}>{children}</td>; 
+}
+
+function TdRight({ children, className = '', ...rest }: any) { 
+  return <Td className={`text-right ${className}`} {...rest}>{children}</Td>; 
+}
+
+function fmtMoney(v: any) { 
+  if (v == null || v === undefined || isNaN(Number(v))) return '—'; 
+  return `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}`; 
+}
+
+function fmtNum(v: any) { 
+  if (v == null || v === undefined || isNaN(Number(v))) return '—'; 
+  return Number(v).toLocaleString(); 
+}
+
+function fmtTime(v: any) { 
+  if (!v) return '—'; 
+  try { 
+    return new Date(v).toLocaleString(); 
+  } catch { 
+    return String(v); 
+  } 
+}
 
 export default function AccountDetailsDialog({ accountId, open, onClose, currentUserId }: Props) {
   const { data, isLoading, isError } = useQuery({
@@ -288,15 +255,15 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
             <section>
               <h3 className="text-lg font-medium mb-2">3. Positions and Orders</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InfoCard title="Active Positions">
+                <Card title="Active Positions">
                   <List items={data.positionsAndOrders.activePositions} empty="No active positions" render={(p: any) => (
                     <div className="flex justify-between">
                       <span>{p.symbol || p.ticker || p.instrument?.symbol || '—'}</span>
                       <span className="text-right">{fmtNum(p.quantity ?? p.qty)}</span>
                     </div>
                   )}/>
-                </InfoCard>
-                <InfoCard title="Pending Orders">
+                </Card>
+                <Card title="Pending Orders">
                   <List items={data.positionsAndOrders.pendingOrders} empty="No pending orders" render={(o: any) => (
                     <div className="grid grid-cols-4 gap-2">
                       <span>{o.symbol || o.ticker || '—'}</span>
@@ -305,11 +272,11 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                       <span className="text-right">{fmtMoney(o.limitPrice ?? o.price)}</span>
                     </div>
                   )}/>
-                </InfoCard>
+                </Card>
               </div>
               
               <div className="mt-4">
-                <InfoCard title="Order History">
+                <Card title="Order History">
                   <List items={data.positionsAndOrders.orderHistory} empty="No order history" render={(o: any) => (
                     <div className="grid grid-cols-5 gap-2">
                       <span>{o.symbol || o.ticker || '—'}</span>
@@ -319,7 +286,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                       <span className="text-right text-gray-500">{fmtTime(o.time || o.timestamp || o.date)}</span>
                     </div>
                   )}/>
-                </InfoCard>
+                </Card>
               </div>
             </section>
 
@@ -346,7 +313,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
             {/* 6. Activity / Transactions */}
             <section>
               <h3 className="text-lg font-medium mb-2">6. Activity / Transactions</h3>
-              <InfoCard title="Recent Activity">
+              <Card title="Recent Activity">
                 <List items={data.activityAndTransactions} empty="No recent activity" render={(a: any) => (
                   <div className="grid grid-cols-5 gap-2">
                     <span>{a.type}</span>
@@ -356,7 +323,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     <span className="text-right text-gray-500">{fmtTime(a.timestamp)}</span>
                   </div>
                 )}/>
-              </InfoCard>
+              </Card>
             </section>
 
 
