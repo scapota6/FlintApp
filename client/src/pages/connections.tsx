@@ -8,7 +8,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import AccountDetailsDialog from "@/components/AccountDetailsDialog";
+
+import AccountCard from "@/components/AccountCard";
 import { 
   Building2, 
   CreditCard, 
@@ -18,10 +19,7 @@ import {
   Link2,
   ArrowLeft,
   Unlink,
-  Trash2,
-  CheckCircle,
-  Clock,
-  Eye
+  Trash2
 } from "lucide-react";
 
 // Type definitions
@@ -48,8 +46,7 @@ export default function Connections() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [disconnectingAccount, setDisconnectingAccount] = useState<string | null>(null);
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const [selectedAccountName, setSelectedAccountName] = useState<string | undefined>(undefined);
+
 
   // Fetch connected accounts
   const { data: holdingsData, isLoading: isLoadingAccounts } = useQuery<HoldingsResponse>({
@@ -289,81 +286,16 @@ export default function Connections() {
               ) : (
                 <div className="space-y-3">
                   {connectedAccounts.map((account, index) => (
-                    <div key={account.id || index} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
-                          {account.type === 'investment' ? 
-                            <Building2 className="h-5 w-5 text-purple-600" /> : 
-                            <CreditCard className="h-5 w-5 text-purple-600" />
-                          }
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold">{account.accountName}</h3>
-                            <Badge variant={account.provider === 'snaptrade' ? 'default' : 'secondary'}>
-                              {account.provider === 'snaptrade' ? 'SnapTrade' : account.provider}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {account.institution} 
-                            {account.accountNumber && ` • ****${account.accountNumber.slice(-4)}`}
-                          </p>
-                          <div className="flex items-center gap-4 mt-1">
-                            <span className="text-sm font-medium">
-                              ${account.balance.toLocaleString()}
-                            </span>
-                            {account.cash !== undefined && (
-                              <span className="text-xs text-muted-foreground">
-                                Cash: ${account.cash.toLocaleString()}
-                              </span>
-                            )}
-                            {account.holdings !== undefined && account.holdings > 0 && (
-                              <span className="text-xs text-muted-foreground">
-                                Holdings: ${account.holdings.toLocaleString()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <CheckCircle className="h-3 w-3 text-green-500" />
-                          <span>Active</span>
-                        </div>
-                        {account.provider === 'snaptrade' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedAccountId(account.id);
-                              setSelectedAccountName(account.accountName);
-                            }}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View Details
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDisconnect(account.provider, account.id)}
-                          disabled={disconnectingAccount === account.id}
-                        >
-                          {disconnectingAccount === account.id ? (
-                            <>
-                              <Clock className="h-4 w-4 mr-1" />
-                              Disconnecting...
-                            </>
-                          ) : (
-                            <>
-                              <Unlink className="h-4 w-4 mr-1" />
-                              Disconnect
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
+                    <AccountCard 
+                      key={account.id || index}
+                      account={{
+                        id: account.id,
+                        brokerageName: account.accountName,
+                        brokerage: account.institution,
+                        type: account.type
+                      }}
+                      currentUser={currentUser}
+                    />
                   ))}
                   
                   {connectedAccounts.some(acc => acc.provider === 'snaptrade') && (
@@ -490,16 +422,7 @@ export default function Connections() {
         </CardContent>
       </Card>
 
-      {/* Account Details Modal */}
-      <AccountDetailsDialog
-        accountId={selectedAccountId || ''}
-        open={!!selectedAccountId}
-        currentUserId={currentUser?.id || ''}
-        onClose={() => {
-          setSelectedAccountId(null);
-          setSelectedAccountName(undefined);
-        }}
-      />
+
     </div>
   );
 }
