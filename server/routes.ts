@@ -8,7 +8,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { getSnapUser } from "./store/snapUsers";
 import { rateLimits } from "./middleware/rateLimiter";
-import { authApi } from './lib/snaptrade';
+import { authApi, accountsApi } from './lib/snaptrade';
 import { deleteSnapUser, saveSnapUser } from './store/snapUsers';
 import { WalletService } from "./services/WalletService";
 import { TradingAggregator } from "./services/TradingAggregator";
@@ -426,11 +426,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const brokerages = [];
       
       // Get SnapTrade accounts if connected
-      const snapTradeUser = await getOrLoadUserSecret(userId);
+      const snapTradeUser = await getSnapUser(userId);
       if (snapTradeUser && snapTradeUser.userSecret) {
         try {
           console.log('[/api/accounts] Fetching SnapTrade accounts');
-          const accounts = await listUserAccounts(userId, snapTradeUser.userSecret);
+          const accounts = await accountsApi.listUserAccounts({
+            userId: snapTradeUser.userId,
+            userSecret: snapTradeUser.userSecret
+          });
           
           if (accounts.data && Array.isArray(accounts.data)) {
             for (const account of accounts.data) {
