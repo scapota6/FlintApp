@@ -30,7 +30,7 @@ r.post('/connections/snaptrade/register', async (req, res) => {
       userSecret: rec.userSecret,
       broker: 'ALPACA',
       immediateRedirect: true,
-      customRedirect: process.env.SNAPTRADE_REDIRECT_URI!,
+      customRedirect: process.env.SNAPTRADE_REDIRECT_URI || 'https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/snaptrade/callback',
     });
     const url = (login.data as any).redirectURI || (login.data as any).url;
     if (!url) throw new Error('No Connection Portal URL returned');
