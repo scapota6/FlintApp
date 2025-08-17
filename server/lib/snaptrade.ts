@@ -1,9 +1,8 @@
 import * as Snaptrade from 'snaptrade-typescript-sdk';
 
 export const snaptradeConfig = new Snaptrade.Configuration({
-  clientId: process.env.SNAPTRADE_CLIENT_ID!,        // 👈 MUST read SNAPTRADE_* vars
-  consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,  // 👈
-  environment: (process.env.SNAPTRADE_ENV as any) || 'sandbox',
+  clientId: process.env.SNAPTRADE_CLIENT_ID!,
+  consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
 });
 
 export const authApi = new Snaptrade.AuthenticationApi(snaptradeConfig);

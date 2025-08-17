@@ -3,13 +3,7 @@ import { isAuthenticated } from "../replitAuth";
 import { db } from "../db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { Snaptrade } from "snaptrade-typescript-sdk";
-
-// Initialize SnapTrade client
-const snaptrade = new Snaptrade({
-  clientId: process.env.SNAPTRADE_CLIENT_ID!,
-  consumerKey: process.env.SNAPTRADE_CLIENT_SECRET!,
-});
+import { authApi, accountsApi } from "../lib/snaptrade";
 
 const router = Router();
 

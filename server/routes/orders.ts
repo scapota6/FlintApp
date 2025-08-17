@@ -1,15 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { Snaptrade } from 'snaptrade-typescript-sdk';
+import { authApi, accountsApi } from '../lib/snaptrade';
 import { storage } from '../storage';
 
 const router = Router();
-
-// Initialize SnapTrade client
-const snaptrade = new Snaptrade({
-  clientId: process.env.SNAPTRADE_CLIENT_ID!,
-  consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
-});
 
 // Order placement schema
 const placeOrderSchema = z.object({

@@ -4,21 +4,13 @@
  */
 
 import { Router } from "express";
-import { Snaptrade } from "snaptrade-typescript-sdk";
+import { authApi, accountsApi } from "../lib/snaptrade";
 import crypto from "crypto";
 import { isAuthenticated } from "../replitAuth";
 import { storage } from "../storage";
 import { logger } from "@shared/logger";
 
 const router = Router();
-
-// Initialize SnapTrade SDK
-const snaptradeClient = process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET
-  ? new Snaptrade({
-      clientId: process.env.SNAPTRADE_CLIENT_ID,
-      consumerKey: process.env.SNAPTRADE_CLIENT_SECRET,
-    })
-  : null;
 
 /**
  * GET /api/brokerages

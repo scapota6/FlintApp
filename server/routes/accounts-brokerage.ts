@@ -1,14 +1,8 @@
 import { Router } from 'express';
-import { Snaptrade } from 'snaptrade-typescript-sdk';
+import { authApi, accountsApi } from '../lib/snaptrade';
 import { storage } from '../storage';
 
 const router = Router();
-
-// Initialize SnapTrade client
-const snaptrade = new Snaptrade({
-  clientId: process.env.SNAPTRADE_CLIENT_ID!,
-  consumerKey: process.env.SNAPTRADE_CLIENT_SECRET!,
-});
 
 // Get user's brokerage accounts
 router.get('/accounts/brokerage', async (req, res) => {

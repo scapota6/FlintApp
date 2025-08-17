@@ -1,24 +1,11 @@
 import { Router } from "express";
-import { Snaptrade } from "snaptrade-typescript-sdk";
+import { authApi, accountsApi } from "../lib/snaptrade";
 import { isAuthenticated } from "../replitAuth";
 import { db } from "../db";
 import { users, connectedAccounts, snaptradeUsers } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 export const router = Router();
-
-// Initialize SnapTrade SDK
-const clientId = process.env.SNAPTRADE_CLIENT_ID;
-const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET;
-
-if (!clientId || !consumerKey) {
-  throw new Error('SnapTrade credentials missing: SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET required');
-}
-
-const snaptrade = new Snaptrade({
-  clientId,
-  consumerKey,
-});
 
 // Helper function to get user by email
 async function getUserByEmail(email: string) {
