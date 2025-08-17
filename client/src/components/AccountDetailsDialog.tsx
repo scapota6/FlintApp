@@ -95,12 +95,10 @@ const getActivityIcon = (type: string) => {
 };
 
 // Helper component for displaying key-value information
-const Info = ({ label, value }: { label: string; value: string | null | undefined }) => (
-  <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</div>
-    <div className="text-sm font-medium text-gray-900 dark:text-white mt-1">
-      {value || '—'}
-    </div>
+const Info = ({ label, value, className = '' }: { label: string; value: string | null | undefined; className?: string }) => (
+  <div className={`rounded-xl border border-gray-200 dark:border-gray-700 p-3 ${className}`}>
+    <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
+    <div className="font-medium text-gray-900 dark:text-white">{value ?? '—'}</div>
   </div>
 );
 
@@ -345,48 +343,20 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Wire these to your trade endpoints when ready.</p>
             </section>
 
-            {/* 5. Activity & Transactions */}
+            {/* 6. Activity / Transactions */}
             <section>
-              <h3 className="text-lg font-medium mb-2">5. Activity & Transactions</h3>
-              {data.activityAndTransactions && data.activityAndTransactions.length > 0 ? (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {data.activityAndTransactions.slice(0, 20).map((activity: any, index: number) => (
-                    <div key={index} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        {getActivityIcon(activity.type)}
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="font-medium">{activity.description || activity.type}</div>
-                              <div className="text-sm text-gray-600 dark:text-gray-400">
-                                {activity.symbol && `${activity.symbol} • `}
-                                {activity.timestamp && new Date(activity.timestamp).toLocaleDateString()}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <Badge variant="outline">{activity.type}</Badge>
-                              {activity.amount && (
-                                <div className="text-sm font-medium mt-1">
-                                  {fmtMoney(activity.amount)}
-                                </div>
-                              )}
-                              {activity.quantity && (
-                                <div className="text-xs text-gray-500">
-                                  Qty: {activity.quantity}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center p-8 text-gray-500">
-                  No recent activities found
-                </div>
-              )}
+              <h3 className="text-lg font-medium mb-2">6. Activity / Transactions</h3>
+              <InfoCard title="Recent Activity">
+                <List items={data.activityAndTransactions} empty="No recent activity" render={(a: any) => (
+                  <div className="grid grid-cols-5 gap-2">
+                    <span>{a.type}</span>
+                    <span>{a.symbol || '—'}</span>
+                    <span className="text-right">{fmtNum(a.quantity)}</span>
+                    <span className="text-right">{fmtMoney(a.amount)}</span>
+                    <span className="text-right text-gray-500">{fmtTime(a.timestamp)}</span>
+                  </div>
+                )}/>
+              </InfoCard>
             </section>
 
 
