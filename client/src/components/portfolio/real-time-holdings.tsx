@@ -41,13 +41,7 @@ export default function RealTimeHoldings({
   const { data: holdingsData = [], isLoading, error } = useQuery<Holding[]>({
     queryKey: ['/api/holdings'],
     queryFn: async () => {
-      // Get authenticated user data first for user ID
-      const userResp = await apiRequest("/api/auth/user");
-      if (!userResp.ok) throw new Error("Authentication required");
-      const userData = await userResp.json();
-      
       const resp = await fetch("/api/holdings", {
-        headers: { "x-user-id": userData.id },
         credentials: "include",
       });
       if (!resp.ok) {
@@ -59,6 +53,8 @@ export default function RealTimeHoldings({
       return Array.isArray(data) ? data : (data.holdings || []);
     },
     refetchInterval: 15000, // Update every 15 seconds for real-time pricing
+    retry: 2, // Only retry twice on failure
+    retryDelay: 3000, // Wait 3 seconds between retries
   });
 
   const holdings = Array.isArray(holdingsData) ? holdingsData : [];
