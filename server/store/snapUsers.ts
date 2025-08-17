@@ -4,12 +4,12 @@ import path from 'path';
 type Rec = { userId: string; userSecret: string };
 type DB = Record<string, Rec>;
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const FILE = path.join(DATA_DIR, 'snaptrade-users.json');
+const DIR = path.join(process.cwd(), 'data');
+const FILE = path.join(DIR, 'snaptrade-users.json');
 
-function ensure() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, JSON.stringify({}), 'utf8');
+function ensure() { 
+  if (!fs.existsSync(DIR)) fs.mkdirSync(DIR, { recursive: true }); 
+  if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, '{}', 'utf8'); 
 }
 
 function read(): DB { 
@@ -25,21 +25,23 @@ function write(db: DB) {
   fs.writeFileSync(FILE, JSON.stringify(db, null, 2), 'utf8'); 
 }
 
-export async function getUser(userId: string) { 
+export async function getSnapUser(userId: string) { 
   return read()[userId] || null; 
 }
 
-export async function saveUser(rec: Rec) { 
+export async function saveSnapUser(rec: Rec) { 
   const db = read(); 
   db[rec.userId] = rec; 
   write(db); 
 }
 
-export async function deleteUserLocal(userId: string) { 
+export async function deleteSnapUser(userId: string) { 
   const db = read(); 
   delete db[userId]; 
   write(db); 
 }
 
-// Legacy alias for compatibility
-export const deleteLocal = deleteUserLocal;
+// Legacy aliases for compatibility
+export const getUser = getSnapUser;
+export const saveUser = saveSnapUser;
+export const deleteUserLocal = deleteSnapUser;

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { accountsApi, portfolioApi } from '../lib/snaptrade';
-import { getUser } from '../store/snapUsers';
+import { getSnapUser } from '../store/snapUsers';
 
 const r = Router();
 
@@ -14,7 +14,7 @@ r.get('/holdings', async (req, res) => {
     const userId = pickId(req);
     if (!userId) return res.status(401).json({ message: 'No userId' });
 
-    const rec = await getUser(userId);
+    const rec = await getSnapUser(userId);
     if (!rec?.userSecret) return res.status(428).json({ code: 'SNAPTRADE_NOT_REGISTERED', message: 'No SnapTrade user for this userId' });
 
     try {

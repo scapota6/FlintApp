@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authApi } from '../lib/snaptrade';
-import { getUser, saveUser } from '../store/snapUsers';
+import { getSnapUser, saveSnapUser } from '../store/snapUsers';
 
 const r = Router();
 
@@ -13,12 +13,12 @@ r.post('/connections/snaptrade/register', async (req, res) => {
     console.log('[SnapTrade] Authenticated registration for userId:', userId);
 
     // 1) Register (idempotent) and store the SECRET RETURNED BY SNAPTRADE
-    let rec = await getUser(userId);
+    let rec = await getSnapUser(userId);
     if (!rec) {
       const created = await authApi.registerUser({ userId }); // returns userSecret
       if (!created.userSecret) throw new Error('SnapTrade did not return userSecret');
       rec = { userId: created.userId!, userSecret: created.userSecret! };
-      await saveUser(rec);
+      await saveSnapUser(rec);
       console.log('[SnapTrade] Registered & stored userSecret len:', rec.userSecret.length, 'userId:', rec.userId);
     } else {
       console.log('[SnapTrade] Using stored userSecret len:', rec.userSecret.length, 'userId:', rec.userId);
