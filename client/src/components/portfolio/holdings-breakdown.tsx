@@ -35,7 +35,16 @@ export default function HoldingsBreakdown() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['/api/holdings'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/holdings');
+      // Get authenticated user data first for user ID
+      const userResp = await apiRequest("/api/auth/user");
+      if (!userResp.ok) throw new Error("Authentication required");
+      const userData = await userResp.json();
+      
+      const response = await apiRequest("/api/holdings", {
+        headers: {
+          "x-user-id": userData.id
+        }
+      });
       if (!response.ok) throw new Error('Failed to fetch holdings');
       return response.json();
     },

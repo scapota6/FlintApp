@@ -144,7 +144,16 @@ const commandPatterns = [
     patterns: [/(?:show me |what are )?my (?:holdings|positions|investments)/i],
     handler: async (match: RegExpMatchArray, context: CommandContext): Promise<CommandResult> => {
       try {
-        const holdings = await apiRequest('GET', '/api/holdings').then(res => res.json());
+        // Get authenticated user data first for user ID
+        const userResp = await apiRequest("/api/auth/user");
+        if (!userResp.ok) throw new Error("Authentication required");
+        const userData = await userResp.json();
+        
+        const holdings = await apiRequest("/api/holdings", {
+          headers: {
+            "x-user-id": userData.id
+          }
+        }).then(res => res.json());
         const count = holdings.holdings?.length || 0;
         const totalValue = holdings.totalValue || 0;
         
