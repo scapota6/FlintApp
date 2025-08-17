@@ -7,7 +7,7 @@ Flint is a comprehensive financial management web application built with React a
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (August 2025)
-- **Complete SnapTrade Integration**: Implemented comprehensive auto-provision system following SnapTrade documentation precisely. Single app credentials with correct redirect URI format eliminates signature verification errors (1076). File-based userSecret storage (`data/snaptrade-users.json`) ensures one SnapTrade user per Flint user. Clean Connect route follows proper flow: register → save userSecret → login for portal URL. All "snaptradeClient is not defined" crashes eliminated through centralized configuration. Frontend components updated to send x-user-id headers for all holdings API calls. System ready for production credentials testing.
+- **Complete SnapTrade Integration**: Implemented comprehensive auto-provision system following SnapTrade documentation precisely. Environment validation with hard guards prevents signature errors (1076) by failing fast with incorrect credentials. File-based userSecret storage (`data/snaptrade-users.json`) with auto-provision flow: register → store provider-returned userSecret → generate portal URL. Centralized SDK configuration eliminates duplicate initializations. Frontend components send x-user-id headers for proper user identification. System architecture complete and ready for test credentials (FLINT-TEST-GPPIO) verification.
 
 ## System Architecture
 
