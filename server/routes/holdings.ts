@@ -1,54 +1,26 @@
 import { Router } from 'express';
-import { db } from '../db';
-import { users, snaptradeUsers } from '@shared/schema';
-import { eq } from 'drizzle-orm';
-import { Snaptrade } from 'snaptrade-typescript-sdk';
+import { accountsApi, portfoliosApi } from '../lib/snaptrade';
+import { storage } from '../storage';
+import { isAuthenticated } from '../replitAuth';
 
 const router = Router();
 
-// Middleware to check authentication
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
-  next();
-};
-
-// Initialize SnapTrade client
-const getSnapTradeClient = () => {
-  const clientId = process.env.SNAPTRADE_CLIENT_ID;
-  const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET;
-
-  if (!clientId || !consumerKey) {
-    throw new Error('Missing SnapTrade credentials');
-  }
-
-  return new Snaptrade({
-    clientId,
-    consumerKey,
-  });
-};
-
 // Get holdings for all connected accounts
-router.get('/holdings', requireAuth, async (req, res) => {
+router.get('/', isAuthenticated, async (req: any, res) => {
   try {
-    // Get user ID from claims (Replit Auth)
-    const userId = (req.user as any)?.claims?.sub;
-    const userEmail = (req.user as any)?.claims?.email;
+    const userId = req.user.claims.sub;
+    const userEmail = req.user.claims.email?.toLowerCase();
     
-    if (!userId) {
-      return res.status(401).json({ message: 'User not authenticated' });
+    if (!userEmail) {
+      return res.status(400).json({ message: 'User email required' });
     }
 
     console.log(`Fetching holdings for user: ${userEmail}`);
     
-    const snaptrade = getSnapTradeClient();
+    // Get SnapTrade credentials from database
+    const snaptradeUser = await storage.getSnapTradeUserByEmail(userEmail);
     
-    // Check if user has SnapTrade credentials in new table
-    const snaptradeRecord = await db.select().from(snaptradeUsers).where(eq(snaptradeUsers.flintUserId, userId)).limit(1);
-    const userRecord = snaptradeRecord[0];
-    
-    if (!userRecord?.snaptradeUserId || !userRecord?.snaptradeUserSecret) {
+    if (!snaptradeUser?.snaptradeUserSecret) {
       return res.json({
         holdings: [],
         summary: {
@@ -60,20 +32,22 @@ router.get('/holdings', requireAuth, async (req, res) => {
           accountCount: 0,
         },
         needsConnection: true,
-        message: 'Connect your brokerage accounts to view holdings'
+        message: 'SnapTrade not registered for user'
       });
     }
+
+    const userSecret = snaptradeUser.snaptradeUserSecret;
 
     // Get all connected accounts - wrap in try/catch for auth errors
     let accountsResponse;
     try {
-      accountsResponse = await snaptrade.accountInformation.listUserAccounts({
-        userId: userRecord.snaptradeUserId,
-        userSecret: userRecord.snaptradeUserSecret,
+      accountsResponse = await accountsApi.listUserAccounts({
+        userId: userEmail, // Use email as SnapTrade userId
+        userSecret: userSecret,
       });
     } catch (authError: any) {
       // Handle SnapTrade authentication errors gracefully
-      console.error('SnapTrade authentication failed:', authError);
+      console.error('SnapTrade authentication failed:', authError.response?.data || authError);
       return res.json({
         holdings: [],
         summary: {
@@ -201,58 +175,40 @@ router.get('/holdings', requireAuth, async (req, res) => {
 });
 
 // Get holdings for a specific account
-router.get('/holdings/:accountId', requireAuth, async (req, res) => {
+router.get('/:accountId', isAuthenticated, async (req: any, res) => {
   try {
-    const userId = (req.user as any)?.id;
+    const userId = req.user.claims.sub;
+    const userEmail = req.user.claims.email?.toLowerCase();
     const { accountId } = req.params;
     
-    if (!userId) {
-      return res.status(401).json({ message: 'User not authenticated' });
+    if (!userEmail) {
+      return res.status(400).json({ message: 'User email required' });
     }
 
-    const snaptrade = getSnapTradeClient();
+    // Get SnapTrade credentials from database
+    const snaptradeUser = await storage.getSnapTradeUserByEmail(userEmail);
     
-    // Get user's SnapTrade credentials from new table
-    const snaptradeRecord = await db.select().from(snaptradeUsers).where(eq(snaptradeUsers.flintUserId, userId)).limit(1);
-    const userRecord = snaptradeRecord[0];
-    
-    if (!userRecord?.snaptradeUserId || !userRecord?.snaptradeUserSecret) {
+    if (!snaptradeUser?.snaptradeUserSecret) {
       return res.status(400).json({ message: 'SnapTrade credentials not found' });
     }
 
-    const positionsResponse = await snaptrade.accountInformation.getUserAccountPositions({
-      userId: userRecord.snaptradeUserId,
-      userSecret: userRecord.snaptradeUserSecret,
+    const userSecret = snaptradeUser.snaptradeUserSecret;
+
+    // Get positions for specific account
+    const positionsResponse = await portfoliosApi.listUserAccountPositions({
+      userId: userEmail,
+      userSecret: userSecret,
       accountId: accountId,
     });
 
-    const positions = positionsResponse.data?.positions || [];
+    const positions = positionsResponse.data || [];
     
-    // Get real-time quotes
-    const symbols = positions.map(p => p.symbol?.symbol).filter(Boolean);
-    const quotesMap = new Map();
-    
-    if (symbols.length > 0) {
-      try {
-        const quotesResponse = await apiRequest('POST', '/api/quotes/batch', { symbols });
-        const quotesData = await quotesResponse.json();
-        
-        if (quotesData.quotes) {
-          quotesData.quotes.forEach((quote: any) => {
-            quotesMap.set(quote.symbol, quote.price);
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching quotes:', error);
-      }
-    }
-
     // Transform positions
-    const holdings = positions.map(position => {
+    const holdings = positions.map((position: any) => {
       const symbol = position.symbol?.symbol || '';
-      const quantity = position.quantity || 0;
-      const averageCost = position.price || 0;
-      const currentPrice = quotesMap.get(symbol) || position.price || 0;
+      const quantity = parseFloat(position.units || position.quantity || 0);
+      const averageCost = parseFloat(position.average_purchase_price || position.price || 0);
+      const currentPrice = parseFloat(position.price || 0);
       const currentValue = quantity * currentPrice;
       const totalCost = quantity * averageCost;
       const profitLoss = currentValue - totalCost;
@@ -268,7 +224,7 @@ router.get('/holdings/:accountId', requireAuth, async (req, res) => {
         totalCost: totalCost,
         profitLoss: profitLoss,
         profitLossPercent: profitLossPercent,
-        currency: position.symbol?.currency || 'USD',
+        currency: position.symbol?.currency?.code || 'USD',
         type: position.symbol?.type || 'stock',
       };
     });
@@ -276,7 +232,7 @@ router.get('/holdings/:accountId', requireAuth, async (req, res) => {
     res.json({ holdings });
 
   } catch (error: any) {
-    console.error('Error fetching account holdings:', error);
+    console.error('Error fetching account holdings:', error.response?.data || error);
     res.status(500).json({ 
       message: 'Failed to fetch account holdings', 
       error: error.message 

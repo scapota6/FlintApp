@@ -37,7 +37,9 @@ export interface IStorage {
   
   // SnapTrade user management
   getSnapTradeUser(userId: string): Promise<{ snaptradeUserId: string | null, userSecret: string } | undefined>;
+  getSnapTradeUserByEmail(email: string): Promise<{ snaptradeUserId: string | null, snaptradeUserSecret: string, flintUserId: string } | undefined>;
   createSnapTradeUser(userId: string, snaptradeUserId: string, userSecret: string): Promise<void>;
+  upsertSnapTradeUser(userId: string, email: string, userSecret: string): Promise<void>;
   deleteSnapTradeUser(userId: string): Promise<void>;
   
   // Connected accounts
@@ -135,8 +137,58 @@ export class DatabaseStorage implements IStorage {
     return undefined;
   }
 
+  async getSnapTradeUserByEmail(email: string): Promise<{ snaptradeUserId: string | null, snaptradeUserSecret: string, flintUserId: string } | undefined> {
+    // First get the user by email
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email));
+    
+    if (!user) {
+      return undefined;
+    }
+
+    // Then get their SnapTrade credentials
+    const [snaptradeUser] = await db
+      .select()
+      .from(snaptradeUsers)
+      .where(eq(snaptradeUsers.flintUserId, user.id));
+    
+    if (snaptradeUser) {
+      return { 
+        snaptradeUserId: snaptradeUser.snaptradeUserId, 
+        snaptradeUserSecret: snaptradeUser.snaptradeUserSecret,
+        flintUserId: user.id
+      };
+    }
+    
+    return undefined;
+  }
+
   async createSnapTradeUser(userId: string, snaptradeUserId: string, userSecret: string): Promise<void> {
     // Store in separate snaptradeUsers table
+    await db
+      .insert(snaptradeUsers)
+      .values({
+        flintUserId: userId,
+        snaptradeUserId: snaptradeUserId,
+        snaptradeUserSecret: userSecret,
+        connectedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: snaptradeUsers.flintUserId,
+        set: {
+          snaptradeUserId: snaptradeUserId,
+          snaptradeUserSecret: userSecret,
+          lastSyncAt: new Date(),
+        }
+      });
+  }
+
+  async upsertSnapTradeUser(userId: string, email: string, userSecret: string): Promise<void> {
+    // Use email as the SnapTrade userId (lowercase)
+    const snaptradeUserId = email.toLowerCase();
+    
     await db
       .insert(snaptradeUsers)
       .values({

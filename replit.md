@@ -40,7 +40,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Integrations
 - **Teller.io**: For bank account connections and ACH transfers.
-- **SnapTrade**: For brokerage account connections, real-time quotes, and trading functionalities (buy/sell orders, account activities, positions).
+- **SnapTrade**: For brokerage account connections, real-time quotes, and trading functionalities (buy/sell orders, account activities, positions). Authentication fixed with proper userSecret generation and storage per user using email as userId. Key files: server/lib/snaptrade.ts (SDK initialization), server/lib/crypto.ts (userSecret generation), server/routes/snaptrade.ts (registration/connection endpoints), server/routes/holdings-fixed.ts (authenticated holdings fetching).
 - **Stripe**: For subscription management and payment processing.
 - **Finnhub**: Used for general financial data.
 - **Polygon.io**: For real-time market data and live pricing.

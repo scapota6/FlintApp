@@ -1,0 +1,224 @@
+ Root cause (so they fix the right thing)
+401 code 1076: "Unable to verify signature sent" → the SDK isn’t signing correctly (wrong/empty signing key, wrong clientId, or you’re bypassing the SDK’s signing).
+
+401 code 1083: "Please provide clientId, userId and userSecret" → your userSecret is blank on the /accounts call because registration failed, so nothing was saved.
+
+You must:
+
+initialize the SnapTrade SDK with the correct clientId and consumer/signing key,
+
+generate & persist a userSecret per user at register time,
+
+pass both userId and userSecret on every subsequent call.
+
+🧾 Copy-paste prompt for Replit (do exactly this)
+PROMPT FOR REPLIT AGENT
+
+Fix SnapTrade auth + holdings:
+
+Secrets: In Replit “Secrets” set these (or update values):
+
+SNAPTRADE_CLIENT_ID = the current client ID we’re using (FLINT-AGFQD or the one shown in the SnapTrade dashboard)
+
+SNAPTRADE_CONSUMER_KEY = the signing/consumer key from SnapTrade (NOT the client ID)
+
+SNAPTRADE_ENV = sandbox (unless we are truly in prod)
+
+Do not hardcode keys anywhere.
+
+SDK init (single source of truth):
+Create src/lib/snaptrade.ts (TypeScript) or src/lib/snaptrade.js (JS) with only the official SDK—no manual HMAC code:
+
+ts
+Copy
+Edit
+// src/lib/snaptrade.ts
+import * as Snaptrade from 'snaptrade-typescript-sdk';
+
+export const snaptradeConfig = new Snaptrade.Configuration({
+  consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
+  clientId: process.env.SNAPTRADE_CLIENT_ID!,
+  environment: (process.env.SNAPTRADE_ENV as any) || 'sandbox',
+});
+
+export const authApi = new Snaptrade.AuthenticationApi(snaptradeConfig);
+export const accountsApi = new Snaptrade.AccountsApi(snaptradeConfig);
+export const portfoliosApi = new Snaptrade.PortfolioApi(snaptradeConfig);
+export const ordersApi = new Snaptrade.TradeApi(snaptradeConfig);
+Remove any custom signing/timestamp code and any manual X-Signature logic. The SDK should sign requests.
+
+DB: store userSecret per user (non-null):
+
+Add a column if missing: user_connections.snaptrade_user_secret TEXT NOT NULL.
+
+We generate a random secret once per user and reuse it forever.
+
+ts
+Copy
+Edit
+// src/lib/crypto.ts
+import { randomBytes } from 'crypto';
+export const generateUserSecret = () => randomBytes(32).toString('hex'); // 64 chars
+Register-or-Return flow (server route):
+Replace /api/snaptrade/register with an idempotent function:
+
+ts
+Copy
+Edit
+// src/routes/snaptrade.ts
+import { Router } from 'express';
+import { authApi } from '../lib/snaptrade';
+import { generateUserSecret } from '../lib/crypto';
+import { db } from '../lib/db'; // your DB helper
+
+const r = Router();
+
+// body: { userEmail: string }
+r.post('/register', async (req, res) => {
+  try {
+    const userId = String(req.body.userEmail).toLowerCase();
+    if (!userId) return res.status(400).json({ message: 'userEmail required' });
+
+    // 1) fetch or create secret
+    let rec = await db.getSnapUserByEmail(userId); // must include snaptrade_user_secret
+    let userSecret = rec?.snaptrade_user_secret;
+    if (!userSecret) {
+      userSecret = generateUserSecret();
+      await db.upsertSnapUserSecret(userId, userSecret);
+    }
+
+    // 2) ensure user exists at SnapTrade (idempotent)
+    await authApi.registerUser({ userId, userSecret });
+
+    // 3) return connect URL (if you use Connect)
+    const connect = await authApi.createSnapTradeLogin({
+      userId,
+      userSecret,
+      brokerRedirectUri: process.env.SNAPTRADE_REDIRECT_URI, // must match dashboard
+    });
+
+    return res.json({ connect });
+  } catch (err: any) {
+    console.error('SnapTrade Registration Error:', err);
+    return res.status(500).json({ message: err.message || 'SnapTrade register failed' });
+  }
+});
+
+export default r;
+Notes:
+
+We always send both userId and userSecret to SnapTrade.
+
+If registerUser returns 409/exists, that’s fine—treat as success.
+
+Ensure SNAPTRADE_REDIRECT_URI exactly matches SnapTrade dashboard.
+
+Holdings/Accounts endpoint (must pass both IDs):
+Fix /api/holdings to never call SnapTrade with an empty userSecret:
+
+ts
+Copy
+Edit
+// src/routes/holdings.ts
+import { Router } from 'express';
+import { accountsApi, portfoliosApi } from '../lib/snaptrade';
+import { db } from '../lib/db';
+
+const r = Router();
+
+r.get('/', async (req, res) => {
+  try {
+    const userId = req.user.email.toLowerCase(); // however you get current user
+    const rec = await db.getSnapUserByEmail(userId);
+    if (!rec?.snaptrade_user_secret) {
+      return res.status(400).json({ message: 'SnapTrade not registered for user' });
+    }
+    const userSecret = rec.snaptrade_user_secret;
+
+    // list accounts
+    const accounts = await accountsApi.listAccounts({ userId, userSecret });
+
+    // optional: positions per account
+    const positions = await Promise.all(
+      accounts.map(a =>
+        portfoliosApi.getPositions({
+          userId,
+          userSecret,
+          accountId: a.id!,
+        })
+      )
+    );
+
+    return res.json({ accounts, positions });
+  } catch (err: any) {
+    console.error('Error fetching holdings:', err);
+    return res.status(500).json({ message: 'Failed to fetch holdings' });
+  }
+});
+
+export default r;
+Order placement (always include IDs):
+
+ts
+Copy
+Edit
+// src/routes/orders.ts
+import { Router } from 'express';
+import { ordersApi } from '../lib/snaptrade';
+import { db } from '../lib/db';
+const r = Router();
+
+r.post('/', async (req, res) => {
+  try {
+    const userId = req.user.email.toLowerCase();
+    const { accountId, symbol, side, type, quantity, limitPrice, timeInForce } = req.body;
+    const rec = await db.getSnapUserByEmail(userId);
+    const userSecret = rec.snaptrade_user_secret;
+
+    const order = await ordersApi.placeOrder({
+      userId,
+      userSecret,
+      accountId,
+      orderType: type,  // map UI to SDK types
+      action: side,     // BUY/SELL
+      symbol,
+      units: quantity,
+      limitPrice,
+      timeInForce,
+    });
+
+    return res.json(order);
+  } catch (err: any) {
+    console.error('Place order error:', err);
+    return res.status(500).json({ message: 'Order failed', error: err?.responseBody || err.message });
+  }
+});
+
+export default r;
+Time & env sanity:
+
+Don’t append your own timestamp query param; let the SDK handle it.
+
+Ensure server time is sane (Replit is OK).
+
+Use the same environment (sandbox vs prod) in SDK and in your SnapTrade dashboard app.
+
+Logs to verify fix:
+
+On register: log userId (not secrets) and success.
+
+On accounts/holdings: log account count only (no secrets).
+
+On error, dump err.responseBody but never secrets.
+
+Front-end flow:
+
+When user clicks “Connect Brokerage”, call POST /api/snaptrade/register with their email → open the returned connect.url.
+
+After returning from SnapTrade Connect, call /api/holdings → should now succeed.
+
+Make these changes, push, and test. Then show me console output for:
+
+/api/snaptrade/register (should be 200, shows connect URL)
+
+/api/holdings (should be 200 with accounts/positions)

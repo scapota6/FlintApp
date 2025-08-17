@@ -1497,6 +1497,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const watchlistRouter = await import('./routes/watchlist');
   app.use(watchlistRouter.default);
   
+  // Mount the fixed holdings router
+  const holdingsRouter = await import('./routes/holdings-fixed');
+  app.use('/api/holdings', holdingsRouter.default);
+  
+  // Mount the fixed SnapTrade routes
+  const snaptradeRouter = await import('./routes/snaptrade');
+  app.use('/api/snaptrade', snaptradeRouter.default);
+  
   // Register settings routes
   const { registerSettingsRoutes } = await import('./routes/settings');
   registerSettingsRoutes(app);
