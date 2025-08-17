@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { accountsApi, portfoliosApi } from '../lib/snaptrade';
+import { accountsApi, portfolioApi } from '../lib/snaptrade';
 import { getUser } from '../store/snapUsers';
 import { isAuthenticated } from '../replitAuth';
 
@@ -24,7 +24,7 @@ r.get('/', isAuthenticated, async (req, res) => {
   try {
     const accounts = await accountsApi.listUserAccounts({ userId: rec.userId, userSecret: rec.userSecret });
     const positions = await Promise.all(
-      accounts.data.map((a: any) => portfoliosApi.getUserAccountPositions({ userId: rec.userId, userSecret: rec.userSecret, accountId: a.id }))
+      accounts.data.map((a: any) => portfolioApi.getPortfolioAccountHoldings({ userId: rec.userId, userSecret: rec.userSecret, accountId: a.id }))
     );
     return res.json({ accounts: accounts.data, positions: positions.map((p: any) => p.data) });
   } catch (e: any) {

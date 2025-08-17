@@ -31,8 +31,8 @@ r.post('/register', async (req, res) => {
       immediateRedirect: true,
       customRedirect: process.env.SNAPTRADE_REDIRECT_URI!,
     });
-    // Field name differs by SDK version; support a few:
-    const url = (login.data?.redirectURI || login.data?.loginRedirectURI || login.data?.url) as string;
+    // Return the redirect URL from SnapTrade login response
+    const url = (login.data as any).redirectURI || (login.data as any).url;
     return res.json({ connect: { url } });
   } catch (e: any) {
     console.log('[SnapTrade] Registration Error:', e?.responseBody || e?.message || e);
