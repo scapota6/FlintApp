@@ -141,6 +141,35 @@ const TdRight = ({ children, className = "" }: { children: React.ReactNode; clas
   </td>
 );
 
+// InfoCard component helper
+const InfoCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+    <h4 className="font-medium text-gray-900 dark:text-white mb-3">{title}</h4>
+    {children}
+  </div>
+);
+
+// List component helper
+const List = ({ items, empty, render }: { 
+  items: any[] | null | undefined; 
+  empty: string; 
+  render: (item: any, index: number) => React.ReactNode;
+}) => {
+  if (!items || items.length === 0) {
+    return <div className="text-center text-gray-500 dark:text-gray-400 py-4">{empty}</div>;
+  }
+  
+  return (
+    <div className="space-y-2">
+      {items.map((item, index) => (
+        <div key={index} className="text-sm">
+          {render(item, index)}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export default function AccountDetailsDialog({ accountId, open, onClose, currentUserId }: Props) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['account-details', accountId],
@@ -234,72 +263,38 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                           </TdRight>
                         </tr>
                       ))}
+                      {data.balancesAndHoldings.holdings.length === 0 && (
+                        <tr><Td colSpan={5} className="text-center text-gray-500 py-3">No holdings</Td></tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
               )}
             </section>
 
-            {/* 3. Positions & Orders */}
+            {/* 3. Positions and Orders */}
             <section>
-              <h3 className="text-lg font-medium mb-2">3. Positions & Orders</h3>
-              
-              {data.positionsAndOrders.activePositions && data.positionsAndOrders.activePositions.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-medium mb-2">Active Positions ({data.positionsAndOrders.activePositions.length})</h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {data.positionsAndOrders.activePositions.map((position: any, index: number) => (
-                      <div key={index} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="font-medium">{position.symbol?.symbol || position.symbol}</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              {position.quantity} shares
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-medium">{fmtMoney(position.market_value)}</div>
-                            {position.unrealized_pl !== null && (
-                              <div className={`text-sm ${position.unrealized_pl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {fmtMoney(position.unrealized_pl)}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {data.positionsAndOrders.pendingOrders && data.positionsAndOrders.pendingOrders.length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-2">Pending Orders ({data.positionsAndOrders.pendingOrders.length})</h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {data.positionsAndOrders.pendingOrders.map((order: any) => (
-                      <div key={order.id} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="font-medium">{order.symbol?.symbol || order.symbol}</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              {order.action || order.side} {order.quantity} shares
-                            </div>
-                            <Badge variant="outline" className="text-xs mt-1">
-                              {order.order_type || order.type}
-                            </Badge>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-medium">{fmtMoney(order.price)}</div>
-                            <Badge variant={order.status === 'PENDING' ? 'default' : 'secondary'}>
-                              {order.status}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <h3 className="text-lg font-medium mb-2">3. Positions and Orders</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InfoCard title="Active Positions">
+                  <List items={data.positionsAndOrders.activePositions} empty="No active positions" render={(p: any) => (
+                    <div className="flex justify-between">
+                      <span>{p.symbol || p.ticker || p.instrument?.symbol || '—'}</span>
+                      <span className="text-right">{fmtNum(p.quantity ?? p.qty)}</span>
+                    </div>
+                  )}/>
+                </InfoCard>
+                <InfoCard title="Pending Orders">
+                  <List items={data.positionsAndOrders.pendingOrders} empty="No pending orders" render={(o: any) => (
+                    <div className="grid grid-cols-4 gap-2">
+                      <span>{o.symbol || o.ticker || '—'}</span>
+                      <span className="text-right">{(o.side || o.action || '').toUpperCase()}</span>
+                      <span className="text-right">{fmtNum(o.quantity || o.qty)}</span>
+                      <span className="text-right">{fmtMoney(o.limitPrice ?? o.price)}</span>
+                    </div>
+                  )}/>
+                </InfoCard>
+              </div>
             </section>
 
             {/* 4. Trading Actions */}
