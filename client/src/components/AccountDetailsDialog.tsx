@@ -330,7 +330,10 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 >
                   🛒 Place Order
                 </button>
-                <button className="rounded-xl border border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/30 dark:to-yellow-900/30 px-4 py-2 hover:from-orange-100 hover:to-yellow-100 dark:hover:from-orange-800/50 dark:hover:to-yellow-800/50 text-orange-700 dark:text-orange-300 font-medium transition-all duration-200 shadow-sm hover:shadow-md">
+                <button 
+                  onClick={() => setOrderStatusDialogOpen(true)}
+                  className="rounded-xl border border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/30 dark:to-yellow-900/30 px-4 py-2 hover:from-orange-100 hover:to-yellow-100 dark:hover:from-orange-800/50 dark:hover:to-yellow-800/50 text-orange-700 dark:text-orange-300 font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                >
                   ❌ Cancel Orders
                 </button>
                 <button 
@@ -341,7 +344,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 </button>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 italic bg-purple-50 dark:bg-purple-950/20 p-2 rounded-lg border border-purple-200 dark:border-purple-800">
-                🚀 Full SnapTrade integration: Preview → placeForceOrder with idempotency keys
+                🚀 Complete trading system: Preview → placeForceOrder → cancelOrder with capability checking
               </p>
             </section>
 

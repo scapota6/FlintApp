@@ -88,25 +88,47 @@ export default function OrderStatusDialog({
         method: 'DELETE',
         body: JSON.stringify({ accountId }),
       }),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       toast({
         title: 'Order Cancelled',
-        description: 'Order has been successfully cancelled',
+        description: data.message || 'Order has been successfully cancelled',
       });
       queryClient.invalidateQueries({ queryKey: ['orders', accountId] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['account-details', accountId] });
     },
     onError: (error: any) => {
+      let title = 'Cancel Failed';
+      let description = 'Failed to cancel order';
+
+      // Handle specific error cases with user-friendly messages
+      if (error.status === 501) {
+        title = 'Not Supported';
+        description = 'This brokerage does not support order cancellation';
+      } else if (error.status === 404) {
+        title = 'Order Not Found';
+        description = 'Order not found or already processed';
+      } else if (error.status === 409) {
+        title = 'Cannot Cancel';
+        description = 'Order already executed and cannot be cancelled';
+      } else if (error.message) {
+        description = error.message;
+      }
+
       toast({
-        title: 'Cancel Failed',
-        description: error.message || 'Failed to cancel order',
+        title,
+        description,
         variant: 'destructive',
       });
     },
   });
 
-  const handleCancelOrder = (orderId: string) => {
-    if (confirm('Are you sure you want to cancel this order?')) {
+  const handleCancelOrder = (orderId: string, symbol?: string) => {
+    const confirmMessage = symbol 
+      ? `Are you sure you want to cancel the ${symbol} order?`
+      : 'Are you sure you want to cancel this order?';
+      
+    if (confirm(confirmMessage)) {
       cancelOrderMutation.mutate({ orderId });
     }
   };
@@ -181,11 +203,14 @@ export default function OrderStatusDialog({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleCancelOrder(order.id || order.brokerage_order_id)}
+                        onClick={() => handleCancelOrder(
+                          order.id || order.brokerage_order_id,
+                          order.symbol || order.ticker
+                        )}
                         disabled={cancelOrderMutation.isPending}
                         className="text-red-600 hover:text-red-800"
                       >
-                        Cancel
+                        {cancelOrderMutation.isPending ? 'Cancelling...' : 'Cancel'}
                       </Button>
                     </div>
                     

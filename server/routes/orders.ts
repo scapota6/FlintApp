@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getSnapUser } from '../store/snapUsers.js';
-import { listOpenOrders, listOrderHistory } from '../lib/snaptrade.js';
+import { listOpenOrders, listOrderHistory, cancelOrder } from '../lib/snaptrade.js';
 
 const router = Router();
 
@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
       });
     }
 
-    const userEmail = (user as any).email || user.id;
+    const userEmail = (user as any).email || (user as any).id;
     console.log('Fetching orders for user:', userEmail, 'account:', accountId);
 
     // Get user's SnapTrade credentials
@@ -99,7 +99,7 @@ router.delete('/:orderId', async (req, res) => {
       });
     }
 
-    const userEmail = (user as any).email || user.id;
+    const userEmail = (user as any).email || (user as any).id;
     console.log('Cancelling order:', orderId, 'for user:', userEmail);
 
     // Get user's SnapTrade credentials
@@ -111,22 +111,64 @@ router.delete('/:orderId', async (req, res) => {
       });
     }
 
-    // Note: Order cancellation would require a SnapTrade API method
-    // This is a placeholder implementation
-    console.log('Order cancellation requested:', {
-      orderId,
-      accountId,
-      userId: snapUser.userId || userEmail
-    });
+    try {
+      // Attempt to cancel the order through SnapTrade
+      const cancelResult = await cancelOrder(
+        snapUser.userId || userEmail,
+        snapUser.userSecret,
+        accountId,
+        orderId
+      );
 
-    // For now, return a simulated response
-    res.json({
-      success: true,
-      message: 'Order cancellation submitted',
-      orderId,
-      status: 'cancellation_pending',
-      cancelledAt: new Date().toISOString()
-    });
+      console.log('Order cancellation successful:', {
+        orderId: orderId.slice(-6),
+        status: cancelResult?.status
+      });
+
+      res.json({
+        success: true,
+        message: 'Order cancelled successfully',
+        orderId,
+        status: cancelResult?.status || 'cancelled',
+        cancelledAt: new Date().toISOString(),
+        cancelData: cancelResult
+      });
+
+    } catch (cancelError: any) {
+      console.error('Order cancellation failed:', cancelError.message);
+
+      // Handle specific cancellation error cases with proper HTTP status codes
+      if (cancelError.message === 'BROKERAGE_CANCEL_NOT_SUPPORTED') {
+        return res.status(501).json({
+          success: false,
+          error: 'NOT_IMPLEMENTED',
+          message: 'Order cancellation is not supported by this brokerage',
+          orderId,
+          brokerageName: 'Unknown' // Could be enhanced to include actual brokerage name
+        });
+      }
+
+      if (cancelError.message === 'ORDER_NOT_FOUND') {
+        return res.status(404).json({
+          success: false,
+          error: 'ORDER_NOT_FOUND',
+          message: 'Order not found or already processed',
+          orderId
+        });
+      }
+
+      if (cancelError.message === 'ORDER_ALREADY_FILLED') {
+        return res.status(409).json({
+          success: false,
+          error: 'ORDER_ALREADY_FILLED',
+          message: 'Cannot cancel order - already executed',
+          orderId
+        });
+      }
+
+      // Generic cancellation failure
+      throw cancelError;
+    }
 
   } catch (error: any) {
     console.error('Error cancelling order:', error);

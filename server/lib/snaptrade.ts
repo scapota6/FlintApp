@@ -294,32 +294,70 @@ export async function placeOrder(
   }
 }
 
-export async function cancelOrder(userId: string, userSecret: string, accountId: string, orderId: string) {
+export async function cancelOrder(
+  userId: string,
+  userSecret: string,
+  accountId: string,
+  orderId: string
+) {
   try {
-    // Try multiple cancel methods for compatibility
-    if (hasFn(tradingApi, 'cancelUserAccountOrder')) {
-      const response = await (tradingApi as any).cancelUserAccountOrder({
-        userId,
-        userSecret,
-        accountId,
-        brokerageOrderId: orderId,
-      });
-      return response.data;
-    }
-    
+    console.log('Attempting order cancellation:', {
+      userId: userId.slice(-6),
+      accountId: accountId.slice(-6),
+      orderId: orderId.slice(-6)
+    });
+
+    // Check if cancelOrder method is available (capability check)
     if (hasFn(tradingApi, 'cancelOrder')) {
-      const response = await (tradingApi as any).cancelOrder({
+      console.log('Using cancelOrder method');
+      const result = await (tradingApi as any).cancelOrder({
         userId,
         userSecret,
         accountId,
-        orderId,
+        brokerageOrderId: orderId
       });
-      return response.data;
+      
+      console.log('Order cancellation successful:', {
+        orderId: orderId.slice(-6),
+        status: result.data?.status
+      });
+      
+      return result.data;
     }
     
-    throw new Error('No cancel order methods available in SDK');
+    // Check alternative method names for SDK version compatibility
+    if (hasFn(tradingApi, 'cancelOrderRequest')) {
+      console.log('Using cancelOrderRequest method');
+      const result = await (tradingApi as any).cancelOrderRequest({
+        userId,
+        userSecret,
+        accountId,
+        brokerageOrderId: orderId
+      });
+      return result.data;
+    }
+    
+    // If no cancel methods available, return capability not supported
+    console.log('Order cancellation not supported by SDK version');
+    throw new Error('ORDER_CANCEL_NOT_SUPPORTED');
+    
   } catch (e: any) {
     console.error('SnapTrade cancelOrder error:', e?.responseBody || e?.message || e);
+    
+    // Handle specific SnapTrade error cases
+    if (e?.message?.includes('ORDER_CANCEL_NOT_SUPPORTED')) {
+      throw new Error('BROKERAGE_CANCEL_NOT_SUPPORTED');
+    }
+    
+    if (e?.responseBody?.code === 'ORDER_NOT_FOUND') {
+      throw new Error('ORDER_NOT_FOUND');
+    }
+    
+    if (e?.responseBody?.code === 'ORDER_ALREADY_FILLED') {
+      throw new Error('ORDER_ALREADY_FILLED');
+    }
+    
     throw e;
   }
 }
+
