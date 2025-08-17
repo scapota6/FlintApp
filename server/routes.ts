@@ -1414,7 +1414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount connections and accounts routers
   const connectionsRouter = await import('./routes/connections');
-  // Authenticated SnapTrade registration endpoint
+  // Authenticated SnapTrade registration endpoint with repair flow
   app.post('/api/connections/snaptrade/register', rateLimits.auth, isAuthenticated, async (req: any, res) => {
     try {
       const userEmail = req.user.claims.email?.toLowerCase();
@@ -1425,36 +1425,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('[SnapTrade] Authenticated registration for:', userEmail);
 
-      // Use the existing registration logic but with session email
-      const { generateUserSecret } = await import('./lib/crypto');
-      const { getSnapUserByEmail, upsertSnapUserSecret } = await import('./store/snapUserStore');
-      const { authApi } = await import('./lib/snaptrade');
+      const { getSnapUserByEmail, upsertSnapUserSecret, deleteSnapUser } = await import('./store/snapUserStore');
+      const { authApi, accountsApi } = await import('./lib/snaptrade');
 
+      // Repair flow: Check if we have a stale user and delete it
       let rec = await getSnapUserByEmail(userEmail);
-      let userSecret = rec?.snaptrade_user_secret;
-
-      if (!userSecret) {
-        userSecret = generateUserSecret();
-        await upsertSnapUserSecret(userEmail, userSecret);
-        console.log('[SnapTrade] Generated userSecret len:', userSecret.length, 'for', userEmail);
-      } else {
-        console.log('[SnapTrade] Using existing userSecret len:', userSecret.length, 'for', userEmail);
+      if (rec?.snaptrade_user_secret) {
+        try {
+          // Test if the existing user/secret works
+          await accountsApi.listUserAccounts({
+            userId: userEmail,
+            userSecret: rec.snaptrade_user_secret,
+          });
+          console.log('[SnapTrade] Existing user validated, skipping registration');
+        } catch (testErr: any) {
+          if (testErr?.responseBody?.code === '1083' || testErr?.responseBody?.code === '1076') {
+            console.log('[SnapTrade] Stale user detected, deleting and re-registering');
+            await deleteSnapUser(userEmail);
+            
+            // Try to delete user on SnapTrade side too (ignore errors)
+            try {
+              await authApi.deleteSnapTradeUser({
+                userId: userEmail,
+                userSecret: rec.snaptrade_user_secret,
+              });
+            } catch (delErr) {
+              console.log('[SnapTrade] Delete user failed (expected):', delErr?.message);
+            }
+            rec = null; // Force re-registration
+          } else {
+            throw testErr;
+          }
+        }
       }
 
-      await authApi.registerSnapTradeUser({ userId: userEmail });
+      // Register new user if needed
+      if (!rec?.snaptrade_user_secret) {
+        console.log('[SnapTrade] Registering new user:', userEmail);
+        
+        // SnapTrade returns userSecret in response
+        const registerResponse = await authApi.registerSnapTradeUser({
+          userId: userEmail,
+        });
 
-      const connect = await authApi.loginSnapTradeUser({
+        const userSecret = registerResponse.data?.userSecret;
+        if (!userSecret) {
+          throw new Error('SnapTrade registration failed: no userSecret returned');
+        }
+
+        // Store the SnapTrade-provided userSecret
+        await upsertSnapUserSecret(userEmail, userSecret);
+        console.log('[SnapTrade] Stored userSecret len:', userSecret.length, 'for', userEmail);
+        
+        rec = { userId: userEmail, snaptrade_user_secret: userSecret };
+      }
+
+      // Create connection URL
+      const loginResponse = await authApi.loginSnapTradeUser({
         userId: userEmail,
-        userSecret,
+        userSecret: rec.snaptrade_user_secret,
         broker: 'ALPACA',
         immediateRedirect: true,
         customRedirect: process.env.SNAPTRADE_REDIRECT_URI!,
       });
 
-      return res.json({ connect });
+      return res.json({ 
+        connect: loginResponse.data,
+        userSecretSet: true 
+      });
+      
     } catch (err: any) {
-      console.error('SnapTrade Authenticated Registration Error:', err?.responseBody || err?.message || err);
-      return res.status(500).json({ message: err?.message || 'SnapTrade register failed' });
+      console.error('[SnapTrade] Registration Error:', {
+        message: err?.message,
+        code: err?.responseBody?.code,
+        detail: err?.responseBody?.detail,
+        status: err?.status || err?.response?.status
+      });
+      
+      const errorCode = err?.responseBody?.code;
+      const statusCode = err?.status || err?.response?.status || 500;
+      
+      return res.status(statusCode).json({ 
+        message: err?.message || 'SnapTrade registration failed',
+        code: errorCode,
+        detail: err?.responseBody?.detail
+      });
     }
   });
 

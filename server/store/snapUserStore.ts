@@ -34,3 +34,10 @@ export async function upsertSnapUserSecret(userId: string, secret: string): Prom
   db[key] = { userId: key, snaptrade_user_secret: secret };
   writeDB(db);
 }
+
+export async function deleteSnapUser(userId: string): Promise<void> {
+  const db = readDB();
+  const key = userId.toLowerCase();
+  delete db[key];
+  writeDB(db);
+}
