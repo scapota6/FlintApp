@@ -32,7 +32,9 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
         
         // Automatically sync accounts
         try {
-          const syncResponse = await apiRequest('POST', '/api/snaptrade/sync');
+          const syncResponse = await apiRequest('/api/snaptrade/sync', {
+            method: 'POST'
+          });
           const syncData = await syncResponse.json();
           
           if (syncData.success) {
@@ -85,7 +87,9 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
       try {
         // Get Teller application ID
         console.log('🏦 Teller Connect: Calling /api/teller/connect-init');
-        const initResponse = await apiRequest("POST", "/api/teller/connect-init");
+        const initResponse = await apiRequest("/api/teller/connect-init", {
+          method: "POST"
+        });
         const initData = await initResponse.json();
         console.log('🏦 Teller Connect: Init response:', initData);
         
@@ -119,7 +123,11 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
               console.log('🏦 Teller Connect: Success, exchanging token');
               
               // Exchange token with backend
-              apiRequest("POST", "/api/teller/exchange-token", { token })
+              apiRequest("/api/teller/exchange-token", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token })
+              })
                 .then(() => {
                   console.log('🏦 Teller Connect: Token exchange successful');
                   window.removeEventListener('message', messageHandler);
@@ -177,7 +185,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
     }
   });
 
-  // SnapTrade Connect mutation - standalone email resolution
+  // SnapTrade Connect mutation - corrected apiRequest usage
   const snapTradeConnectMutation = useMutation({
     mutationFn: async () => {
       const { getOrPromptUserEmail } = await import('@/lib/userEmail');
@@ -188,7 +196,8 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userEmail }),
       });
-      const data = await resp.json();
+
+      const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data?.message || "Failed to start SnapTrade Connect");
 
       const url: string | undefined =
