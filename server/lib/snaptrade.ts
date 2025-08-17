@@ -1,8 +1,8 @@
 import * as Snaptrade from 'snaptrade-typescript-sdk';
 
 const env = process.env.SNAPTRADE_ENV || 'sandbox';
-const clientId = process.env.SNAPTRADE_CLIENT_ID;
-const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY;
+const clientId = process.env.SNAPTRADE_CLIENT_ID!;
+const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY!;
 
 console.log('[SnapTrade] SDK init', {
   env,
@@ -11,9 +11,9 @@ console.log('[SnapTrade] SDK init', {
 });
 
 export const snaptradeConfig = new Snaptrade.Configuration({
-  consumerKey: consumerKey!,
-  clientId: clientId!,
-  environment: env as any,
+  consumerKey,
+  clientId,
+  environment: env as any, // 'sandbox' | 'production'
 });
 
 export const authApi = new Snaptrade.AuthenticationApi(snaptradeConfig);

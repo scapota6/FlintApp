@@ -231,7 +231,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Use the persistent store instead of database storage
         const snapUser = await getSnapUserByEmail(userEmail);
         if (snapUser?.snaptrade_user_secret) {
-          const accounts = await snapTradeClient.accountInformation.listUserAccounts({
+          const { accountsApi } = await import('./lib/snaptrade');
+          const accounts = await accountsApi.listUserAccounts({
             userId: snapUser.userId,
             userSecret: snapUser.snaptrade_user_secret,
           });

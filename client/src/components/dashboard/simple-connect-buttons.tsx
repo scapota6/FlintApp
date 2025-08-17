@@ -191,7 +191,6 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
       // Use authenticated session instead of prompting for email
       const resp = await apiRequest("/api/connections/snaptrade/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
       });
 
       const data = await resp.json().catch(() => ({}));
