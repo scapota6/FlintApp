@@ -2,16 +2,27 @@ import { Router } from 'express';
 import { listAccounts, getPositions } from '../lib/snaptrade';
 import { getSnapUser } from '../store/snapUsers';
 
-const r = Router();
-const pickId = (req:any)=> (req.user?.id || req.headers['x-user-id'] || req.query.userId || '').toString().trim();
+const router = Router();
 
-r.get('/holdings', async (req, res) => {
+router.get('/', async (req: any, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
   try {
-    const userId = pickId(req);
-    if (!userId) return res.status(401).json({ message: 'No userId' });
+    // Get user ID from authenticated session
+    const userId = req.user?.claims?.email?.toLowerCase();
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
 
     const rec = await getSnapUser(userId);
-    if (!rec?.userSecret) return res.status(428).json({ code:'SNAPTRADE_NOT_REGISTERED', message:'No SnapTrade user for this userId' });
+    if (!rec?.userSecret) {
+      return res.status(428).json({ 
+        code: 'SNAPTRADE_NOT_REGISTERED', 
+        message: 'No SnapTrade user for this userId' 
+      });
+    }
 
     try {
       const accounts = await listAccounts(rec.userId, rec.userSecret);
@@ -108,4 +119,4 @@ r.get('/holdings', async (req, res) => {
   }
 });
 
-export default r;
+export default router;

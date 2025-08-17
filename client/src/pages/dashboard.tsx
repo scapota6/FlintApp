@@ -12,7 +12,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SimpleWatchlist from '@/components/watchlist/simple-watchlist';
 import RealTimeHoldings from '@/components/portfolio/real-time-holdings';
-import HoldingsBreakdown from '@/components/portfolio/holdings-breakdown';
+
 // import TransactionHistory from '@/components/activity/transaction-history';
 import AssetSearch from '@/components/search/asset-search';
 
@@ -121,23 +121,16 @@ export default function Dashboard() {
         {/* Unified Dashboard - Real API Data Only */}
         <UnifiedDashboard />
 
-        {/* Holdings Breakdown Section */}
+        {/* Portfolio Holdings Section */}
         <div className="mt-12">
-          <HoldingsBreakdown />
+          <h3 className="text-xl font-semibold mb-6">Portfolio Holdings</h3>
+          <RealTimeHoldings showAccountProvider={true} maxItems={50} />
         </div>
-
-        {/* Transaction History Section */}
-        {/* <div className="mt-12">
-          <TransactionHistory />
-        </div> */}
 
         {/* Real-Time Market Data Section */}
         <div className="mt-12">
-          <h3 className="text-xl font-semibold mb-6">Real-Time Market Data</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SimpleWatchlist />
-            <RealTimeHoldings showAccountProvider={true} />
-          </div>
+          <h3 className="text-xl font-semibold mb-6">Watchlist & Market Data</h3>
+          <SimpleWatchlist />
         </div>
 
         {/* Connection Options */}
