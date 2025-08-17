@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Snaptrade } from "snaptrade-typescript-sdk";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { getSnapUserByEmail } from "./store/snapUserStore";
+import { getUser } from "./store/snapUsers";
 import { rateLimits } from "./middleware/rateLimiter";
 import { WalletService } from "./services/WalletService";
 import { TradingAggregator } from "./services/TradingAggregator";
@@ -91,14 +91,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Debug endpoint to check userSecret storage
   app.get('/api/debug/snaptrade/user', async (req, res) => {
-    const { getSnapUserByEmail } = await import('./store/snapUserStore');
+    const { getUser } = await import('./store/snapUsers');
     const email = (req.query.email || '').toString().trim().toLowerCase();
     if (!email) return res.status(400).json({ message: 'email required' });
-    const rec = await getSnapUserByEmail(email);
+    const rec = await getUser(email);
     res.json({
       exists: !!rec,
       userId: rec?.userId,
-      userSecretLen: rec?.snaptrade_user_secret?.length || 0,
+      userSecretLen: rec?.userSecret?.length || 0,
     });
   });
 
@@ -229,12 +229,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('Fetching SnapTrade accounts for user:', userEmail);
         
         // Use the persistent store instead of database storage
-        const snapUser = await getSnapUserByEmail(userEmail);
-        if (snapUser?.snaptrade_user_secret) {
+        const snapUser = await getUser(userEmail);
+        if (snapUser?.userSecret) {
           const { accountsApi } = await import('./lib/snaptrade');
           const accounts = await accountsApi.listUserAccounts({
             userId: snapUser.userId,
-            userSecret: snapUser.snaptrade_user_secret,
+            userSecret: snapUser.userSecret,
           });
           
           console.log('SnapTrade accounts fetched:', accounts.data?.length || 0);
@@ -271,8 +271,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Error fetching SnapTrade accounts:', error);
         
         // Check if it's an authentication error
-        if (error.status === 401 || error.message?.includes('401') || error.message?.includes('Unable to verify signature')) {
+        if (error.status === 401 || error.message?.includes('401') || error.message?.includes('Unable to verify signature') || error.responseBody?.code === '1083' || error.responseBody?.code === '1076') {
           snapTradeError = 'auth_failed';
+          
+          // Trigger repair flow - delete stale user and let them re-register
+          console.log('[SnapTrade] Detected stale user credentials, triggering repair flow for:', userEmail);
+          try {
+            await deleteUserLocal(userEmail);
+            console.log('[SnapTrade] Deleted stale user credentials for repair');
+          } catch (deleteError) {
+            console.error('[SnapTrade] Error deleting stale user:', deleteError);
+          }
         } else {
           snapTradeError = 'fetch_failed';
         }
@@ -1426,29 +1435,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('[SnapTrade] Authenticated registration for:', userEmail);
 
-      const { getSnapUserByEmail, upsertSnapUserSecret, deleteSnapUser } = await import('./store/snapUserStore');
+      const { getUser, saveUser, deleteUserLocal } = await import('./store/snapUsers');
       const { authApi, accountsApi } = await import('./lib/snaptrade');
 
       // Repair flow: Check if we have a stale user and delete it
-      let rec = await getSnapUserByEmail(userEmail);
-      if (rec?.snaptrade_user_secret) {
+      let rec = await getUser(userEmail);
+      if (rec?.userSecret) {
         try {
           // Test if the existing user/secret works
           await accountsApi.listUserAccounts({
             userId: userEmail,
-            userSecret: rec.snaptrade_user_secret,
+            userSecret: rec.userSecret,
           });
           console.log('[SnapTrade] Existing user validated, skipping registration');
         } catch (testErr: any) {
           if (testErr?.responseBody?.code === '1083' || testErr?.responseBody?.code === '1076') {
             console.log('[SnapTrade] Stale user detected, deleting and re-registering');
-            await deleteSnapUser(userEmail);
+            await deleteUserLocal(userEmail);
             
             // Try to delete user on SnapTrade side too (ignore errors)
             try {
               await authApi.deleteSnapTradeUser({
                 userId: userEmail,
-                userSecret: rec.snaptrade_user_secret,
+                userSecret: rec.userSecret,
               });
             } catch (delErr) {
               console.log('[SnapTrade] Delete user failed (expected):', delErr?.message);
@@ -1461,7 +1470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Register new user if needed
-      if (!rec?.snaptrade_user_secret) {
+      if (!rec?.userSecret) {
         console.log('[SnapTrade] Registering new user:', userEmail);
         
         // SnapTrade returns userSecret in response
@@ -1475,16 +1484,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Store the SnapTrade-provided userSecret
-        await upsertSnapUserSecret(userEmail, userSecret);
+        await saveUser({ userId: userEmail, userSecret });
         console.log('[SnapTrade] Stored userSecret len:', userSecret.length, 'for', userEmail);
         
-        rec = { userId: userEmail, snaptrade_user_secret: userSecret };
+        rec = { userId: userEmail, userSecret };
       }
 
       // Create connection URL
       const loginResponse = await authApi.loginSnapTradeUser({
         userId: userEmail,
-        userSecret: rec.snaptrade_user_secret,
+        userSecret: rec.userSecret,
         broker: 'ALPACA',
         immediateRedirect: true,
         customRedirect: process.env.SNAPTRADE_REDIRECT_URI!,

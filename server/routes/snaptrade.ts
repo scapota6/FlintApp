@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { authApi } from "../lib/snaptrade";
-import { generateUserSecret } from "../lib/crypto";
-import { getSnapUserByEmail, upsertSnapUserSecret } from "../store/snapUserStore";
+import { getUser, saveUser, deleteUserLocal } from "../store/snapUsers";
 import { isAuthenticated } from "../replitAuth";
 
 const r = Router();
@@ -11,18 +10,27 @@ r.post("/register", async (req, res) => {
     const userId = (req.body?.userEmail || "").toString().trim().toLowerCase();
     if (!userId) return res.status(400).json({ message: "userEmail required" });
 
-    let rec = await getSnapUserByEmail(userId);
-    let userSecret = rec?.snaptrade_user_secret;
+    let rec = await getUser(userId);
+    let userSecret = rec?.userSecret;
 
     if (!userSecret) {
-      userSecret = generateUserSecret();
-      await upsertSnapUserSecret(userId, userSecret);
-      console.log("[SnapTrade] Generated userSecret len:", userSecret.length, "for", userId);
+      // Register with SnapTrade to get the userSecret
+      console.log("[SnapTrade] Registering new user:", userId);
+      const registerResponse = await authApi.registerSnapTradeUser({ userId });
+      
+      // SnapTrade returns { userId, userSecret }
+      userSecret = registerResponse.data.userSecret;
+      
+      if (!userSecret) {
+        throw new Error("SnapTrade did not return a userSecret");
+      }
+      
+      // Store SnapTrade's userSecret
+      await saveUser({ userId, userSecret });
+      console.log("[SnapTrade] Stored SnapTrade userSecret len:", userSecret.length, "for", userId);
     } else {
       console.log("[SnapTrade] Using existing userSecret len:", userSecret.length, "for", userId);
     }
-
-    await authApi.registerSnapTradeUser({ userId, userSecret }); // idempotent if same app/secret
 
     const connect = await authApi.createSnapTradeLogin({
       userId,

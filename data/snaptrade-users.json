@@ -1,18 +1,1 @@
-{
-  "scapota@flint-investing.com": {
-    "userId": "scapota@flint-investing.com",
-    "snaptrade_user_secret": "ba6383ca348b699c4ba743cd04a407d90256198f3e9dddab167a61ddfc1439d4"
-  },
-  "test.newuser.$(date +%s)@flint-investing.com": {
-    "userId": "test.newuser.$(date +%s)@flint-investing.com",
-    "snaptrade_user_secret": "268678c48b689411c0dbd9d1673160dd1941fea9526c05654691a8ca4955b8fb"
-  },
-  "test.user@flint-investing.com": {
-    "userId": "test.user@flint-investing.com",
-    "snaptrade_user_secret": "8ceb5b5de691428e52b55d4b0d46597b17b945a7e7f538c9ed1fc8a6bb5e1ef2"
-  },
-  "test.user.new@flint-investing.com": {
-    "userId": "test.user.new@flint-investing.com",
-    "snaptrade_user_secret": "0297384ef1158f9ba60d7990fa80dd60e2be7f587874bf5c18231e812217c8b0"
-  }
-}
+{}
