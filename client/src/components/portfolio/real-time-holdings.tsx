@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { apiRequest } from '@/lib/queryClient';
+import { getUserEmailOptional } from '@/lib/userEmail';
 import { TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react';
 import { useState } from 'react';
 
@@ -40,9 +41,16 @@ export default function RealTimeHoldings({
   const { data: holdingsData = [], isLoading, error } = useQuery<Holding[]>({
     queryKey: ['/api/holdings'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/holdings');
-      if (!response.ok) throw new Error('Failed to fetch holdings');
-      const data = await response.json();
+      const userEmail = getUserEmailOptional();
+      const resp = await fetch("/api/holdings", {
+        headers: userEmail ? { "x-user-email": userEmail } : {},
+        credentials: "include",
+      });
+      if (!resp.ok) {
+        const t = await resp.text().catch(() => "");
+        throw new Error(t || "Failed to load holdings");
+      }
+      const data = await resp.json();
       // Handle both direct array and object with holdings property
       return Array.isArray(data) ? data : (data.holdings || []);
     },
