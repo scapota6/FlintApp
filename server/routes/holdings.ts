@@ -4,7 +4,7 @@ import { getSnapUser } from '../store/snapUsers';
 
 const router = Router();
 
-router.get('/', async (req: any, res) => {
+router.get('/portfolio-holdings', async (req: any, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: 'Unauthorized' });
   }

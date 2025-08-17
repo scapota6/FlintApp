@@ -1441,9 +1441,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.use('/api/connections', connectionsRouter.default);
   
-  const accountsRouter = await import('./routes/accounts');
-  app.use('/api', accountsRouter.default);
-  
   const portfolioRouter = await import('./routes/portfolio');
   app.use('/api/portfolio', portfolioRouter.default);
   
@@ -1453,9 +1450,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const watchlistRouter = await import('./routes/watchlist');
   app.use(watchlistRouter.default);
   
-  // Mount the holdings router
+  // Mount the holdings router BEFORE accounts router to avoid conflicts
   const holdingsRouter = await import('./routes/holdings');
   app.use('/api', holdingsRouter.default);
+  
+  // Mount accounts router AFTER holdings to prevent route conflicts
+  const accountsRouter = await import('./routes/accounts');
+  app.use('/api', accountsRouter.default);
   
   // Mount the connections SnapTrade routes
   const connectionsSnaptradeRouter = await import('./routes/connections.snaptrade');

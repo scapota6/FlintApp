@@ -39,9 +39,9 @@ export default function RealTimeHoldings({
 
   // Fetch user's holdings with real-time data
   const { data: holdingsData = [], isLoading, error } = useQuery<Holding[]>({
-    queryKey: ['/api/holdings'],
+    queryKey: ['/api/portfolio-holdings'],
     queryFn: async () => {
-      const resp = await fetch("/api/holdings", {
+      const resp = await fetch("/api/portfolio-holdings", {
         credentials: "include",
       });
       if (!resp.ok) {
