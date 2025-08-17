@@ -1,0 +1,13 @@
+Failed to execute 'json' on 'Response': Unexpected token '<', "
+at FinancialAPI.logLogin (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/lib/financial-api.ts:59:21)
+Failed to execute 'json' on 'Response': Unexpected token '<', "
+at FinancialAPI.logLogin (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/lib/financial-api.ts?t=1755396639830:62:21)
+Failed to execute 'json' on 'Response': Unexpected token '<', "
+at FinancialAPI.logLogin (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/lib/financial-api.ts?t=1755396650484:68:21)
+📈 SnapTrade Connect Error: 
+Error {}
+message: "Request failed with status code 401↵RESPONSE HEADERS:↵{↵ "date": "Sun, 17 Aug 2025 02:11:22 GMT",↵ "content-type": "application/json",↵ "content-length": "76",↵ "connection": "keep-alive",↵ "server": "gunicorn",↵ "allow": "POST, OPTIONS",↵ "x-frame-options": "DENY",↵ "x-request-id": "60993955bd33836236f44b2062f04c18",↵ "x-ratelimit-limit": "250",↵ "x-ratelimit-remaining": "250",↵ "vary": "origin",↵ "strict-transport-security": "max-age=31536000; includeSubDomains; preload",↵ "x-content-type-options": "nosniff",↵ "referrer-policy": "same-origin",↵ "cross-origin-opener-policy": "same-origin"↵}"
+stack: "Error: Request failed with status code 401↵RESPONSE HEADERS:↵{↵ "date": "Sun, 17 Aug 2025 02:11:22 GMT",↵ "content-type": "application/json",↵ "content-length": "76",↵ "connection": "keep-alive",↵ "server": "gunicorn",↵ "allow": "POST, OPTIONS",↵ "x-frame-options": "DENY",↵ "x-request-id": "60993955bd33836236f44b2062f04c18",↵ "x-ratelimit-limit": "250",↵ "x-ratelimit-remaining": "250",↵ "vary": "origin",↵ "strict-transport-security": "max-age=31536000; includeSubDomains; preload",↵ "x-content-type-options": "nosniff",↵ "referrer-policy": "same-origin",↵ "cross-origin-opener-policy": "same-origin"↵}↵ at Object.mutationFn (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/components/dashboard/simple-connect-buttons.tsx:171:27)"
+get stack: ƒ ()
+set stack: ƒ ()
+[[Prototype]]: Object

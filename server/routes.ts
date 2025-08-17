@@ -1441,12 +1441,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('[SnapTrade] Using existing userSecret len:', userSecret.length, 'for', userEmail);
       }
 
-      await authApi.registerSnapTradeUser({ userId: userEmail, userSecret });
+      await authApi.registerSnapTradeUser({ userId: userEmail });
 
-      const connect = await authApi.createSnapTradeLogin({
+      const connect = await authApi.loginSnapTradeUser({
         userId: userEmail,
         userSecret,
-        brokerRedirectUri: process.env.SNAPTRADE_REDIRECT_URI!,
+        broker: 'ALPACA',
+        immediateRedirect: true,
+        customRedirect: process.env.SNAPTRADE_REDIRECT_URI!,
       });
 
       return res.json({ connect });
