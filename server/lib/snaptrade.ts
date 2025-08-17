@@ -361,3 +361,85 @@ export async function cancelOrder(
   }
 }
 
+export async function getOrderStatus(
+  userId: string,
+  userSecret: string,
+  accountId: string,
+  orderId: string
+) {
+  try {
+    console.log('Fetching order status:', {
+      userId: userId.slice(-6),
+      accountId: accountId.slice(-6),
+      orderId: orderId.slice(-6)
+    });
+
+    // Try different methods to get order status for SDK compatibility
+    if (hasFn(tradingApi, 'getOrderStatus')) {
+      console.log('Using getOrderStatus method');
+      const result = await (tradingApi as any).getOrderStatus({
+        userId,
+        userSecret,
+        accountId,
+        brokerageOrderId: orderId
+      });
+      return result.data;
+    }
+
+    if (hasFn(tradingApi, 'getUserAccountOrder')) {
+      console.log('Using getUserAccountOrder method');
+      const result = await (tradingApi as any).getUserAccountOrder({
+        userId,
+        userSecret,
+        accountId,
+        brokerageOrderId: orderId
+      });
+      return result.data;
+    }
+
+    // Fallback: Get from order history and find matching order
+    console.log('Fallback: searching order history for status');
+    const orderHistory = await listOrderHistory(userId, userSecret, accountId);
+    const matchingOrder = orderHistory?.find((order: any) => 
+      order.id === orderId || 
+      order.brokerage_order_id === orderId ||
+      order.brokerageOrderId === orderId
+    );
+
+    if (matchingOrder) {
+      console.log('Found order in history:', { 
+        orderId: orderId.slice(-6),
+        status: matchingOrder.status 
+      });
+      return matchingOrder;
+    }
+
+    // Check open orders as well
+    const openOrders = await listOpenOrders(userId, userSecret, accountId);
+    const matchingOpenOrder = openOrders?.find((order: any) => 
+      order.id === orderId || 
+      order.brokerage_order_id === orderId ||
+      order.brokerageOrderId === orderId
+    );
+
+    if (matchingOpenOrder) {
+      console.log('Found order in open orders:', { 
+        orderId: orderId.slice(-6),
+        status: matchingOpenOrder.status 
+      });
+      return matchingOpenOrder;
+    }
+
+    throw new Error('ORDER_NOT_FOUND');
+    
+  } catch (e: any) {
+    console.error('SnapTrade getOrderStatus error:', e?.responseBody || e?.message || e);
+    
+    if (e?.responseBody?.code === 'ORDER_NOT_FOUND' || e?.message?.includes('ORDER_NOT_FOUND')) {
+      throw new Error('ORDER_NOT_FOUND');
+    }
+    
+    throw e;
+  }
+}
+

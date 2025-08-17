@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, Clock, AlertTriangle, X, RefreshCw, TrendingUp } from 'lucide-react';
+import { CheckCircle, Clock, AlertTriangle, X, RefreshCw, TrendingUp, Eye } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -72,6 +72,7 @@ export default function OrderStatusDialog({
 }: OrderStatusDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   // Fetch orders for the account
   const { data: orders = [], isLoading, refetch } = useQuery({
@@ -121,6 +122,14 @@ export default function OrderStatusDialog({
         variant: 'destructive',
       });
     },
+  });
+
+  // Fetch individual order status
+  const { data: orderDetail, isLoading: orderDetailLoading } = useQuery({
+    queryKey: ['order-status', selectedOrderId, accountId],
+    queryFn: () => apiRequest(`/api/orders/${selectedOrderId}?accountId=${accountId}`),
+    enabled: !!selectedOrderId && isOpen,
+    refetchInterval: 3000, // Refresh every 3 seconds for live status
   });
 
   const handleCancelOrder = (orderId: string, symbol?: string) => {
@@ -200,18 +209,28 @@ export default function OrderStatusDialog({
                           {order.symbol || order.ticker}
                         </span>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleCancelOrder(
-                          order.id || order.brokerage_order_id,
-                          order.symbol || order.ticker
-                        )}
-                        disabled={cancelOrderMutation.isPending}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        {cancelOrderMutation.isPending ? 'Cancelling...' : 'Cancel'}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedOrderId(order.id || order.brokerage_order_id)}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCancelOrder(
+                            order.id || order.brokerage_order_id,
+                            order.symbol || order.ticker
+                          )}
+                          disabled={cancelOrderMutation.isPending}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          {cancelOrderMutation.isPending ? 'Cancelling...' : 'Cancel'}
+                        </Button>
+                      </div>
                     </div>
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
@@ -263,9 +282,19 @@ export default function OrderStatusDialog({
                           {(order.side || order.action)?.toUpperCase()} {order.quantity || order.qty}
                         </span>
                       </div>
-                      <div className="text-right text-sm">
-                        <div className="font-mono">{fmtMoney(order.avgFillPrice || order.fillPrice || order.price || 0)}</div>
-                        <div className="text-xs text-gray-500">{formatTime(order.time || order.timestamp || order.created_at)}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right text-sm">
+                          <div className="font-mono">{fmtMoney(order.avgFillPrice || order.fillPrice || order.price || 0)}</div>
+                          <div className="text-xs text-gray-500">{formatTime(order.time || order.timestamp || order.created_at)}</div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedOrderId(order.id || order.brokerage_order_id)}
+                          className="text-blue-600 hover:text-blue-800 p-1"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -302,6 +331,105 @@ export default function OrderStatusDialog({
           </Button>
         </div>
       </DialogContent>
+
+      {/* Order Detail Dialog */}
+      <Dialog open={!!selectedOrderId} onOpenChange={() => setSelectedOrderId(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Order Details
+            </DialogTitle>
+            {selectedOrderId && (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Order ID: {selectedOrderId.slice(-8)}
+              </p>
+            )}
+          </DialogHeader>
+
+          {orderDetailLoading ? (
+            <div className="text-center py-8">
+              <RefreshCw className="h-8 w-8 mx-auto text-gray-400 animate-spin mb-4" />
+              <p className="text-gray-600 dark:text-gray-400">Loading order details...</p>
+            </div>
+          ) : orderDetail?.order ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Badge className={getStatusColor(orderDetail.order.status)} variant="secondary">
+                  {getStatusIcon(orderDetail.order.status)}
+                  <span className="ml-1">{orderDetail.order.status}</span>
+                </Badge>
+                <span className="font-mono font-medium text-lg">
+                  {orderDetail.order.symbol || orderDetail.order.ticker}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Action:</span>
+                  <span className="ml-2 font-medium">
+                    {(orderDetail.order.side || orderDetail.order.action)?.toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Quantity:</span>
+                  <span className="ml-2 font-medium">{orderDetail.order.quantity || orderDetail.order.qty}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Price:</span>
+                  <span className="ml-2 font-mono">{fmtMoney(orderDetail.order.price || orderDetail.order.limitPrice || 0)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Type:</span>
+                  <span className="ml-2">{orderDetail.order.orderType || orderDetail.order.type || 'Market'}</span>
+                </div>
+                {orderDetail.order.avgFillPrice && (
+                  <>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Fill Price:</span>
+                      <span className="ml-2 font-mono">{fmtMoney(orderDetail.order.avgFillPrice)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Filled Qty:</span>
+                      <span className="ml-2">{orderDetail.order.filledQuantity || orderDetail.order.qty}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="text-xs text-gray-600 dark:text-gray-400">
+                  <div>Placed: {formatTime(orderDetail.order.time || orderDetail.order.timestamp || orderDetail.order.created_at)}</div>
+                  <div>Last Updated: {formatTime(orderDetail.metadata?.fetchedAt)}</div>
+                </div>
+              </div>
+
+              <Alert>
+                <RefreshCw className="h-4 w-4" />
+                <AlertDescription>
+                  Status updates automatically every 3 seconds
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <AlertTriangle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                Order Not Found
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Unable to fetch order details
+              </p>
+            </div>
+          )}
+
+          <div className="pt-4">
+            <Button onClick={() => setSelectedOrderId(null)} className="w-full">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
