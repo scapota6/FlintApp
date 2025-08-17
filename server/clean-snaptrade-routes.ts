@@ -31,7 +31,7 @@ app.post('/api/snaptrade/register-user', isAuthenticated, async (req: any, res) 
     
     // Clean environment variables to remove any Unicode characters
     const clientId = process.env.SNAPTRADE_CLIENT_ID.trim();
-    const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET
+    const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY
       .replace(/[\u2028\u2029]/g, '')
       .replace(/[^\x00-\xFF]/g, '')
       .trim();
@@ -90,10 +90,10 @@ app.get('/api/snaptrade/connect-url', isAuthenticated, async (req: any, res) => 
     const flintUserId = req.user.claims.sub;
     
     // Validate environment variables
-    if (!process.env.SNAPTRADE_CLIENT_ID || !process.env.SNAPTRADE_CLIENT_SECRET) {
+    if (!process.env.SNAPTRADE_CLIENT_ID || !process.env.SNAPTRADE_CONSUMER_KEY) {
       console.error('Missing SnapTrade environment variables');
       return res.status(500).json({ 
-        message: "SnapTrade not configured. Missing SNAPTRADE_CLIENT_ID or SNAPTRADE_CLIENT_SECRET environment variables." 
+        message: "SnapTrade not configured. Missing SNAPTRADE_CLIENT_ID or SNAPTRADE_CONSUMER_KEY environment variables." 
       });
     }
     

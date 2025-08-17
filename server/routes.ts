@@ -1398,62 +1398,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount connections and accounts routers
   const connectionsRouter = await import('./routes/connections');
-  // Authenticated SnapTrade registration endpoint with repair flow
-  app.post('/api/connections/snaptrade/register', rateLimits.auth, isAuthenticated, async (req: any, res) => {
-    try {
-      const userEmail = req.user.claims.email?.toLowerCase();
-      
-      if (!userEmail) {
-        return res.status(400).json({ message: 'User email required from session' });
-      }
-
-      console.log('[SnapTrade] Authenticated registration for:', userEmail);
-
-      const { getUser, saveUser, deleteUserLocal } = await import('./store/snapUsers');
-      const { authApi, accountsApi } = await import('./lib/snaptrade');
-
-      // If we already have a userSecret stored, reuse it; else register to get secret from SnapTrade
-      let rec = await getUser(userEmail);
-      if (!rec) {
-        const created = await authApi.registerSnapTradeUser({ userId: userEmail }); // returns { userId, userSecret }
-        rec = { userId: created.data.userId!, userSecret: created.data.userSecret! };
-        await saveUser(rec);
-        console.log('[SnapTrade] Registered + stored secret len:', rec.userSecret.length, 'userId:', rec.userId);
-      } else {
-        console.log('[SnapTrade] Using stored secret len:', rec.userSecret.length, 'userId:', rec.userId);
-      }
-
-      // Generate Connection Portal URL (expires in ~5 minutes)
-      const login = await authApi.loginSnapTradeUser({
-        userId: rec.userId,
-        userSecret: rec.userSecret,
-        broker: 'ALPACA',
-        immediateRedirect: true,
-        customRedirect: process.env.SNAPTRADE_REDIRECT_URI!,
-      });
-      
-      // Field name differs by SDK version; support a few:
-      const url = (login.data?.redirectURI || login.data?.loginRedirectURI || login.data?.url) as string;
-      return res.json({ connect: { url } });
-      
-    } catch (err: any) {
-      console.error('[SnapTrade] Registration Error:', {
-        message: err?.message,
-        code: err?.responseBody?.code,
-        detail: err?.responseBody?.detail,
-        status: err?.status || err?.response?.status
-      });
-      
-      const errorCode = err?.responseBody?.code;
-      const statusCode = err?.status || err?.response?.status || 500;
-      
-      return res.status(statusCode).json({ 
-        message: err?.message || 'SnapTrade registration failed',
-        code: errorCode,
-        detail: err?.responseBody?.detail
-      });
-    }
-  });
+  // SnapTrade registration route is now handled by server/routes/connections.snaptrade.ts
 
   app.use('/api/connections', connectionsRouter.default);
   
