@@ -185,16 +185,13 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
     }
   });
 
-  // SnapTrade Connect mutation - corrected apiRequest usage
+  // SnapTrade Connect mutation - use authenticated user email
   const snapTradeConnectMutation = useMutation({
     mutationFn: async () => {
-      const { getOrPromptUserEmail } = await import('@/lib/userEmail');
-      const userEmail = getOrPromptUserEmail();
-
-      const resp = await apiRequest("/api/snaptrade/register", {
+      // Use authenticated session instead of prompting for email
+      const resp = await apiRequest("/api/connections/snaptrade/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userEmail }),
       });
 
       const data = await resp.json().catch(() => ({}));

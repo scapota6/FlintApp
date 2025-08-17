@@ -1414,6 +1414,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount connections and accounts routers
   const connectionsRouter = await import('./routes/connections');
+  // Authenticated SnapTrade registration endpoint
+  app.post('/api/connections/snaptrade/register', rateLimits.auth, isAuthenticated, async (req: any, res) => {
+    try {
+      const userEmail = req.user.claims.email?.toLowerCase();
+      
+      if (!userEmail) {
+        return res.status(400).json({ message: 'User email required from session' });
+      }
+
+      console.log('[SnapTrade] Authenticated registration for:', userEmail);
+
+      // Use the existing registration logic but with session email
+      const { generateUserSecret } = await import('./lib/crypto');
+      const { getSnapUserByEmail, upsertSnapUserSecret } = await import('./store/snapUserStore');
+      const { authApi } = await import('./lib/snaptrade');
+
+      let rec = await getSnapUserByEmail(userEmail);
+      let userSecret = rec?.snaptrade_user_secret;
+
+      if (!userSecret) {
+        userSecret = generateUserSecret();
+        await upsertSnapUserSecret(userEmail, userSecret);
+        console.log('[SnapTrade] Generated userSecret len:', userSecret.length, 'for', userEmail);
+      } else {
+        console.log('[SnapTrade] Using existing userSecret len:', userSecret.length, 'for', userEmail);
+      }
+
+      await authApi.registerSnapTradeUser({ userId: userEmail, userSecret });
+
+      const connect = await authApi.createSnapTradeLogin({
+        userId: userEmail,
+        userSecret,
+        brokerRedirectUri: process.env.SNAPTRADE_REDIRECT_URI!,
+      });
+
+      return res.json({ connect });
+    } catch (err: any) {
+      console.error('SnapTrade Authenticated Registration Error:', err?.responseBody || err?.message || err);
+      return res.status(500).json({ message: err?.message || 'SnapTrade register failed' });
+    }
+  });
+
   app.use('/api/connections', connectionsRouter.default);
   
   const accountsRouter = await import('./routes/accounts');
