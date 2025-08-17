@@ -237,17 +237,26 @@ export default function OrderTicket({ symbol, currentPrice = 0, onOrderPlaced }:
             <SelectTrigger>
               <SelectValue placeholder="Select account" />
             </SelectTrigger>
-            <SelectContent>
-              {accounts?.map((account) => (
-                <SelectItem key={account.id} value={account.id}>
-                  <div className="flex justify-between items-center w-full">
-                    <span>{account.accountName}</span>
-                    <span className="text-xs text-muted-foreground ml-2">
-                      ${parseFloat(account.balance).toLocaleString()}
-                    </span>
-                  </div>
-                </SelectItem>
-              ))}
+            <SelectContent className="bg-gray-900 border-gray-700">
+              {accounts?.map((account) => {
+                const balance = account.balance ? parseFloat(account.balance) : 0;
+                const formattedBalance = !isNaN(balance) ? balance.toLocaleString() : '0';
+                
+                return (
+                  <SelectItem 
+                    key={account.id} 
+                    value={account.id}
+                    className="hover:bg-gray-800 focus:bg-gray-800"
+                  >
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-white">{account.accountName}</span>
+                      <span className="text-xs text-gray-400 ml-2">
+                        ${formattedBalance}
+                      </span>
+                    </div>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
