@@ -13,7 +13,8 @@ import {
   RefreshCw, 
   TrendingUp,
   Eye,
-  AlertCircle
+  AlertCircle,
+  Unlink
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -37,6 +38,7 @@ interface BankAccount {
 
 export default function Accounts() {
   const [refreshing, setRefreshing] = useState(false);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
 
   // Fetch brokerage accounts from SnapTrade
   const { data: brokerageData, isLoading: brokeragesLoading, refetch: refetchBrokerages } = useQuery({
@@ -62,6 +64,36 @@ export default function Accounts() {
     setRefreshing(false);
   };
 
+  const handleDisconnectAccount = async (accountId: string, type: 'brokerage' | 'bank') => {
+    if (!confirm(`Are you sure you want to disconnect this ${type} account?`)) {
+      return;
+    }
+    
+    setDisconnecting(accountId);
+    try {
+      const endpoint = type === 'brokerage' ? `/api/accounts/disconnect` : `/api/banks/disconnect`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ accountId })
+      });
+      
+      if (response.ok) {
+        // Refresh the accounts list
+        await handleRefresh();
+      } else {
+        const error = await response.json();
+        alert(`Failed to disconnect account: ${error.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error disconnecting account:', error);
+      alert('Failed to disconnect account. Please try again.');
+    } finally {
+      setDisconnecting(null);
+    }
+  };
+
   const formatCurrency = (amount: number, currency: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -85,14 +117,22 @@ export default function Accounts() {
   const isLoading = brokeragesLoading || banksLoading;
   
   // Map SnapTrade accounts to BrokerageAccount interface
-  const brokerageAccounts: BrokerageAccount[] = (brokerageData || []).map((account: any) => ({
-    id: account.id,
-    name: account.accountName || account.institution || 'Investment Account',
-    currency: 'USD',
-    balance: account.balance || 0,
-    buyingPower: account.buyingPower || (account.balance * 0.5) || 0,
-    lastSync: account.lastUpdated || new Date().toISOString(),
-  }));
+  const brokerageAccounts: BrokerageAccount[] = (brokerageData || []).map((account: any) => {
+    // Fix Coinbase name display
+    let displayName = account.accountName || account.institution || 'Investment Account';
+    if (displayName === 'Default' && account.institution === 'Coinbase') {
+      displayName = 'Coinbase';
+    }
+    
+    return {
+      id: account.id,
+      name: displayName,
+      currency: 'USD',
+      balance: account.balance || 0,
+      buyingPower: account.buyingPower || (account.balance * 0.5) || 0,
+      lastSync: account.lastUpdated || new Date().toISOString(),
+    };
+  });
   
   const bankAccounts: BankAccount[] = bankData?.accounts || [];
   const hasNoAccounts = !isLoading && brokerageAccounts.length === 0 && bankAccounts.length === 0;
@@ -179,12 +219,23 @@ export default function Accounts() {
                             Last synced {formatDistanceToNow(new Date(account.lastSync), { addSuffix: true })}
                           </p>
                         </div>
-                        <Link href={`/accounts/brokerage/${account.id}`}>
-                          <Button size="sm" variant="outline">
-                            <Eye className="h-4 w-4 mr-2" />
-                            View
+                        <div className="flex gap-2">
+                          <Link href={`/accounts/brokerage/${account.id}`}>
+                            <Button size="sm" variant="outline">
+                              <Eye className="h-4 w-4 mr-2" />
+                              View
+                            </Button>
+                          </Link>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleDisconnectAccount(account.id, 'brokerage')}
+                            disabled={disconnecting === account.id}
+                          >
+                            <Unlink className="h-4 w-4 mr-2" />
+                            Disconnect
                           </Button>
-                        </Link>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent>
@@ -248,12 +299,23 @@ export default function Accounts() {
                             </Badge>
                           </div>
                         </div>
-                        <Link href={`/accounts/bank/${account.id}`}>
-                          <Button size="sm" variant="outline">
-                            <Eye className="h-4 w-4 mr-2" />
-                            View
+                        <div className="flex gap-2">
+                          <Link href={`/accounts/bank/${account.id}`}>
+                            <Button size="sm" variant="outline">
+                              <Eye className="h-4 w-4 mr-2" />
+                              View
+                            </Button>
+                          </Link>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleDisconnectAccount(account.id, 'bank')}
+                            disabled={disconnecting === account.id}
+                          >
+                            <Unlink className="h-4 w-4 mr-2" />
+                            Disconnect
                           </Button>
-                        </Link>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent>

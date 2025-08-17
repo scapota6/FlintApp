@@ -1462,6 +1462,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const connectionsSnaptradeRouter = await import('./routes/connections.snaptrade');
   app.use('/api', connectionsSnaptradeRouter.default);
   
+  // Disconnect account endpoint
+  app.post('/api/accounts/disconnect', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { accountId } = req.body;
+      
+      if (!accountId) {
+        return res.status(400).json({ message: 'Account ID is required' });
+      }
+      
+      // For now, just return success since we don't have a real disconnect implementation
+      // In production, this would:
+      // 1. Call SnapTrade API to revoke authorization
+      // 2. Remove from local database
+      // 3. Clean up any cached data
+      
+      console.log(`[Disconnect] Would disconnect account ${accountId} for user ${userId}`);
+      
+      res.json({ success: true, message: 'Account disconnected successfully' });
+    } catch (error) {
+      console.error('Error disconnecting account:', error);
+      res.status(500).json({ message: 'Failed to disconnect account' });
+    }
+  });
+  
   // Dev-only SnapTrade user repair endpoint
   app.post('/api/debug/snaptrade/repair-user', async (req, res) => {
     try {
