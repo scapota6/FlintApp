@@ -1,0 +1,136 @@
+429 (Too Many Requests)
+apiRequest @ queryClient.ts:14
+mutationFn @ simple-connect-buttons.tsx:192
+fn @ @tanstack_react-query.js?v=d40ae121:1231
+run @ @tanstack_react-query.js?v=d40ae121:507
+start @ @tanstack_react-query.js?v=d40ae121:550
+execute @ @tanstack_react-query.js?v=d40ae121:1267
+await in execute
+mutate @ @tanstack_react-query.js?v=d40ae121:2687
+(anonymous) @ @tanstack_react-query.js?v=d40ae121:3410
+onClick @ simple-connect-buttons.tsx:322
+callCallback2 @ chunk-RPCDYKBN.js?v=d40ae121:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=d40ae121:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=d40ae121:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=d40ae121:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=d40ae121:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=d40ae121:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=d40ae121:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=d40ae121:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=d40ae121:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=d40ae121:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=d40ae121:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=d40ae121:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=d40ae121:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=d40ae121:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=d40ae121:5449Understand this error
+simple-connect-buttons.tsx:225 📈 SnapTrade Connect Error: Error: Authentication required
+    at Object.mutationFn (simple-connect-buttons.tsx:193:31)
+overrideMethod @ hook.js:608
+onError @ simple-connect-buttons.tsx:225
+execute @ @tanstack_react-query.js?v=d40ae121:1296
+await in execute
+mutate @ @tanstack_react-query.js?v=d40ae121:2687
+(anonymous) @ @tanstack_react-query.js?v=d40ae121:3410
+onClick @ simple-connect-buttons.tsx:322
+callCallback2 @ chunk-RPCDYKBN.js?v=d40ae121:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=d40ae121:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=d40ae121:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=d40ae121:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=d40ae121:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=d40ae121:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=d40ae121:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=d40ae121:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=d40ae121:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=d40ae121:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=d40ae121:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=d40ae121:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=d40ae121:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=d40ae121:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=d40ae121:5449Understand this error
+queryClient.ts:14  GET https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/auth/user 429 (Too Many Requests)
+apiRequest @ queryClient.ts:14
+queryFn @ real-time-holdings.tsx:45
+fetchFn @ @tanstack_react-query.js?v=d40ae121:879
+run @ @tanstack_react-query.js?v=d40ae121:507
+start @ @tanstack_react-query.js?v=d40ae121:550
+fetch @ @tanstack_react-query.js?v=d40ae121:918
+executeFetch_fn @ @tanstack_react-query.js?v=d40ae121:2275
+(anonymous) @ @tanstack_react-query.js?v=d40ae121:2309
+setInterval
+updateRefetchInterval_fn @ @tanstack_react-query.js?v=d40ae121:2307
+updateTimers_fn @ @tanstack_react-query.js?v=d40ae121:2314
+onQueryUpdate @ @tanstack_react-query.js?v=d40ae121:2270
+(anonymous) @ @tanstack_react-query.js?v=d40ae121:1037
+(anonymous) @ @tanstack_react-query.js?v=d40ae121:1036
+batch @ @tanstack_react-query.js?v=d40ae121:598
+dispatch_fn @ @tanstack_react-query.js?v=d40ae121:1035
+fetch @ @tanstack_react-query.js?v=d40ae121:948
+await in fetch
+executeFetch_fn @ @tanstack_react-query.js?v=d40ae121:2275
+onSubscribe @ @tanstack_react-query.js?v=d40ae121:1978
+subscribe @ @tanstack_react-query.js?v=d40ae121:24
+(anonymous) @ @tanstack_react-query.js?v=d40ae121:3142
+subscribeToStore @ chunk-RPCDYKBN.js?v=d40ae121:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=d40ae121:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=d40ae121:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=d40ae121:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=d40ae121:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=d40ae121:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=d40ae121:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=d40ae121:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=d40ae121:19416
+commitRoot @ chunk-RPCDYKBN.js?v=d40ae121:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=d40ae121:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=d40ae121:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=d40ae121:18627Understand this error
+queryClient.ts:14  GET https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/auth/user 429 (Too Many Requests)
+apiRequest @ queryClient.ts:14
+mutationFn @ simple-connect-buttons.tsx:192
+fn @ @tanstack_react-query.js?v=d40ae121:1231
+run @ @tanstack_react-query.js?v=d40ae121:507
+start @ @tanstack_react-query.js?v=d40ae121:550
+execute @ @tanstack_react-query.js?v=d40ae121:1267
+await in execute
+mutate @ @tanstack_react-query.js?v=d40ae121:2687
+(anonymous) @ @tanstack_react-query.js?v=d40ae121:3410
+onClick @ simple-connect-buttons.tsx:322
+callCallback2 @ chunk-RPCDYKBN.js?v=d40ae121:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=d40ae121:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=d40ae121:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=d40ae121:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=d40ae121:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=d40ae121:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=d40ae121:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=d40ae121:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=d40ae121:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=d40ae121:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=d40ae121:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=d40ae121:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=d40ae121:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=d40ae121:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=d40ae121:5449Understand this error
+simple-connect-buttons.tsx:225 📈 SnapTrade Connect Error: Error: Authentication required
+    at Object.mutationFn (simple-connect-buttons.tsx:193:31)
+overrideMethod @ hook.js:608
+onError @ simple-connect-buttons.tsx:225
+execute @ @tanstack_react-query.js?v=d40ae121:1296
+await in execute
+mutate @ @tanstack_react-query.js?v=d40ae121:2687
+(anonymous) @ @tanstack_react-query.js?v=d40ae121:3410
+onClick @ simple-connect-buttons.tsx:322
+callCallback2 @ chunk-RPCDYKBN.js?v=d40ae121:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=d40ae121:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=d40ae121:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=d40ae121:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=d40ae121:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=d40ae121:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=d40ae121:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=d40ae121:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=d40ae121:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=d40ae121:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=d40ae121:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=d40ae121:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=d40ae121:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=d40ae121:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=d40ae121:5449Understand this error

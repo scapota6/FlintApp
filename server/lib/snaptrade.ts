@@ -49,7 +49,19 @@ export async function listAccounts(userId: string, userSecret: string) {
 }
 
 export async function getPositions(userId: string, userSecret: string, accountId: string) {
-  // Using any type to bypass TypeScript method name issues temporarily
-  const response = await (accountsApi as any).getAccountHoldings({ userId, userSecret, accountId });
-  return response.data;
+  try {
+    // Try the correct method name for getting positions
+    const response = await accountsApi.getAllUserHoldings({ userId, userSecret, accountId });
+    return response.data;
+  } catch (e: any) {
+    // If that doesn't work, try alternate method
+    try {
+      const response = await (accountsApi as any).getPositions({ userId, userSecret, accountId });
+      return response.data;
+    } catch {
+      // Log the error and return empty array
+      console.error('Failed to get positions for account:', accountId, e?.message);
+      return [];
+    }
+  }
 }

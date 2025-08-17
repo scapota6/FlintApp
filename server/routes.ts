@@ -50,6 +50,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(flags);
   });
 
+  // SnapTrade callback handler for OAuth redirect
+  app.get('/snaptrade/callback', async (req, res) => {
+    try {
+      // Handle success/error from SnapTrade connection
+      const { success, error } = req.query;
+      
+      if (error) {
+        logger.error('SnapTrade callback error', { error });
+        return res.redirect('/?snaptrade=error');
+      }
+      
+      // Success - redirect to dashboard or accounts page
+      logger.info('SnapTrade connection successful');
+      return res.redirect('/accounts?snaptrade=success');
+    } catch (e: any) {
+      logger.error('SnapTrade callback handler error', { error: e });
+      return res.redirect('/?snaptrade=error');
+    }
+  });
+
   // SnapTrade health check endpoint
   app.get('/api/snaptrade/health', async (_req, res) => {
     try {
