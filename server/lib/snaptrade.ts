@@ -32,5 +32,16 @@ export async function createLoginUrl(params: { userId: string; userSecret: strin
     immediateRedirect: true,
     customRedirect: params.redirect,
   });
-  return (login.data?.redirectURI || login.data?.loginRedirectURI || login.data?.url) as string;
+  return login.data as any;
+}
+
+export async function listAccounts(userId: string, userSecret: string) {
+  const response = await accountsApi.listUserAccounts({ userId, userSecret });
+  return response.data;
+}
+
+export async function getPositions(userId: string, userSecret: string, accountId: string) {
+  // Using any type to bypass TypeScript method name issues temporarily
+  const response = await (accountsApi as any).getAccountHoldings({ userId, userSecret, accountId });
+  return response.data;
 }
