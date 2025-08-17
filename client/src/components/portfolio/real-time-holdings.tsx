@@ -7,20 +7,20 @@ import { TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react';
 import { useState } from 'react';
 
 interface Holding {
-  id: string;
+  accountId: string;
+  accountName: string;
+  brokerageName: string;
   symbol: string;
   name: string;
-  type: 'stock' | 'crypto' | 'etf';
   quantity: number;
-  avgCost: number;
+  averageCost: number;
   currentPrice: number;
-  marketValue: number;
-  totalGainLoss: number;
-  totalGainLossPct: number;
-  dayChange: number;
-  dayChangePct: number;
-  logo?: string;
-  accountProvider?: string;
+  currentValue: number;
+  totalCost: number;
+  profitLoss: number;
+  profitLossPercent: number;
+  currency: string;
+  type: string;
 }
 
 interface RealTimeHoldingsProps {
@@ -103,20 +103,20 @@ export default function RealTimeHoldings({
     
     switch (sortBy) {
       case 'value':
-        aValue = a.marketValue;
-        bValue = b.marketValue;
+        aValue = a.currentValue;
+        bValue = b.currentValue;
         break;
       case 'gainloss':
-        aValue = a.totalGainLossPct;
-        bValue = b.totalGainLossPct;
+        aValue = a.profitLossPercent;
+        bValue = b.profitLossPercent;
         break;
       case 'symbol':
         aValue = a.symbol;
         bValue = b.symbol;
         break;
       default:
-        aValue = a.marketValue;
-        bValue = b.marketValue;
+        aValue = a.currentValue;
+        bValue = b.currentValue;
     }
     
     if (typeof aValue === 'string' && typeof bValue === 'string') {
@@ -126,8 +126,8 @@ export default function RealTimeHoldings({
     return sortOrder === 'asc' ? (aValue as number) - (bValue as number) : (bValue as number) - (aValue as number);
   });
 
-  const totalValue = holdings.reduce((sum, holding) => sum + holding.marketValue, 0);
-  const totalGainLoss = holdings.reduce((sum, holding) => sum + holding.totalGainLoss, 0);
+  const totalValue = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
+  const totalGainLoss = holdings.reduce((sum, holding) => sum + holding.profitLoss, 0);
   const totalGainLossPct = totalValue > 0 ? (totalGainLoss / (totalValue - totalGainLoss)) * 100 : 0;
 
   if (isLoading) {
@@ -247,7 +247,7 @@ export default function RealTimeHoldings({
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {sortedHoldings.slice(0, maxItems).map((holding) => (
             <div 
-              key={holding.id} 
+              key={`${holding.accountId}-${holding.symbol}`} 
               className="group flex items-center justify-between p-3 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
               onClick={() => onHoldingClick?.(holding.symbol, holding.name)}
             >
@@ -258,33 +258,33 @@ export default function RealTimeHoldings({
                 <div>
                   <div className="font-semibold text-white flex items-center space-x-2">
                     <span>{holding.symbol}</span>
-                    {showAccountProvider && holding.accountProvider && (
+                    {showAccountProvider && holding.brokerageName && (
                       <Badge variant="secondary" className="text-xs">
-                        {holding.accountProvider}
+                        {holding.brokerageName}
                       </Badge>
                     )}
                   </div>
                   <div className="text-sm text-gray-400">
-                    {holding.quantity.toFixed(4)} shares @ {formatCurrency(holding.avgCost)}
+                    {holding.quantity.toFixed(4)} shares @ {formatCurrency(holding.averageCost)}
                   </div>
                 </div>
               </div>
               
               <div className="text-right">
                 <div className="font-semibold text-white">
-                  {formatCurrency(holding.marketValue)}
+                  {formatCurrency(holding.currentValue)}
                 </div>
                 <div className="text-sm text-gray-400">
                   {formatCurrency(holding.currentPrice)} current
                 </div>
                 <div className={`text-sm flex items-center justify-end ${
-                  holding.totalGainLoss >= 0 ? 'text-green-400' : 'text-red-400'
+                  holding.profitLoss >= 0 ? 'text-green-400' : 'text-red-400'
                 }`}>
-                  {holding.totalGainLoss >= 0 ? 
+                  {holding.profitLoss >= 0 ? 
                     <TrendingUp className="h-3 w-3 mr-1" /> : 
                     <TrendingDown className="h-3 w-3 mr-1" />
                   }
-                  {formatCurrency(holding.totalGainLoss)} ({formatPercent(holding.totalGainLossPct)})
+                  {formatCurrency(holding.profitLoss)} ({formatPercent(holding.profitLossPercent)})
                 </div>
               </div>
             </div>
