@@ -72,6 +72,10 @@ app.use((req, res, next) => {
   // Mount disconnect routes
   const disconnectRouter = (await import("./routes/connections/disconnect")).default;
   app.use("/api/connections/disconnect", disconnectRouter);
+  
+  // Mount account details route
+  const accountDetailsRouter = (await import("./routes/account-details")).default;
+  app.use("/api", accountDetailsRouter);
 
   const server = await registerRoutes(app);
 
@@ -88,9 +92,7 @@ app.use((req, res, next) => {
   const accountsBrokerageRouter = (await import("./routes/accounts-brokerage")).default;
   app.use("/api", accountsBrokerageRouter);
   
-  // Mount Account Details API router
-  const accountDetailsRouter = (await import("./routes/account-details")).default;
-  app.use("/api", accountDetailsRouter);
+
   
   // Mount Watchlist API router
   app.use("/api/watchlist", watchlistRouter);
