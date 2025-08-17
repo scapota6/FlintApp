@@ -74,7 +74,7 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
     }
     
     // Verify account ownership
-    const account = await storage.getConnectedAccount(accountId);
+    const account = await storage.getConnectedAccount(parseInt(accountId));
     if (!account || account.userId !== userId) {
       return res.status(403).json({ 
         message: "Account not found or unauthorized"
@@ -189,7 +189,7 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
     }
     
     // Verify account ownership
-    const account = await storage.getConnectedAccount(accountId);
+    const account = await storage.getConnectedAccount(parseInt(accountId));
     if (!account || account.userId !== userId) {
       return res.status(403).json({ 
         message: "Account not found or unauthorized"
@@ -313,7 +313,7 @@ router.post("/cancel", isAuthenticated, async (req: any, res) => {
     }
     
     // Verify account ownership
-    const account = await storage.getConnectedAccount(accountId);
+    const account = await storage.getConnectedAccount(parseInt(accountId));
     if (!account || account.userId !== userId) {
       return res.status(403).json({ 
         message: "Account not found or unauthorized"
@@ -394,7 +394,7 @@ router.get("/orders", isAuthenticated, async (req: any, res) => {
     }
     
     // Verify account ownership
-    const account = await storage.getConnectedAccount(accountId as string);
+    const account = await storage.getConnectedAccount(parseInt(accountId as string));
     if (!account || account.userId !== userId) {
       return res.status(403).json({ 
         message: "Account not found or unauthorized"

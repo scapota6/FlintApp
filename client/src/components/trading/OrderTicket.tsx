@@ -82,7 +82,7 @@ export default function OrderTicket({ symbol, currentPrice = 0, onOrderPlaced }:
 
   // Set limit price to current price when switching to limit order
   useEffect(() => {
-    if (orderType === 'limit' && currentPrice && !limitPrice) {
+    if (orderType === 'limit' && currentPrice && currentPrice > 0 && !limitPrice) {
       setLimitPrice(currentPrice.toFixed(2));
     }
   }, [orderType, currentPrice, limitPrice]);
