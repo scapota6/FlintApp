@@ -94,6 +94,25 @@ const getActivityIcon = (type: string) => {
   }
 };
 
+// Helper component for displaying key-value information
+const Info = ({ label, value }: { label: string; value: string | null | undefined }) => (
+  <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</div>
+    <div className="text-sm font-medium text-gray-900 dark:text-white mt-1">
+      {value || '—'}
+    </div>
+  </div>
+);
+
+// Money formatting helper
+const fmtMoney = (amount: number | null | undefined, currency: string = 'USD') => {
+  if (amount === null || amount === undefined) return '—';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency
+  }).format(amount);
+};
+
 export default function AccountDetailsDialog({ accountId, open, onClose, currentUserId }: Props) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['account-details', accountId],
@@ -137,200 +156,177 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
         )}
 
         {data && (
-          <div className="overflow-y-auto max-h-[calc(90vh-8rem)]">
-            {/* Account Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Equity</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {formatCurrency(data.accountInformation.balancesOverview.equity || 0)}
+          <div className="space-y-8 overflow-y-auto max-h-[70vh] pr-1">
+            {/* 1. Account Information */}
+            <section>
+              <h3 className="text-lg font-medium mb-2">1. Account Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <Info label="Account ID" value={data.accountInformation.id} />
+                <Info label="Brokerage" value={data.accountInformation.brokerage} />
+                <Info label="Account Type" value={data.accountInformation.type} />
+                <Info label="Currency" value={data.accountInformation.currency} />
+              </div>
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Info label="Cash" value={fmtMoney(data.accountInformation.balancesOverview.cash)} />
+                <Info label="Equity" value={fmtMoney(data.accountInformation.balancesOverview.equity)} />
+                <Info label="Buying Power" value={fmtMoney(data.accountInformation.balancesOverview.buyingPower)} />
+              </div>
+            </section>
+
+            {/* 2. Balances & Holdings */}
+            <section>
+              <h3 className="text-lg font-medium mb-2">2. Balances & Holdings</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <Info label="Cash Available to Trade" value={fmtMoney(data.balancesAndHoldings.balances.cashAvailableToTrade)} />
+                <Info label="Total Equity Value" value={fmtMoney(data.balancesAndHoldings.balances.totalEquityValue)} />
+                <Info label="Buying Power/Margin" value={fmtMoney(data.balancesAndHoldings.balances.buyingPowerOrMargin)} />
+              </div>
+              
+              {data.balancesAndHoldings.holdings && data.balancesAndHoldings.holdings.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-2">Holdings ({data.balancesAndHoldings.holdings.length})</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {data.balancesAndHoldings.holdings.map((holding, index) => (
+                      <div key={index} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium">{holding.symbol}</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">{holding.name}</div>
+                            <div className="text-xs text-gray-500">Qty: {holding.quantity}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-medium">{fmtMoney(holding.marketValue)}</div>
+                            {holding.unrealized !== null && (
+                              <div className={`text-sm ${holding.unrealized >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {fmtMoney(holding.unrealized)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {data.accountInformation.brokerage} • ****{data.accountInformation.number.slice(-4)}
-                  </p>
-                </CardContent>
-              </Card>
+                </div>
+              )}
+            </section>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Cash Available</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xl font-bold">
-                    {formatCurrency(data.balancesAndHoldings.balances.cashAvailableToTrade || 0)}
-                  </div>
-                  <Badge variant="outline" className="mt-1">
-                    {data.accountInformation.type}
-                  </Badge>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Buying Power</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xl font-bold">
-                    {data.balancesAndHoldings.balances.buyingPowerOrMargin 
-                      ? formatCurrency(data.balancesAndHoldings.balances.buyingPowerOrMargin)
-                      : '—'
-                    }
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Status: {data.accountInformation.status}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Detailed Data Tabs */}
-            <Tabs defaultValue="positions" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="positions">
-                  Positions ({data.positionsAndOrders?.activePositions?.length || 0})
-                </TabsTrigger>
-                <TabsTrigger value="orders">
-                  Orders ({data.positionsAndOrders?.pendingOrders?.length || 0} open)
-                </TabsTrigger>
-                <TabsTrigger value="activities">
-                  Activities ({data.activityAndTransactions?.length || 0})
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="positions" className="space-y-4">
-                {data.positionsAndOrders?.activePositions && data.positionsAndOrders.activePositions.length > 0 ? (
-                  <div className="space-y-2">
+            {/* 3. Positions & Orders */}
+            <section>
+              <h3 className="text-lg font-medium mb-2">3. Positions & Orders</h3>
+              
+              {data.positionsAndOrders.activePositions && data.positionsAndOrders.activePositions.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="font-medium mb-2">Active Positions ({data.positionsAndOrders.activePositions.length})</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
                     {data.positionsAndOrders.activePositions.map((position: any, index: number) => (
-                      <Card key={index}>
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h4 className="font-medium">{position.symbol?.symbol || position.symbol || '—'}</h4>
-                              <p className="text-sm text-muted-foreground">
-                                {position.symbol?.name || position.name || '—'}
-                              </p>
-                              <p className="text-xs">
-                                {position.quantity} shares {position.average_purchase_price ? `@ ${formatCurrency(position.average_purchase_price)}` : ''}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-medium">
-                                {position.market_value ? formatCurrency(position.market_value) : '—'}
-                              </div>
-                              {position.unrealized_pl !== null && position.unrealized_pl !== undefined && (
-                                <div className={`text-sm ${
-                                  position.unrealized_pl >= 0 ? 'text-green-600' : 'text-red-600'
-                                }`}>
-                                  {formatCurrency(position.unrealized_pl)}
-                                </div>
-                              )}
-                              {position.current_price && (
-                                <div className="text-xs text-muted-foreground">
-                                  {formatCurrency(position.current_price)} per share
-                                </div>
-                              )}
+                      <div key={index} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium">{position.symbol?.symbol || position.symbol}</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              {position.quantity} shares
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
+                          <div className="text-right">
+                            <div className="font-medium">{fmtMoney(position.market_value)}</div>
+                            {position.unrealized_pl !== null && (
+                              <div className={`text-sm ${position.unrealized_pl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {fmtMoney(position.unrealized_pl)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="text-center p-8 text-muted-foreground">
-                    No active positions found
-                  </div>
-                )}
-              </TabsContent>
+                </div>
+              )}
 
-              <TabsContent value="orders" className="space-y-4">
-                {data.positionsAndOrders?.pendingOrders && data.positionsAndOrders.pendingOrders.length > 0 ? (
-                  <div className="space-y-2">
-                    <h3 className="font-medium">Pending Orders</h3>
+              {data.positionsAndOrders.pendingOrders && data.positionsAndOrders.pendingOrders.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-2">Pending Orders ({data.positionsAndOrders.pendingOrders.length})</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
                     {data.positionsAndOrders.pendingOrders.map((order: any) => (
-                      <Card key={order.id}>
-                        <CardContent className="p-4">
+                      <div key={order.id} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium">{order.symbol?.symbol || order.symbol}</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              {order.action || order.side} {order.quantity} shares
+                            </div>
+                            <Badge variant="outline" className="text-xs mt-1">
+                              {order.order_type || order.type}
+                            </Badge>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-medium">{fmtMoney(order.price)}</div>
+                            <Badge variant={order.status === 'PENDING' ? 'default' : 'secondary'}>
+                              {order.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* 4. Trading Actions */}
+            <section>
+              <h3 className="text-lg font-medium mb-2">4. Trading Actions</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Info label="Can Place Orders" value={data.tradingActions.canPlaceOrders ? 'Yes' : 'No'} />
+                <Info label="Can Cancel Orders" value={data.tradingActions.canCancelOrders ? 'Yes' : 'No'} />
+                <Info label="Can Get Confirmations" value={data.tradingActions.canGetConfirmations ? 'Yes' : 'No'} />
+              </div>
+            </section>
+
+            {/* 5. Activity & Transactions */}
+            <section>
+              <h3 className="text-lg font-medium mb-2">5. Activity & Transactions</h3>
+              {data.activityAndTransactions && data.activityAndTransactions.length > 0 ? (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {data.activityAndTransactions.slice(0, 20).map((activity: any, index: number) => (
+                    <div key={index} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        {getActivityIcon(activity.type)}
+                        <div className="flex-1">
                           <div className="flex justify-between items-start">
                             <div>
-                              <h4 className="font-medium">{order.symbol?.symbol || order.symbol || '—'}</h4>
-                              <p className="text-sm text-muted-foreground">
-                                {order.action || order.side} {order.quantity} shares
-                              </p>
-                              <Badge variant="outline" className="text-xs">
-                                {order.order_type || order.type}
-                              </Badge>
+                              <div className="font-medium">{activity.description || activity.type}</div>
+                              <div className="text-sm text-gray-600 dark:text-gray-400">
+                                {activity.symbol && `${activity.symbol} • `}
+                                {activity.timestamp && new Date(activity.timestamp).toLocaleDateString()}
+                              </div>
                             </div>
                             <div className="text-right">
-                              <div className="font-medium">
-                                {order.price ? formatCurrency(order.price) : '—'}
-                              </div>
-                              <Badge variant={order.status === 'PENDING' ? 'default' : 'secondary'}>
-                                {order.status}
-                              </Badge>
-                              {order.created_at && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {new Date(order.created_at).toLocaleDateString()}
-                                </p>
+                              <Badge variant="outline">{activity.type}</Badge>
+                              {activity.amount && (
+                                <div className="text-sm font-medium mt-1">
+                                  {fmtMoney(activity.amount)}
+                                </div>
+                              )}
+                              {activity.quantity && (
+                                <div className="text-xs text-gray-500">
+                                  Qty: {activity.quantity}
+                                </div>
                               )}
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center p-8 text-muted-foreground">
-                    No pending orders
-                  </div>
-                )}
-              </TabsContent>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center p-8 text-gray-500">
+                  No recent activities found
+                </div>
+              )}
+            </section>
 
-              <TabsContent value="activities" className="space-y-4">
-                {data.activityAndTransactions && data.activityAndTransactions.length > 0 ? (
-                  <div className="space-y-2">
-                    {data.activityAndTransactions.slice(0, 20).map((activity: any, index: number) => (
-                      <Card key={index}>
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            {getActivityIcon(activity.type)}
-                            <div className="flex-1">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <h4 className="font-medium">{activity.description || activity.type}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {activity.symbol && `${activity.symbol} • `}
-                                    {activity.timestamp && new Date(activity.timestamp).toLocaleDateString()}
-                                  </p>
-                                </div>
-                                <div className="text-right">
-                                  <Badge variant="outline">{activity.type}</Badge>
-                                  {activity.amount && (
-                                    <p className="text-sm mt-1 font-medium">
-                                      {formatCurrency(activity.amount)}
-                                    </p>
-                                  )}
-                                  {activity.quantity && (
-                                    <p className="text-xs text-muted-foreground">
-                                      Qty: {activity.quantity}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center p-8 text-muted-foreground">
-                    No recent activities
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
+
 
             {/* Footer with metadata */}
             <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
