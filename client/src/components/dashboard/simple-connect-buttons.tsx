@@ -13,9 +13,10 @@ import { apiRequest } from "@/lib/queryClient";
 interface SimpleConnectButtonsProps {
   accounts: any[];
   userTier: string;
+  isAdmin?: boolean;
 }
 
-export default function SimpleConnectButtons({ accounts, userTier }: SimpleConnectButtonsProps) {
+export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: SimpleConnectButtonsProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   // Removed loading animations as requested by user
@@ -61,7 +62,10 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
   }, [toast, queryClient]);
 
   // Check account limits based on user tier
-  const getAccountLimit = (tier: string) => {
+  const getAccountLimit = (tier: string, isAdmin?: boolean) => {
+    // Admin users get unlimited accounts
+    if (isAdmin) return Infinity;
+    
     switch (tier) {
       case 'free': return 2;
       case 'basic': return 3;
@@ -71,7 +75,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
     }
   };
 
-  const accountLimit = getAccountLimit(userTier);
+  const accountLimit = getAccountLimit(userTier, isAdmin);
   const connectedAccounts = accounts.length;
   const canConnectMore = connectedAccounts < accountLimit;
 

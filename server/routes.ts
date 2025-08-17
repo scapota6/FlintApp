@@ -342,6 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cryptoValue,
         accounts: enrichedAccounts,
         subscriptionTier: user?.subscriptionTier || 'free',
+        isAdmin: user?.isAdmin || false,
         needsConnection,
         connectionStatus: {
           hasAccounts: hasConnectedAccounts,

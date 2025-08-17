@@ -137,7 +137,8 @@ export default function Dashboard() {
         <div className="mt-12">
           <SimpleConnectButtons 
             accounts={dashboardData?.accounts || []} 
-            userTier="basic"
+            userTier={dashboardData?.subscriptionTier || "free"}
+            isAdmin={dashboardData?.isAdmin || false}
           />
         </div>
       </main>
