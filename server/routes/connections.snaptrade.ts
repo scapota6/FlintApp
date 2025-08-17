@@ -4,19 +4,18 @@ import { createConnectionPortal } from '../services/snaptradeProvision';
 
 const r = Router();
 
-/** GET /api/snaptrade/connect - Auto-provision and return Connection Portal URL */
-r.get('/connect', isAuthenticated, async (req: any, res) => {
+/** POST /api/connections/snaptrade/register { userId: string } */
+r.post('/connections/snaptrade/register', isAuthenticated, async (req: any, res) => {
   try {
-    const userId = req.user.claims.sub; // Use stable userId from auth
-    console.log('[SnapTrade] Auto-provisioning for userId:', userId);
-
-    const portalUrl = await createConnectionPortal(userId);
-    
-    console.log('[SnapTrade] Connection Portal URL generated for userId:', userId);
-    res.json({ success: true, portalUrl });
-  } catch (error: any) {
-    console.error('[SnapTrade Connect Error]:', error);
-    res.status(500).json({ success: false, message: 'Failed to create connection portal', error: error.message });
+    // Use authenticated user's ID or allow override from body for flexibility
+    const userId = String(req.body?.userId || req.user.claims.sub || '').trim();
+    if (!userId) return res.status(400).json({ message: 'userId required' });
+    const url = await createConnectionPortal(userId); // auto-provisions if missing
+    return res.json({ connect: { url } });
+  } catch (e: any) {
+    // 1076 here == signature invalid → creds/env/redirect mismatch
+    console.error('SnapTrade registration error:', e?.responseBody || e?.message || e);
+    return res.status(401).json({ message: 'Failed to register with SnapTrade' });
   }
 });
 

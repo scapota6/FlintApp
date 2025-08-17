@@ -28,10 +28,7 @@ export default function Connections() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          connectionType: 'read_write',
-          immediateRedirect: true
-        })
+        body: JSON.stringify({})
       });
 
       if (!response.ok) {
@@ -39,7 +36,8 @@ export default function Connections() {
         throw new Error(data.message || 'Failed to connect brokerage');
       }
 
-      const { redirectUrl } = await response.json();
+      const data = await response.json();
+      const redirectUrl = data?.connect?.url;
       
       // Redirect to SnapTrade connection portal
       if (redirectUrl) {

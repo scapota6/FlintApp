@@ -208,8 +208,7 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data?.message || "Failed to start SnapTrade Connect");
 
-      const url: string | undefined =
-        data?.connect?.redirectURI || data?.connect?.loginRedirectURI || data?.connect?.url;
+      const url: string | undefined = data?.connect?.url;
       if (!url) throw new Error("No SnapTrade Connect URL returned");
       
       console.log('📈 SnapTrade Connect: Redirecting to URL:', url);

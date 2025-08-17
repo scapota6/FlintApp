@@ -61,13 +61,23 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
-  await storage.upsertUser({
+  const user = await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
   });
+
+  // Auto-provision SnapTrade user on signup/first login
+  try {
+    const { ensureSnaptradeUser } = await import('./services/snaptradeProvision');
+    await ensureSnaptradeUser(user.id);
+    console.log('[SnapTrade] Auto-provisioned user on signup:', user.id);
+  } catch (error) {
+    console.error('[SnapTrade] Auto-provision failed on signup:', error);
+    // Don't fail the auth flow if SnapTrade provision fails
+  }
 }
 
 export async function setupAuth(app: Express) {
