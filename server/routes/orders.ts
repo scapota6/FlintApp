@@ -8,7 +8,7 @@ const router = Router();
 // Initialize SnapTrade client
 const snaptrade = new Snaptrade({
   clientId: process.env.SNAPTRADE_CLIENT_ID!,
-  consumerKey: process.env.SNAPTRADE_CLIENT_SECRET!,
+  consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
 });
 
 // Order placement schema
