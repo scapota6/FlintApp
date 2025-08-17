@@ -412,13 +412,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Trading page accounts endpoint - returns brokerage accounts for trading
   app.get('/api/accounts', isAuthenticated, async (req: any, res) => {
     try {
+      console.log('[/api/accounts] User object:', req.user ? 'exists' : 'missing');
+      console.log('[/api/accounts] User claims:', req.user?.claims ? 'exists' : 'missing');
+      console.log('[/api/accounts] User ID:', req.user?.claims?.sub || 'missing');
+      
+      if (!req.user || !req.user.claims || !req.user.claims.sub) {
+        console.error('[/api/accounts] Authentication failed - missing user data');
+        return res.status(401).json({ message: "Unauthorized", brokerages: [] });
+      }
+      
       const userId = req.user.claims.sub;
+      console.log('[/api/accounts] Fetching accounts for user:', userId);
       const brokerages = [];
       
       // Get SnapTrade accounts if connected
       const snapTradeUser = await getOrLoadUserSecret(userId);
       if (snapTradeUser && snapTradeUser.userSecret) {
         try {
+          console.log('[/api/accounts] Fetching SnapTrade accounts');
           const accounts = await listUserAccounts(userId, snapTradeUser.userSecret);
           
           if (accounts.data && Array.isArray(accounts.data)) {
