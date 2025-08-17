@@ -45,6 +45,8 @@ r.get('/accounts/:accountId/details', async (req, res) => {
       listOrderHistory(rec.userId, rec.userSecret, accountId).catch(() => []),
       listActivities(rec.userId, rec.userSecret, accountId).catch(() => []),
     ]);
+    
+    // console.log('DEBUG: Activities response length:', activities?.length || 0);
 
     // Extract balance data from positions response (balances API failed, but balance data is in positions)
     const balanceArray = positions?.[0]?.balances || [];
@@ -102,14 +104,59 @@ r.get('/accounts/:accountId/details', async (req, res) => {
         canCancelOrders: true,
         canGetConfirmations: true,
       },
-      activityAndTransactions: Array.isArray(activities) ? activities.map((a: any) => ({
-        type: a.type || a.activityType || '—',
-        symbol: a.symbol || a.ticker || a.security?.symbol || undefined,
-        amount: a.amount ?? a.value ?? undefined,
-        quantity: a.quantity ?? a.shares ?? undefined,
-        timestamp: a.timestamp || a.time || a.date || null,
-        description: a.description || a.note || '',
-      })) : [],
+      activityAndTransactions: (() => {
+        // Combine activities and order history for a comprehensive view
+        const activityList = [];
+        
+        // Add activities if any
+        if (Array.isArray(activities) && activities.length > 0) {
+          activities.forEach((a: any) => {
+            const symbol = a.symbol?.symbol || a.symbol?.raw_symbol || a.symbol?.ticker || undefined;
+            const timestamp = a.settlement_date || a.trade_date || a.timestamp || a.time || a.date || null;
+            
+            activityList.push({
+              type: a.type || a.activityType || 'Activity',
+              symbol: symbol,
+              amount: a.amount ?? a.value ?? undefined,
+              quantity: a.quantity ?? a.shares ?? a.units ?? undefined,
+              timestamp: timestamp,
+              description: a.description || a.note || `${a.type || 'Activity'} for ${symbol || 'account'}`,
+            });
+          });
+        }
+        
+        // Add recent order history as activities
+        if (Array.isArray(orderHistory) && orderHistory.length > 0) {
+          // Take last 15 orders and format as activities
+          orderHistory.slice(-15).forEach((order: any) => {
+            const symbol = order.symbol || 
+                          order.universal_symbol?.symbol || 
+                          order.option_symbol?.underlying_symbol?.symbol ||
+                          order.option_symbol?.ticker ||
+                          'Unknown';
+            
+            const action = order.action || 'Trade';
+            const price = order.execution_price || order.limit_price || 0;
+            const qty = parseFloat(order.filled_quantity || order.total_quantity || '0');
+            const amount = price * qty;
+            
+            activityList.push({
+              type: `${action.replace('_', ' ')} Order`,
+              symbol: symbol,
+              amount: amount > 0 ? amount : undefined,
+              quantity: qty > 0 ? qty : undefined,
+              timestamp: order.time_executed || order.time_updated || order.time_placed || null,
+              description: `${action} ${qty} shares of ${symbol} at $${price}`,
+            });
+          });
+        }
+        
+        // Sort by timestamp (newest first) and limit to 15 most recent
+        return activityList
+          .filter(a => a.timestamp) // Only include items with timestamps
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          .slice(0, 15);
+      })(),
       metadata: {
         fetched_at: new Date().toISOString(),
         last_sync: account.sync_status,

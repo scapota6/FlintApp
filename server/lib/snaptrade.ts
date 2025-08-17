@@ -110,29 +110,59 @@ export async function listOpenOrders(userId: string, userSecret: string, account
 }
 
 export async function listOrderHistory(userId: string, userSecret: string, accountId: string) {
-  if (hasFn(accountsApi, 'listOrders')) {
-    return (accountsApi as any).listOrders({ userId, userSecret, accountId, status: 'ALL' });
+  try {
+    // Try portfolioApi first as it's more likely to have order history
+    if (hasFn(portfolioApi, 'getOrderHistory')) {
+      const response = await (portfolioApi as any).getOrderHistory({ userId, userSecret, accountId });
+      console.log('DEBUG: Order history from portfolioApi:', response?.data?.length || 0, 'orders');
+      return response?.data || [];
+    }
+    if (hasFn(accountsApi, 'getOrderHistory')) {
+      const response = await (accountsApi as any).getOrderHistory({ userId, userSecret, accountId });
+      console.log('DEBUG: Order history from accountsApi:', response?.data?.length || 0, 'orders');
+      return response?.data || [];
+    }
+    if (hasFn(accountsApi, 'listOrders')) {
+      const response = await (accountsApi as any).listOrders({ userId, userSecret, accountId, status: 'ALL' });
+      console.log('DEBUG: Order history from listOrders:', response?.data?.length || 0, 'orders');
+      return response?.data || [];
+    }
+    console.log('DEBUG: No order history methods found');
+    return [];
+  } catch (e: any) {
+    console.error('DEBUG: Order history error:', e?.message || e);
+    return [];
   }
-  if (hasFn(accountsApi, 'getOrderHistory')) {
-    return (accountsApi as any).getOrderHistory({ userId, userSecret, accountId });
-  }
-  if (hasFn(portfolioApi, 'getOrderHistory')) {
-    return (portfolioApi as any).getOrderHistory({ userId, userSecret, accountId });
-  }
-  return [];
 }
 
 // Activity / Transactions (dividends, deposits, withdrawals, trade fills, etc.)
 export async function listActivities(userId: string, userSecret: string, accountId: string) {
-  // Try common activity/transactions endpoints
-  if (hasFn(accountsApi, 'getActivities')) {
-    return (accountsApi as any).getActivities({ userId, userSecret, accountId });
+  try {
+    // Try portfolioApi first (most likely to have transactions)
+    if (hasFn(portfolioApi, 'getActivities')) {
+      const response = await (portfolioApi as any).getActivities({ userId, userSecret, accountId });
+      console.log('DEBUG: Activities from portfolioApi.getActivities:', response?.data?.length || 0, 'items');
+      return response?.data || [];
+    }
+    if (hasFn(portfolioApi, 'getTransactions')) {
+      const response = await (portfolioApi as any).getTransactions({ userId, userSecret, accountId });
+      console.log('DEBUG: Activities from portfolioApi.getTransactions:', response?.data?.length || 0, 'items');
+      return response?.data || [];
+    }
+    if (hasFn(accountsApi, 'getActivities')) {
+      const response = await (accountsApi as any).getActivities({ userId, userSecret, accountId });
+      console.log('DEBUG: Activities from accountsApi.getActivities:', response?.data?.length || 0, 'items');
+      return response?.data || [];
+    }
+    if (hasFn(accountsApi, 'getTransactions')) {
+      const response = await (accountsApi as any).getTransactions({ userId, userSecret, accountId });
+      console.log('DEBUG: Activities from accountsApi.getTransactions:', response?.data?.length || 0, 'items');
+      return response?.data || [];
+    }
+    console.log('DEBUG: No activity/transaction methods found in SDK');
+    return [];
+  } catch (e: any) {
+    console.error('DEBUG: Activities error:', e?.message || e);
+    return [];
   }
-  if (hasFn(portfolioApi, 'getActivities')) {
-    return (portfolioApi as any).getActivities({ userId, userSecret, accountId });
-  }
-  if (hasFn(accountsApi, 'getTransactions')) {
-    return (accountsApi as any).getTransactions({ userId, userSecret, accountId });
-  }
-  return [];
 }
