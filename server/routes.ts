@@ -1010,15 +1010,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin middleware - restrict to platform owner only
-  const isAdmin = (req: any, res: any, next: any) => {
-    const userEmail = req.user?.claims?.email;
-    const adminEmails = ['scapota@flint-investing.com']; // Platform owner email
-    
-    if (!adminEmails.includes(userEmail)) {
-      return res.status(403).json({ message: 'Admin access required' });
+  // Admin middleware - checks if user has admin privileges
+  const isAdmin = async (req: any, res: any, next: any) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+      
+      next();
+    } catch (error) {
+      res.status(500).json({ message: 'Error checking admin status' });
     }
-    next();
   };
 
   // Admin API routes for user and SnapTrade management (restricted to admin only)
@@ -1541,6 +1549,179 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register demo routes
   const { registerDemoRoutes } = await import('./routes/demo');
   registerDemoRoutes(app);
+  
+  // Admin API routes - use existing isAdmin middleware
+  app.get('/api/admin/stats', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const connectedAccounts = await storage.getConnectedAccounts('');
+      
+      const stats = {
+        totalUsers: users.length,
+        freeUsers: users.filter(u => u.subscriptionTier === 'free').length,
+        proUsers: users.filter(u => u.subscriptionTier === 'pro').length,
+        premiumUsers: users.filter(u => u.subscriptionTier === 'premium').length,
+        totalRevenue: (users.filter(u => u.subscriptionTier === 'pro').length * 20) + 
+                     (users.filter(u => u.subscriptionTier === 'premium').length * 50),
+        totalConnectedAccounts: connectedAccounts.length,
+        activeUsers: users.filter(u => {
+          const lastLogin = u.lastLogin ? new Date(u.lastLogin) : new Date(u.createdAt);
+          const daysSinceLogin = (Date.now() - lastLogin.getTime()) / (1000 * 60 * 60 * 24);
+          return daysSinceLogin < 7;
+        }).length,
+        churnRate: 0 // Placeholder for churn calculation
+      };
+      
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching admin stats:', error);
+      res.status(500).json({ message: 'Failed to fetch stats' });
+    }
+  });
+  
+  app.get('/api/admin/users', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      // Get all connected accounts for all users
+      const allAccounts = await Promise.all(
+        users.map(user => storage.getConnectedAccounts(user.id))
+      );
+      const connectedAccounts = allAccounts.flat();
+      
+      // Enhance user data with connected accounts count and total balance
+      const enhancedUsers = await Promise.all(users.map(async (user) => {
+        const userAccounts = connectedAccounts.filter(acc => acc.userId === user.id);
+        const totalBalance = userAccounts.reduce((sum, acc) => sum + parseFloat(acc.balance || '0'), 0);
+        
+        return {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          subscriptionTier: user.subscriptionTier || 'free',
+          subscriptionStatus: user.subscriptionStatus || 'active',
+          connectedAccounts: userAccounts.length,
+          totalBalance,
+          lastLogin: user.lastLogin || user.createdAt,
+          createdAt: user.createdAt,
+          isAdmin: user.isAdmin || false,
+          isBanned: user.isBanned || false
+        };
+      }));
+      
+      res.json(enhancedUsers);
+    } catch (error) {
+      console.error('Error fetching admin users:', error);
+      res.status(500).json({ message: 'Failed to fetch users' });
+    }
+  });
+  
+  app.post('/api/admin/upgrade-user', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { userId, tier } = req.body;
+      
+      if (!userId || !tier) {
+        return res.status(400).json({ message: 'User ID and tier are required' });
+      }
+      
+      const updatedUser = await storage.updateUserSubscription(userId, tier, 'active');
+      
+      // Log the action
+      await storage.logActivity({
+        userId: req.user.claims.sub,
+        action: 'admin_upgrade_user',
+        description: `Upgraded user ${userId} to ${tier}`,
+        metadata: { targetUserId: userId, newTier: tier }
+      });
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error('Error upgrading user:', error);
+      res.status(500).json({ message: 'Failed to upgrade user' });
+    }
+  });
+  
+  app.post('/api/admin/disconnect-accounts', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ message: 'User ID is required' });
+      }
+      
+      // Delete all connected accounts for the user
+      const userAccounts = await storage.getConnectedAccounts(userId);
+      for (const account of userAccounts) {
+        await storage.deleteConnectedAccount(userId, account.provider, account.externalAccountId);
+      }
+      
+      // Delete SnapTrade user if exists
+      await storage.deleteSnapTradeUser(userId);
+      
+      // Log the action
+      await storage.logActivity({
+        userId: req.user.claims.sub,
+        action: 'admin_disconnect_accounts',
+        description: `Disconnected all accounts for user ${userId}`,
+        metadata: { targetUserId: userId }
+      });
+      
+      res.json({ success: true, message: 'All accounts disconnected' });
+    } catch (error) {
+      console.error('Error disconnecting accounts:', error);
+      res.status(500).json({ message: 'Failed to disconnect accounts' });
+    }
+  });
+  
+  app.post('/api/admin/ban-user', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ message: 'User ID is required' });
+      }
+      
+      const updatedUser = await storage.updateUserBanStatus(userId, true);
+      
+      // Log the action
+      await storage.logActivity({
+        userId: req.user.claims.sub,
+        action: 'admin_ban_user',
+        description: `Banned user ${userId}`,
+        metadata: { targetUserId: userId }
+      });
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error('Error banning user:', error);
+      res.status(500).json({ message: 'Failed to ban user' });
+    }
+  });
+  
+  app.post('/api/admin/unban-user', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ message: 'User ID is required' });
+      }
+      
+      const updatedUser = await storage.updateUserBanStatus(userId, false);
+      
+      // Log the action
+      await storage.logActivity({
+        userId: req.user.claims.sub,
+        action: 'admin_unban_user',
+        description: `Unbanned user ${userId}`,
+        metadata: { targetUserId: userId }
+      });
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error('Error unbanning user:', error);
+      res.status(500).json({ message: 'Failed to unban user' });
+    }
+  });
   
   const tradingRouter = await import('./routes/trading');
   app.use('/api/trade', tradingRouter.default);

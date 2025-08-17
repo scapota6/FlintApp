@@ -35,6 +35,12 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserStripeInfo(userId: string, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User>;
   
+  // Admin operations
+  getAllUsers(): Promise<User[]>;
+  updateUserSubscription(userId: string, tier: string, status: string): Promise<User>;
+  updateUserBanStatus(userId: string, isBanned: boolean): Promise<User>;
+  updateLastLogin(userId: string): Promise<void>;
+  
   // SnapTrade user management
   getSnapTradeUser(userId: string): Promise<{ snaptradeUserId: string | null, userSecret: string } | undefined>;
   getSnapTradeUserByEmail(email: string): Promise<{ snaptradeUserId: string | null, snaptradeUserSecret: string, flintUserId: string } | undefined>;
@@ -401,16 +407,39 @@ export class DatabaseStorage implements IStorage {
     return this.getActivityLog(userId, limit);
   }
   
-  async updateUserSubscription(userId: string, tier: string): Promise<User> {
+  async updateUserSubscription(userId: string, tier: string, status: string): Promise<User> {
     const [user] = await db
       .update(users)
       .set({ 
         subscriptionTier: tier,
+        subscriptionStatus: status,
         updatedAt: new Date() 
       })
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  async updateUserBanStatus(userId: string, isBanned: boolean): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        isBanned,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async updateLastLogin(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ 
+        lastLogin: new Date(),
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId));
   }
 
   async updateUser(userId: string, updates: Partial<User>): Promise<User> {

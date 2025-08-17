@@ -36,6 +36,9 @@ export const users = pgTable("users", {
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   subscriptionTier: varchar("subscription_tier").default("free"), // free, basic, pro, premium
   subscriptionStatus: varchar("subscription_status").default("active"), // active, cancelled, expired
+  isAdmin: boolean("is_admin").default(false),
+  isBanned: boolean("is_banned").default(false),
+  lastLogin: timestamp("last_login").defaultNow(),
   // SnapTrade credentials moved to separate table
   // snaptradeUserId: varchar("snaptrade_user_id"), // SnapTrade user ID
   // snaptradeUserSecret: varchar("snaptrade_user_secret"), // SnapTrade user secret
