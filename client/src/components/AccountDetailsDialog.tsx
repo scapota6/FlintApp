@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import {
   Clock,
   X
 } from 'lucide-react';
+import OrderPreviewDialog from './OrderPreviewDialog';
 
 type Props = {
   accountId: string;
@@ -150,6 +151,7 @@ function fmtTime(v: any) {
 }
 
 export default function AccountDetailsDialog({ accountId, open, onClose, currentUserId }: Props) {
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const { data, isLoading, isError } = useQuery({
     queryKey: ['account-details', accountId],
     enabled: open,
@@ -320,21 +322,21 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 Trading Actions
               </h3>
               <div className="flex flex-wrap gap-3">
-                <button className="rounded-xl border border-purple-200 dark:border-purple-700 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 px-4 py-2 hover:from-purple-100 hover:to-blue-100 dark:hover:from-purple-800/50 dark:hover:to-blue-800/50 text-purple-700 dark:text-purple-300 font-medium transition-all duration-200 shadow-sm hover:shadow-md">
-                  🛒 Buy
-                </button>
-                <button className="rounded-xl border border-red-200 dark:border-red-700 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/30 dark:to-orange-900/30 px-4 py-2 hover:from-red-100 hover:to-orange-100 dark:hover:from-red-800/50 dark:hover:to-orange-800/50 text-red-700 dark:text-red-300 font-medium transition-all duration-200 shadow-sm hover:shadow-md">
-                  💰 Sell
+                <button 
+                  onClick={() => setOrderDialogOpen(true)}
+                  className="rounded-xl border border-purple-200 dark:border-purple-700 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 px-4 py-2 hover:from-purple-100 hover:to-blue-100 dark:hover:from-purple-800/50 dark:hover:to-blue-800/50 text-purple-700 dark:text-purple-300 font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  🛒 Place Order
                 </button>
                 <button className="rounded-xl border border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/30 dark:to-yellow-900/30 px-4 py-2 hover:from-orange-100 hover:to-yellow-100 dark:hover:from-orange-800/50 dark:hover:to-yellow-800/50 text-orange-700 dark:text-orange-300 font-medium transition-all duration-200 shadow-sm hover:shadow-md">
                   ❌ Cancel Orders
                 </button>
                 <button className="rounded-xl border border-blue-200 dark:border-blue-700 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 px-4 py-2 hover:from-blue-100 hover:to-cyan-100 dark:hover:from-blue-800/50 dark:hover:to-cyan-800/50 text-blue-700 dark:text-blue-300 font-medium transition-all duration-200 shadow-sm hover:shadow-md">
-                  ✅ Confirmations
+                  📊 Order History
                 </button>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 italic bg-blue-50 dark:bg-blue-950/20 p-2 rounded-lg border border-blue-200 dark:border-blue-800">
-                🔧 Trading actions ready to wire to your trade endpoints
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 italic bg-purple-50 dark:bg-purple-950/20 p-2 rounded-lg border border-purple-200 dark:border-purple-800">
+                🚀 Real SnapTrade order preview and placement system
               </p>
             </section>
 
@@ -380,6 +382,15 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
           </div>
         )}
       </div>
+      
+      {/* Order Preview Dialog */}
+      <OrderPreviewDialog
+        isOpen={orderDialogOpen}
+        onClose={() => setOrderDialogOpen(false)}
+        accountId={accountId}
+        accountName={data?.accountInformation?.name || 'Unknown Account'}
+        cashBalance={data?.balancesAndHoldings?.cash || 0}
+      />
     </div>
   );
 }

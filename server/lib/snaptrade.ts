@@ -15,9 +15,10 @@ console.log('[SnapTrade SDK] Initialized with pattern from official CLI:', {
 export const authApi = snaptrade.authentication;
 export const accountsApi = snaptrade.accountInformation;
 export const portfolioApi = snaptrade.transactionsAndReporting;
+export const tradingApi = snaptrade.trading;
 
 // Back-compat alias in case old code referenced a client object
-export const snaptradeClient = { authApi, accountsApi, portfolioApi };
+export const snaptradeClient = { authApi, accountsApi, portfolioApi, tradingApi };
 
 console.log('[SnapTrade] SDK init', {
   env: process.env.SNAPTRADE_ENV,
@@ -164,5 +165,130 @@ export async function listActivities(userId: string, userSecret: string, account
   } catch (e: any) {
     console.error('DEBUG: Activities error:', e?.message || e);
     return [];
+  }
+}
+
+// Order Preview and Trading Functions
+export async function getOrderImpact(
+  userId: string, 
+  userSecret: string, 
+  accountId: string, 
+  params: {
+    action: 'BUY' | 'SELL';
+    universalSymbolId: string;
+    orderType: 'Market' | 'Limit';
+    timeInForce?: 'Day' | 'GTC' | 'IOC' | 'FOK';
+    units: number;
+    price?: number;
+  }
+) {
+  try {
+    const orderImpact = await tradingApi.getOrderImpact({
+      userId,
+      userSecret,
+      accountId,
+      action: params.action,
+      universalSymbolId: params.universalSymbolId,
+      orderType: params.orderType,
+      timeInForce: params.timeInForce || 'Day',
+      units: params.units,
+      price: params.price,
+    });
+    
+    return orderImpact.data;
+  } catch (e: any) {
+    console.error('SnapTrade getOrderImpact error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+export async function searchSymbols(userId: string, userSecret: string, accountId: string, query: string) {
+  try {
+    // Try multiple search methods for compatibility
+    if (hasFn(snaptrade.referenceData, 'symbolsSearchUserAccount')) {
+      const response = await (snaptrade.referenceData as any).symbolsSearchUserAccount({
+        userId,
+        userSecret,
+        accountId,
+        query,
+      });
+      return response.data || [];
+    }
+    
+    if (hasFn(snaptrade.referenceData, 'getSymbolsByTicker')) {
+      const response = await (snaptrade.referenceData as any).getSymbolsByTicker({
+        query,
+      });
+      return response.data || [];
+    }
+    
+    console.log('DEBUG: No symbol search methods found');
+    return [];
+  } catch (e: any) {
+    console.error('SnapTrade searchSymbols error:', e?.responseBody || e?.message || e);
+    return [];
+  }
+}
+
+export async function placeOrder(
+  userId: string,
+  userSecret: string,
+  accountId: string,
+  params: {
+    action: 'BUY' | 'SELL';
+    universalSymbolId: string;
+    orderType: 'Market' | 'Limit';
+    timeInForce?: 'Day' | 'GTC' | 'IOC' | 'FOK';
+    units: number;
+    price?: number;
+  }
+) {
+  try {
+    const order = await tradingApi.placeOrder({
+      userId,
+      userSecret,
+      accountId,
+      action: params.action,
+      universalSymbolId: params.universalSymbolId,
+      orderType: params.orderType,
+      timeInForce: params.timeInForce || 'Day',
+      units: params.units,
+      price: params.price,
+    });
+    
+    return order.data;
+  } catch (e: any) {
+    console.error('SnapTrade placeOrder error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+export async function cancelOrder(userId: string, userSecret: string, accountId: string, orderId: string) {
+  try {
+    // Try multiple cancel methods for compatibility
+    if (hasFn(tradingApi, 'cancelUserAccountOrder')) {
+      const response = await (tradingApi as any).cancelUserAccountOrder({
+        userId,
+        userSecret,
+        accountId,
+        brokerageOrderId: orderId,
+      });
+      return response.data;
+    }
+    
+    if (hasFn(tradingApi, 'cancelOrder')) {
+      const response = await (tradingApi as any).cancelOrder({
+        userId,
+        userSecret,
+        accountId,
+        orderId,
+      });
+      return response.data;
+    }
+    
+    throw new Error('No cancel order methods available in SDK');
+  } catch (e: any) {
+    console.error('SnapTrade cancelOrder error:', e?.responseBody || e?.message || e);
+    throw e;
   }
 }

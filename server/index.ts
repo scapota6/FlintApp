@@ -21,6 +21,7 @@ import { logger } from "@shared/logger";
 import { attachCSRFToken, validateCSRFToken } from "./middleware/csrf";
 import snaptradeRouter from "./routes/snaptrade";
 import ordersRouter from "./routes/orders";
+import orderPreviewRouter from "./routes/order-preview";
 import watchlistRouter from "./routes/watchlist";
 import quotesRouter from "./routes/quotes";
 
@@ -87,6 +88,9 @@ app.use((req, res, next) => {
   
   // Mount Orders API router
   app.use("/api", ordersRouter);
+  
+  // Mount Order Preview API router (SnapTrade two-step process)
+  app.use("/api/order-preview", orderPreviewRouter);
   
   // Mount Accounts Brokerage API router
   const accountsBrokerageRouter = (await import("./routes/accounts-brokerage")).default;
