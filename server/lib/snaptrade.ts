@@ -18,3 +18,19 @@ console.log('[SnapTrade] SDK init', {
   consumerKeyLen: process.env.SNAPTRADE_CONSUMER_KEY?.length,
   redirectUri: process.env.SNAPTRADE_REDIRECT_URI,
 });
+
+// Version-safe wrapper functions
+export async function registerUser(userId: string) {
+  return await authApi.registerSnapTradeUser({ userId });
+}
+
+export async function createLoginUrl(params: { userId: string; userSecret: string; redirect: string }) {
+  const login = await authApi.loginSnapTradeUser({
+    userId: params.userId,
+    userSecret: params.userSecret,
+    broker: 'ALPACA',
+    immediateRedirect: true,
+    customRedirect: params.redirect,
+  });
+  return (login.data?.redirectURI || login.data?.loginRedirectURI || login.data?.url) as string;
+}
