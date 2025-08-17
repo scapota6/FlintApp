@@ -2,8 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { apiRequest } from '@/lib/queryClient';
-import { Building2, TrendingUp, DollarSign, Wallet } from 'lucide-react';
+import { Building2, TrendingUp, DollarSign, Wallet, Eye } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import AccountDetailsDialog from '../AccountDetailsDialog';
 
 interface AccountBalance {
   id: string;
@@ -50,6 +53,8 @@ const PROVIDER_COLORS = [
 
 export default function UnifiedDashboard() {
   const [selectedView, setSelectedView] = useState<'overview' | 'accounts' | 'providers'>('overview');
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const { data: dashboardData, isLoading, error } = useQuery<DashboardData>({
     queryKey: ['/api/dashboard'],
@@ -284,6 +289,15 @@ export default function UnifiedDashboard() {
                   <div className="text-gray-400 text-sm">
                     {((account.balance / dashboardData.totalBalance) * 100).toFixed(1)}% of total
                   </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-purple-400 hover:text-purple-300 mt-2"
+                    onClick={() => setSelectedAccountId(account.id)}
+                  >
+                    <Eye className="h-3 w-3 mr-1" />
+                    Details
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -360,6 +374,14 @@ export default function UnifiedDashboard() {
           </div>
         </div>
       )}
+
+      {/* Enhanced Account Details Dialog */}
+      <AccountDetailsDialog
+        accountId={selectedAccountId || ''}
+        open={!!selectedAccountId}
+        onClose={() => setSelectedAccountId(null)}
+        currentUserId={String(user?.id || '')}
+      />
     </div>
   );
 }
