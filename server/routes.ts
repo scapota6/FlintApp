@@ -1499,9 +1499,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const holdingsRouter = await import('./routes/holdings');
   app.use('/api/holdings', holdingsRouter.default);
   
-  // Mount the fixed SnapTrade routes
-  const snaptradeRouter = await import('./routes/snaptrade');
-  app.use('/api/snaptrade', snaptradeRouter.default);
+  // Mount the connections SnapTrade routes
+  const connectionsSnaptradeRouter = await import('./routes/connections.snaptrade');
+  app.use('/api', connectionsSnaptradeRouter.default);
   
   // Dev-only SnapTrade user repair endpoint
   app.post('/api/debug/snaptrade/repair-user', async (req, res) => {
