@@ -146,4 +146,23 @@ r.get('/health', async (_req, res) => {
   }
 });
 
+// DEV ONLY - remove in prod
+r.post("/reset-user", async (req, res) => {
+  try {
+    const userId = (req.body?.userEmail || "").toString().trim().toLowerCase();
+    if (!userId) return res.status(400).json({ message: "userEmail required" });
+
+    // generate new local secret
+    const newSecret = generateUserSecret();
+    await upsertSnapUserSecret(userId, newSecret);
+
+    // try to register with new secret (must match provider-side)
+    await authApi.registerSnapTradeUser({ userId, userSecret: newSecret });
+
+    res.json({ ok: true, userId, userSecretLen: newSecret.length });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.responseBody || e?.message });
+  }
+});
+
 export default r;

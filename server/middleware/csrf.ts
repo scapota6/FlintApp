@@ -59,6 +59,7 @@ export function validateCSRFToken(req: Request, res: Response, next: NextFunctio
     "/api/dashboard",
     "/api/feature-flags",
     "/api/snaptrade/register", // Public SnapTrade registration endpoint
+    "/api/snaptrade/reset-user", // DEV ONLY - reset endpoint
   ];
   
   if (skipCSRFRoutes.some(route => req.path.startsWith(route))) {
