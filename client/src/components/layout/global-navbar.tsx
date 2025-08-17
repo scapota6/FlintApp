@@ -20,8 +20,8 @@ const navLinks = [
   { href: '/trading', label: 'Trading' },
   { href: '/transfers', label: 'Transfers' },
   { href: '/watchlist', label: 'Watchlist' },
-  { href: '/news', label: 'News' },
   { href: '/activity', label: 'Activity' },
+  { href: '/admin', label: 'Admin' },
 ];
 
 export default function GlobalNavbar() {
@@ -110,14 +110,18 @@ export default function GlobalNavbar() {
                     </div>
                   </div>
                   <DropdownMenuSeparator className="bg-gray-700" />
-                  <DropdownMenuItem className="text-gray-300 hover:text-white hover:bg-gray-800">
-                    <User className="mr-2 h-4 w-4" />
-                    Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-gray-300 hover:text-white hover:bg-gray-800">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </DropdownMenuItem>
+                  <Link href="/profile">
+                    <DropdownMenuItem className="text-gray-300 hover:text-white hover:bg-gray-800 cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </DropdownMenuItem>
+                  </Link>
+                  <Link href="/settings">
+                    <DropdownMenuItem className="text-gray-300 hover:text-white hover:bg-gray-800 cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
+                    </DropdownMenuItem>
+                  </Link>
                   <DropdownMenuSeparator className="bg-gray-700" />
                   <DropdownMenuItem 
                     className="text-gray-300 hover:text-white hover:bg-gray-800"

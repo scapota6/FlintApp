@@ -15,7 +15,7 @@ import Transfers from "@/pages/transfers";
 import WatchlistPage from "@/pages/watchlist";
 import Activity from "@/pages/activity";
 import Subscribe from "@/pages/subscribe";
-import Admin from "@/pages/admin";
+import Admin from "@/pages/Admin";
 import Profile from "@/pages/profile";
 import News from "@/pages/news";
 import StockDetail from "@/pages/stock-detail";
@@ -43,37 +43,39 @@ function Router() {
   return (
     <>
       {isAuthenticated && <GlobalNavbar />}
-      <AnimatePresence mode="wait">
-        <Switch>
-          {!isAuthenticated ? (
-            <Route path="/" component={Landing} />
-          ) : (
-            <>
-              <Route path="/" component={Dashboard} />
-              <Route path="/dashboard" component={Dashboard} />
-              <Route path="/trading" component={Trading} />
-              <Route path="/transfers" component={Transfers} />
-              <Route path="/watchlist" component={WatchlistPage} />
-              <Route path="/activity" component={Activity} />
-              <Route path="/subscribe" component={Subscribe} />
-              <Route path="/admin" component={Admin} />
-              <Route path="/profile" component={Profile} />
-              <Route path="/news" component={News} />
-              <Route path="/stock/:symbol" component={StockDetail} />
-              <Route path="/asset/:symbol" component={AssetDetail} />
-              <Route path="/portfolio" component={Portfolio} />
-              <Route path="/accounts" component={Accounts} />
-              <Route path="/accounts/brokerage/:id" component={BrokerageDetail} />
-              <Route path="/accounts/bank/:id" component={BankDetail} />
-              <Route path="/connections" component={Connections} />
-              <Route path="/settings" component={Settings} />
-              <Route path="/security" component={Security} />
-              <Route path="/monitoring" component={Monitoring} />
-            </>
-          )}
-          <Route component={NotFound} />
-        </Switch>
-      </AnimatePresence>
+      <div className={isAuthenticated ? "pt-16" : ""}>
+        <AnimatePresence mode="wait">
+          <Switch>
+            {!isAuthenticated ? (
+              <Route path="/" component={Landing} />
+            ) : (
+              <>
+                <Route path="/" component={Dashboard} />
+                <Route path="/dashboard" component={Dashboard} />
+                <Route path="/trading" component={Trading} />
+                <Route path="/transfers" component={Transfers} />
+                <Route path="/watchlist" component={WatchlistPage} />
+                <Route path="/activity" component={Activity} />
+                <Route path="/subscribe" component={Subscribe} />
+                <Route path="/admin" component={Admin} />
+                <Route path="/profile" component={Profile} />
+                <Route path="/news" component={News} />
+                <Route path="/stock/:symbol" component={StockDetail} />
+                <Route path="/asset/:symbol" component={AssetDetail} />
+                <Route path="/portfolio" component={Portfolio} />
+                <Route path="/accounts" component={Accounts} />
+                <Route path="/accounts/brokerage/:id" component={BrokerageDetail} />
+                <Route path="/accounts/bank/:id" component={BankDetail} />
+                <Route path="/connections" component={Connections} />
+                <Route path="/settings" component={Settings} />
+                <Route path="/security" component={Security} />
+                <Route path="/monitoring" component={Monitoring} />
+              </>
+            )}
+            <Route component={NotFound} />
+          </Switch>
+        </AnimatePresence>
+      </div>
     </>
   );
 }
