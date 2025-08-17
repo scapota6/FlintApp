@@ -113,6 +113,34 @@ const fmtMoney = (amount: number | null | undefined, currency: string = 'USD') =
   }).format(amount);
 };
 
+// Number formatting helper
+const fmtNum = (num: number | null | undefined) => {
+  if (num === null || num === undefined) return '—';
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4
+  }).format(num);
+};
+
+// Table component helpers
+const Th = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
+  <th className={`px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider ${className}`}>
+    {children}
+  </th>
+);
+
+const Td = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
+  <td className={`px-3 py-2 text-sm text-gray-900 dark:text-white ${className}`}>
+    {children}
+  </td>
+);
+
+const TdRight = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
+  <td className={`px-3 py-2 text-sm text-right text-gray-900 dark:text-white ${className}`}>
+    {children}
+  </td>
+);
+
 export default function AccountDetailsDialog({ accountId, open, onClose, currentUserId }: Props) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['account-details', accountId],
@@ -173,39 +201,41 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
               </div>
             </section>
 
-            {/* 2. Balances & Holdings */}
+            {/* 2. Balances and Holdings */}
             <section>
-              <h3 className="text-lg font-medium mb-2">2. Balances & Holdings</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                <Info label="Cash Available to Trade" value={fmtMoney(data.balancesAndHoldings.balances.cashAvailableToTrade)} />
-                <Info label="Total Equity Value" value={fmtMoney(data.balancesAndHoldings.balances.totalEquityValue)} />
-                <Info label="Buying Power/Margin" value={fmtMoney(data.balancesAndHoldings.balances.buyingPowerOrMargin)} />
+              <h3 className="text-lg font-medium mb-2">2. Balances and Holdings</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                <Info label="Cash Available" value={fmtMoney(data.balancesAndHoldings.balances.cashAvailableToTrade)} />
+                <Info label="Total Equity" value={fmtMoney(data.balancesAndHoldings.balances.totalEquityValue)} />
+                <Info label="Buying Power / Margin" value={fmtMoney(data.balancesAndHoldings.balances.buyingPowerOrMargin)} />
               </div>
-              
+
               {data.balancesAndHoldings.holdings && data.balancesAndHoldings.holdings.length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-2">Holdings ({data.balancesAndHoldings.holdings.length})</h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {data.balancesAndHoldings.holdings.map((holding, index) => (
-                      <div key={index} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="font-medium">{holding.symbol}</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">{holding.name}</div>
-                            <div className="text-xs text-gray-500">Qty: {holding.quantity}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-medium">{fmtMoney(holding.marketValue)}</div>
-                            {holding.unrealized !== null && (
-                              <div className={`text-sm ${holding.unrealized >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {fmtMoney(holding.unrealized)}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                      <tr>
+                        <Th>Symbol</Th>
+                        <Th className="text-right">Qty</Th>
+                        <Th className="text-right">Cost Basis</Th>
+                        <Th className="text-right">Mkt Value</Th>
+                        <Th className="text-right">Unrealized</Th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.balancesAndHoldings.holdings.map((h: any, i: number) => (
+                        <tr key={i} className="border-b border-gray-200 dark:border-gray-700 last:border-0">
+                          <Td>{h.symbol}</Td>
+                          <TdRight>{fmtNum(h.quantity)}</TdRight>
+                          <TdRight>{fmtMoney(h.costBasis)}</TdRight>
+                          <TdRight>{fmtMoney(h.marketValue)}</TdRight>
+                          <TdRight className={Number(h.unrealized) < 0 ? 'text-red-600' : 'text-green-600'}>
+                            {fmtMoney(h.unrealized)}
+                          </TdRight>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </section>
