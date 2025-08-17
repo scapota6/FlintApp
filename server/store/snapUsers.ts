@@ -25,19 +25,21 @@ function write(db: DB) {
   fs.writeFileSync(FILE, JSON.stringify(db, null, 2), 'utf8'); 
 }
 
-export async function getUser(userId: string) {
-  const db = read(); 
-  return db[userId] || null;
+export async function getUser(userId: string) { 
+  return read()[userId] || null; 
 }
 
-export async function saveUser(rec: Rec) {
+export async function saveUser(rec: Rec) { 
   const db = read(); 
   db[rec.userId] = rec; 
-  write(db);
+  write(db); 
 }
 
-export async function deleteUserLocal(userId: string) {
+export async function deleteUserLocal(userId: string) { 
   const db = read(); 
   delete db[userId]; 
-  write(db);
+  write(db); 
 }
+
+// Legacy alias for compatibility
+export const deleteLocal = deleteUserLocal;
