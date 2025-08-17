@@ -1503,6 +1503,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const snaptradeRouter = await import('./routes/snaptrade');
   app.use('/api/snaptrade', snaptradeRouter.default);
   
+  // Dev-only SnapTrade user repair endpoint
+  app.post('/api/debug/snaptrade/repair-user', async (req, res) => {
+    try {
+      const userId = (req.body?.userId || '').toString().trim();
+      if (!userId) return res.status(400).json({ message: 'userId required' });
+
+      const { authApi } = await import('./lib/snaptrade');
+      const { deleteUserLocal, saveUser } = await import('./store/snapUsers');
+
+      // 1) Try to delete server-side user (idempotent)
+      try {
+        await authApi.deleteSnapTradeUser({ userId }); // queues deletion; async on their side
+        console.log('[Debug] SnapTrade user deletion queued for:', userId);
+      } catch (deleteErr) {
+        console.log('[Debug] SnapTrade user deletion failed (continuing):', deleteErr?.message);
+      }
+
+      // 2) Remove our local record
+      await deleteUserLocal(userId);
+      console.log('[Debug] Local user record deleted for:', userId);
+
+      // 3) Re-register to get a fresh provider-side userSecret
+      const created = await authApi.registerSnapTradeUser({ userId });
+      const newRecord = { userId: created.data.userId!, userSecret: created.data.userSecret! };
+      await saveUser(newRecord);
+      
+      console.log('[Debug] User re-registered with fresh secret len:', newRecord.userSecret.length);
+
+      return res.json({ 
+        ok: true, 
+        userId: newRecord.userId, 
+        userSecretLen: newRecord.userSecret?.length || 0 
+      });
+    } catch (e: any) {
+      console.error('[Debug] Repair user error:', e?.responseBody || e?.message);
+      return res.status(500).json({ 
+        ok: false, 
+        error: e?.responseBody || e?.message 
+      });
+    }
+  });
+
   // Mount debug routes
   const debugRouter = await import('./routes/debug');
   app.use('/api/debug', debugRouter.default);
