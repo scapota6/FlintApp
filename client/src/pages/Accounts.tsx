@@ -38,9 +38,13 @@ interface BankAccount {
 export default function Accounts() {
   const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch brokerage accounts
+  // Fetch brokerage accounts from SnapTrade
   const { data: brokerageData, isLoading: brokeragesLoading, refetch: refetchBrokerages } = useQuery({
-    queryKey: ['/api/brokerages'],
+    queryKey: ['/api/dashboard'],
+    select: (data) => {
+      // Extract accounts from dashboard response
+      return data?.snaptradeAccounts || [];
+    },
     retry: false
   });
 
@@ -77,7 +81,17 @@ export default function Accounts() {
   };
 
   const isLoading = brokeragesLoading || banksLoading;
-  const brokerageAccounts: BrokerageAccount[] = brokerageData?.accounts || [];
+  
+  // Map SnapTrade accounts to BrokerageAccount interface
+  const brokerageAccounts: BrokerageAccount[] = (brokerageData || []).map((account: any) => ({
+    id: account.id,
+    name: account.institution_name === 'Coinbase' ? 'Coinbase' : (account.name || account.institution_name || 'Unknown'),
+    currency: account.balance?.total?.currency || 'USD',
+    balance: account.balance?.total?.amount || 0,
+    buyingPower: (account.balance?.total?.amount || 0) * 0.5, // Estimate
+    lastSync: account.sync_status?.holdings?.last_successful_sync || new Date().toISOString(),
+  }));
+  
   const bankAccounts: BankAccount[] = bankData?.accounts || [];
   const hasNoAccounts = !isLoading && brokerageAccounts.length === 0 && bankAccounts.length === 0;
 

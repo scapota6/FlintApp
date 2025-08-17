@@ -47,10 +47,18 @@ r.get('/holdings', async (req, res) => {
             
             console.log(`DEBUG: Processing position - Symbol: ${symbol}, Units: ${units}, AvgPrice: ${avgPrice}, CurrentPrice: ${currentPrice}`);
             
+            // Map common brokerage names
+            let brokerageName = a.institution_name || 'Unknown';
+            if (brokerageName === 'Default' && a.name?.toLowerCase().includes('coinbase')) {
+              brokerageName = 'Coinbase';
+            } else if (brokerageName === 'Default') {
+              brokerageName = a.name || 'Default';
+            }
+            
             return {
               accountId: a.id,
               accountName: a.name || 'Unknown Account',
-              brokerageName: a.institution_name || 'Unknown',
+              brokerageName: brokerageName,
               symbol: symbol,
               name: pos.symbol?.symbol?.description || pos.universal_symbol?.description || pos.instrument?.name || symbol,
               quantity: units,
