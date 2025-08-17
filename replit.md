@@ -8,6 +8,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (August 2025)
 - **Complete SnapTrade Integration**: Implemented comprehensive auto-provision system following SnapTrade documentation precisely. Environment validation with hard guards prevents signature errors (1076) by failing fast with incorrect credentials. File-based userSecret storage (`data/snaptrade-users.json`) with auto-provision flow: register → store provider-returned userSecret → generate portal URL. Centralized SDK configuration eliminates duplicate initializations. Frontend components send x-user-id headers for proper user identification. Development-only repair endpoint added for handling 409 SNAPTRADE_USER_MISMATCH scenarios. System architecture complete and ready for test credentials (FLINT-TEST-GPPIO) verification.
+- **Bootstrap Architecture Refactor**: Implemented clean separation of environment loading from application initialization. Created `bootstrap.ts` at project root that loads and validates environment variables first (with sanitization of whitespace/newlines), then imports the server module. This prevents early SDK initialization issues and ensures proper environment configuration before any module dependencies are loaded. Server entrypoint (`server/index.ts`) now focuses purely on Express app setup without environment loading logic.
 
 ## System Architecture
 

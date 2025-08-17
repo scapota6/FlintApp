@@ -1,0 +1,78 @@
+import * as Snaptrade from 'snaptrade-typescript-sdk';
+
+const cfg = new Snaptrade.Configuration({
+  clientId: process.env.SNAPTRADE_CLIENT_ID!,
+  consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
+  environment: (process.env.SNAPTRADE_ENV as any) || 'sandbox',
+});
+
+const authApi = new Snaptrade.AuthenticationApi(cfg);
+const accountsApi = new Snaptrade.AccountsApi(cfg);
+
+// SDK versions differ: some have PortfolioApi, others AccountsAndTradesApi for positions.
+// We’ll try PortfolioApi first and fall back.
+let portfolioApi: any;
+portfolioApi = (Snaptrade as any).PortfolioApi ? new (Snaptrade as any).PortfolioApi(cfg)
+             : (Snaptrade as any).AccountsAndTradesApi ? new (Snaptrade as any).AccountsAndTradesApi(cfg)
+             : null;
+
+// ---- VERSION-SAFE HELPERS ----
+function hasFn(obj: any, name: string) { return obj && typeof obj[name] === 'function'; }
+
+// Register a user and return { userId, userSecret }
+export async function registerUser(userId: string) {
+  if (hasFn(authApi, 'registerUser')) {
+    return authApi.registerUser({ userId });
+  }
+  if (hasFn(authApi, 'registerSnapTradeUser')) {
+    return (authApi as any).registerSnapTradeUser({ userId });
+  }
+  throw new Error('No register function found on AuthenticationApi');
+}
+
+// Create login/connection portal URL; return string URL
+export async function createLoginUrl(params: { userId: string; userSecret: string; redirect: string }) {
+  const { userId, userSecret, redirect } = params;
+  if (hasFn(authApi, 'loginSnapTradeUser')) {
+    const r = await (authApi as any).loginSnapTradeUser({
+      userId,
+      userSecret,
+      brokerRedirectUri: redirect,
+    });
+    return r.redirectURI || r.loginRedirectURI || r.url;
+  }
+  if (hasFn(authApi, 'createSnapTradeLogin')) {
+    const r = await (authApi as any).createSnapTradeLogin({
+      userId,
+      userSecret,
+      brokerRedirectUri: redirect,
+    });
+    return r.redirectURI || r.loginRedirectURI || r.url;
+  }
+  throw new Error('No login function found on AuthenticationApi');
+}
+
+export async function listAccounts(userId: string, userSecret: string) {
+  return accountsApi.listAccounts({ userId, userSecret });
+}
+
+export async function getPositions(userId: string, userSecret: string, accountId: string) {
+  if (!portfolioApi) throw new Error('No portfolio API available in installed SDK');
+  if (hasFn(portfolioApi, 'getPositions')) {
+    return portfolioApi.getPositions({ userId, userSecret, accountId });
+  }
+  // Fall back to method names used in some versions:
+  if (hasFn(portfolioApi, 'getAccountPositions')) {
+    return (portfolioApi as any).getAccountPositions({ userId, userSecret, accountId });
+  }
+  throw new Error('No positions method found in installed SDK');
+}
+
+export { accountsApi, portfolioApi }; // in case you reference them elsewhere
+
+console.log('[SnapTrade] SDK init', {
+  env: process.env.SNAPTRADE_ENV,
+  clientIdTail: process.env.SNAPTRADE_CLIENT_ID?.slice(-6),
+  consumerKeyLen: process.env.SNAPTRADE_CONSUMER_KEY?.length,
+  redirectUri: process.env.SNAPTRADE_REDIRECT_URI,
+});
