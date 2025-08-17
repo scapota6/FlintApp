@@ -6,18 +6,12 @@
 import { Router } from "express";
 import { isAuthenticated } from "../replitAuth";
 import { marketDataService } from "../services/market-data";
-import { Snaptrade } from "snaptrade-typescript-sdk";
+import { snaptradeClient } from '../lib/snaptrade';
 import { logger } from "@shared/logger";
 
 const router = Router();
 
-// Initialize SnapTrade SDK for market data
-const snaptradeClient = process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET
-  ? new Snaptrade({
-      clientId: process.env.SNAPTRADE_CLIENT_ID,
-      consumerKey: process.env.SNAPTRADE_CLIENT_SECRET,
-    })
-  : null;
+
 
 // Supported timeframes
 const TIMEFRAMES = {

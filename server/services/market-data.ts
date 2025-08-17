@@ -1,4 +1,5 @@
 import { Snaptrade } from "snaptrade-typescript-sdk";
+import { snaptradeClient } from '../lib/snaptrade';
 
 // Market data cache to prevent excessive API calls
 interface MarketDataCache {
@@ -25,10 +26,8 @@ class MarketDataService {
   private alphaVantageKey: string;
 
   constructor() {
-    this.snaptrade = new Snaptrade({
-      clientId: process.env.SNAPTRADE_CLIENT_ID!,
-      consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
-    });
+    // Use centralized config
+    this.snaptrade = snaptradeClient;
     
     this.alphaVantageKey = process.env.ALPHA_VANTAGE_API_KEY || '';
   }

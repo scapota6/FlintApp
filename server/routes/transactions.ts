@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { db } from '../db';
 import { users, connectedAccounts } from '@/shared/schema';
 import { eq } from 'drizzle-orm';
-import { Snaptrade } from 'snaptrade-typescript-sdk';
+import { snaptradeClient } from '../lib/snaptrade';
 
 const router = Router();
 
@@ -14,19 +14,10 @@ const requireAuth = (req: any, res: any, next: any) => {
   next();
 };
 
-// Initialize SnapTrade client
+
+
 const getSnapTradeClient = () => {
-  const clientId = process.env.SNAPTRADE_CLIENT_ID;
-  const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET;
-
-  if (!clientId || !consumerKey) {
-    throw new Error('Missing SnapTrade credentials');
-  }
-
-  return new Snaptrade({
-    clientId,
-    consumerKey,
-  });
+  return snaptradeClient;
 };
 
 // Get all transactions across all accounts
