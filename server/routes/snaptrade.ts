@@ -131,4 +131,17 @@ r.get('/status', isAuthenticated, async (req: any, res) => {
   }
 });
 
+r.get('/health', async (_req, res) => {
+  try {
+    // harmless idempotent call to test signatures/keys
+    await authApi.registerSnapTradeUser({
+      userId: 'healthcheck@flint-investing.com',
+      userSecret: 'healthcheck-secret-1234567890',
+    });
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.responseBody || e?.message });
+  }
+});
+
 export default r;
