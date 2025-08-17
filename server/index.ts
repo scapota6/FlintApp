@@ -103,6 +103,27 @@ app.use((req, res, next) => {
   
   // Mount Watchlist API router
   app.use("/api/watchlist", watchlistRouter);
+
+  // Development-only repair endpoint for 409 SNAPTRADE_USER_MISMATCH
+  if (process.env.NODE_ENV === 'development') {
+    const { authApi } = await import("./lib/snaptrade");
+    const { deleteSnapUser, saveSnapUser } = await import("./store/snapUsers");
+
+    app.post('/api/debug/snaptrade/repair-user', async (req, res) => {
+      try {
+        const userId = String(req.body?.userId || '').trim();
+        if (!userId) return res.status(400).json({ message: 'userId required' });
+
+        await authApi.deleteSnapTradeUser({ userId }); // provider-side async delete
+        await deleteSnapUser(userId);
+        const created = await authApi.registerUser({ userId });
+        await saveSnapUser({ userId: created.userId!, userSecret: created.userSecret! });
+        res.json({ ok: true, userId, userSecretLen: created.userSecret?.length || 0 });
+      } catch (e: any) {
+        res.status(500).json({ ok: false, error: e?.responseBody || e?.message });
+      }
+    });
+  }
   
   // Mount Quotes API router
   app.use("/api/quotes", quotesRouter);
