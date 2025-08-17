@@ -1,21 +1,40 @@
 import { Router } from 'express';
-import { isAuthenticated } from '../replitAuth';
-import { createConnectionPortal } from '../services/snaptradeProvision';
+import { authApi } from '../lib/snaptrade';
+import { getSnapUser, saveSnapUser } from '../store/snapUsers';
 
 const r = Router();
 
-/** POST /api/connections/snaptrade/register { userId: string } */
-r.post('/connections/snaptrade/register', isAuthenticated, async (req: any, res) => {
+/** POST /api/connections/snaptrade/register  body: { userId: string } */
+r.post('/connections/snaptrade/register', async (req, res) => {
   try {
-    // Use authenticated user's ID or allow override from body for flexibility
-    const userId = String(req.body?.userId || req.user.claims.sub || '').trim();
+    const userId = String(req.body?.userId || '').trim();
     if (!userId) return res.status(400).json({ message: 'userId required' });
-    const url = await createConnectionPortal(userId); // auto-provisions if missing
+
+    // If we already have a secret, reuse; otherwise register and store SnapTrade's returned secret
+    let rec = await getSnapUser(userId);
+    if (!rec) {
+      const created = await authApi.registerSnapTradeUser({ userId });   // returns { userId, userSecret }
+      if (!created.data?.userSecret) throw new Error('SnapTrade did not return userSecret');
+      rec = { userId: created.data.userId as string, userSecret: created.data.userSecret as string };
+      await saveSnapUser(rec);
+      console.log('[SnapTrade] Registered & stored userSecret len:', rec.userSecret.length, 'userId:', rec.userId);
+    } else {
+      console.log('[SnapTrade] Using stored userSecret len:', rec.userSecret.length, 'userId:', rec.userId);
+    }
+
+    // Create Connection Portal URL (expires in ~5 min)
+    const login = await authApi.loginSnapTradeUser({
+      userId: rec.userId,
+      userSecret: rec.userSecret,
+      brokerRedirectUri: process.env.SNAPTRADE_REDIRECT_URI!,
+    });
+    const url = (login.data as any)?.redirectURI || (login.data as any)?.url as string;
+    if (!url) throw new Error('No Connection Portal URL returned');
+
     return res.json({ connect: { url } });
   } catch (e: any) {
-    // 1076 here == signature invalid → creds/env/redirect mismatch
     console.error('SnapTrade registration error:', e?.responseBody || e?.message || e);
-    return res.status(401).json({ message: 'Failed to register with SnapTrade' });
+    return res.status(500).json({ message: 'Failed to register with SnapTrade' });
   }
 });
 

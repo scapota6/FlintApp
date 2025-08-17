@@ -58,6 +58,10 @@ app.use((req, res, next) => {
 (async () => {
   // Mount SnapTrade API router BEFORE auth setup (no auth required)
   app.use("/api/snaptrade", snaptradeRouter);
+  
+  // Mount SnapTrade connections router
+  const connectionsSnaptradeRouter = (await import("./routes/connections.snaptrade")).default;
+  app.use("/api", connectionsSnaptradeRouter);
 
   const server = await registerRoutes(app);
 
