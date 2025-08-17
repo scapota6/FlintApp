@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { createChart, IChartApi, ISeriesApi, ColorType, CrosshairMode, Time } from 'lightweight-charts';
+import { createChart, IChartApi, ISeriesApi, ColorType, CrosshairMode, Time, CandlestickData, HistogramData } from 'lightweight-charts';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -36,8 +36,8 @@ export default function TradingChart({
 }: TradingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
-  const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const candleSeriesRef = useRef<any>(null);
+  const volumeSeriesRef = useRef<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -149,7 +149,9 @@ export default function TradingChart({
         candles = data.candles;
         
         // Cache the data
-        await marketCache.setCachedCandles(symbol, selectedTimeframe, candles);
+        if (candles && candles.length > 0) {
+          await marketCache.setCachedCandles(symbol, selectedTimeframe, candles);
+        }
       }
       
       // Update chart
@@ -215,14 +217,20 @@ export default function TradingChart({
       if (quote && candleSeriesRef.current) {
         const now = Math.floor(Date.now() / 1000);
         
-        // Update the latest candle
-        candleSeriesRef.current.update({
+        // Update the latest candle with fallback values
+        const updateData = {
           time: now as any,
-          open: quote.open || quote.price,
-          high: quote.high || quote.price,
-          low: quote.low || quote.price,
+          open: quote.price, // Use current price as fallback
+          high: quote.price,
+          low: quote.price,
           close: quote.price
-        });
+        };
+        
+        try {
+          candleSeriesRef.current.update(updateData);
+        } catch (err) {
+          console.warn('Chart update failed:', err);
+        }
         
         setLatestPrice(quote.price);
         setPriceChange(quote.change || 0);

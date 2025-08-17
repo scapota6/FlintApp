@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import TradingChart from '@/components/charts/TradingChart';
+import SimpleTradingChart from '@/components/charts/SimpleTradingChart';
 import OrderTicket from '@/components/trading/OrderTicket';
 import OrdersList from '@/components/trading/OrdersList';
 import { Search, AlertCircle } from 'lucide-react';
@@ -144,7 +144,7 @@ export default function Trading() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chart - Takes 2 columns */}
         <div className="lg:col-span-2 space-y-6">
-          <TradingChart 
+          <SimpleTradingChart 
             symbol={symbol} 
             height={500}
             onPriceUpdate={handlePriceUpdate}
