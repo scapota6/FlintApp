@@ -10,7 +10,7 @@ r.post('/connections/snaptrade/register', async (req, res) => {
     const userId = String(req.body?.userId || '').trim();
     if (!userId) return res.status(400).json({ message: 'userId required' });
 
-    console.log('[SnapTrade] Authenticated registration for:', userId);
+    console.log('[SnapTrade] Authenticated registration for userId:', userId);
 
     // 1) Register (idempotent) and store the SECRET RETURNED BY SNAPTRADE
     let rec = await getUser(userId);

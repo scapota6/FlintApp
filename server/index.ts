@@ -1,3 +1,7 @@
+console.log('[ENV CHECK] SNAPTRADE_CLIENT_ID =', process.env.SNAPTRADE_CLIENT_ID);
+console.log('[ENV CHECK] SNAPTRADE_CONSUMER_KEY length =', process.env.SNAPTRADE_CONSUMER_KEY?.length);
+console.log('[ENV CHECK] SNAPTRADE_REDIRECT_URI =', process.env.SNAPTRADE_REDIRECT_URI);
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";

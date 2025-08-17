@@ -32,33 +32,7 @@ if (process.env.STRIPE_SECRET_KEY) {
   stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 }
 
-// Initialize SnapTrade SDK with proper environment variables and debugging
-let snapTradeClient: Snaptrade | null = null;
-if (process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CLIENT_SECRET) {
-  console.log('Initializing SnapTrade SDK with clientId:', process.env.SNAPTRADE_CLIENT_ID);
-  console.log('Environment check - CLIENT_ID length:', process.env.SNAPTRADE_CLIENT_ID.length);
-  console.log('Environment check - CLIENT_SECRET length:', process.env.SNAPTRADE_CLIENT_SECRET.length);
-  
-  try {
-    snapTradeClient = new Snaptrade({
-      clientId: process.env.SNAPTRADE_CLIENT_ID,
-      consumerKey: process.env.SNAPTRADE_CLIENT_SECRET,
-    });
-    console.log('SnapTrade SDK initialized successfully');
-    
-    // Test basic API connectivity
-    snapTradeClient.apiStatus.check().then(status => {
-      console.log('SnapTrade API Status:', status.data);
-    }).catch(err => {
-      console.error('SnapTrade API Status Check Failed:', err.message);
-    });
-    
-  } catch (error) {
-    console.error('Failed to initialize SnapTrade SDK:', error);
-  }
-} else {
-  console.log('SnapTrade environment variables missing - SNAPTRADE_CLIENT_ID and SNAPTRADE_CLIENT_SECRET required');
-}
+// SnapTrade SDK initialization is now handled in server/lib/snaptrade.ts
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
