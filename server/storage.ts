@@ -122,15 +122,13 @@ export class DatabaseStorage implements IStorage {
 
   // SnapTrade user management - using separate snaptradeUsers table
   async getSnapTradeUser(userId: string): Promise<{ snaptradeUserId: string | null, userSecret: string } | undefined> {
-    const [snaptradeUser] = await db
-      .select()
-      .from(snaptradeUsers)
-      .where(eq(snaptradeUsers.flintUserId, userId));
+    const { getSnapUser } = await import('./store/snapUsers');
+    const snapUser = await getSnapUser(userId);
     
-    if (snaptradeUser) {
+    if (snapUser) {
       return { 
-        snaptradeUserId: snaptradeUser.snaptradeUserId, 
-        userSecret: snaptradeUser.snaptradeUserSecret 
+        snaptradeUserId: snapUser.userId, 
+        userSecret: snapUser.userSecret 
       };
     }
     
@@ -148,16 +146,14 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
-    // Then get their SnapTrade credentials
-    const [snaptradeUser] = await db
-      .select()
-      .from(snaptradeUsers)
-      .where(eq(snaptradeUsers.flintUserId, user.id));
+    // Then get their SnapTrade credentials from file-based storage
+    const { getSnapUser } = await import('./store/snapUsers');
+    const snapUser = await getSnapUser(user.id);
     
-    if (snaptradeUser) {
+    if (snapUser) {
       return { 
-        snaptradeUserId: snaptradeUser.snaptradeUserId, 
-        snaptradeUserSecret: snaptradeUser.snaptradeUserSecret,
+        snaptradeUserId: snapUser.userId, 
+        snaptradeUserSecret: snapUser.userSecret,
         flintUserId: user.id
       };
     }
@@ -166,51 +162,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSnapTradeUser(userId: string, snaptradeUserId: string, userSecret: string): Promise<void> {
-    // Store in separate snaptradeUsers table
-    await db
-      .insert(snaptradeUsers)
-      .values({
-        flintUserId: userId,
-        snaptradeUserId: snaptradeUserId,
-        snaptradeUserSecret: userSecret,
-        connectedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: snaptradeUsers.flintUserId,
-        set: {
-          snaptradeUserId: snaptradeUserId,
-          snaptradeUserSecret: userSecret,
-          lastSyncAt: new Date(),
-        }
-      });
+    // Store in file-based storage
+    const { saveSnapUser } = await import('./store/snapUsers');
+    await saveSnapUser({ userId: snaptradeUserId, userSecret });
   }
 
   async upsertSnapTradeUser(userId: string, email: string, userSecret: string): Promise<void> {
-    // Use email as the SnapTrade userId (lowercase)
-    const snaptradeUserId = email.toLowerCase();
-    
-    await db
-      .insert(snaptradeUsers)
-      .values({
-        flintUserId: userId,
-        snaptradeUserId: snaptradeUserId,
-        snaptradeUserSecret: userSecret,
-        connectedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: snaptradeUsers.flintUserId,
-        set: {
-          snaptradeUserId: snaptradeUserId,
-          snaptradeUserSecret: userSecret,
-          lastSyncAt: new Date(),
-        }
-      });
+    // Store in file-based storage using Flint userId as key
+    const { saveSnapUser } = await import('./store/snapUsers');
+    await saveSnapUser({ userId, userSecret });
   }
 
   async deleteSnapTradeUser(userId: string): Promise<void> {
-    await db
-      .delete(snaptradeUsers)
-      .where(eq(snaptradeUsers.flintUserId, userId));
+    const { deleteSnapUser } = await import('./store/snapUsers');
+    await deleteSnapUser(userId);
   }
 
   // Connected accounts

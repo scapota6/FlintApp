@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Snaptrade } from "snaptrade-typescript-sdk";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { getUser } from "./store/snapUsers";
+import { getSnapUser } from "./store/snapUsers";
 import { rateLimits } from "./middleware/rateLimiter";
 import { authApi } from './lib/snaptrade';
 import { deleteSnapUser, saveSnapUser } from './store/snapUsers';
