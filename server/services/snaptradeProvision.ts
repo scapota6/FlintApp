@@ -21,7 +21,7 @@ export async function createConnectionPortal(userId: string) {
     userId: rec.userId,
     userSecret: rec.userSecret,
   });
-  const url = login.data?.redirectURI as string;
+  const url = (login.data as any)?.redirectURI as string;
   if (!url) throw new Error('No Connection Portal URL returned');
   return url;
 }
