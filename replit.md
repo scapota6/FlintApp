@@ -6,6 +6,9 @@ Flint is a comprehensive financial management web application built with React a
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (August 2025)
+- **SnapTrade Integration Overhaul**: Implemented comprehensive auto-provision system following SnapTrade documentation precisely. Single app credentials with correct redirect URI format eliminates signature verification errors (1076). File-based userSecret storage (`data/snaptrade-users.json`) ensures one SnapTrade user per Flint user with auto-provisioning on signup and first interaction. Dev repair endpoint handles legacy mismatches cleanly.
+
 ## System Architecture
 
 ### Frontend Architecture
@@ -40,7 +43,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Integrations
 - **Teller.io**: For bank account connections and ACH transfers.
-- **SnapTrade**: For brokerage account connections, real-time quotes, and trading functionalities (buy/sell orders, account activities, positions). Authentication fixed with proper userSecret generation and storage per user using email as userId. Key files: server/lib/snaptrade.ts (SDK initialization), server/lib/crypto.ts (userSecret generation), server/routes/snaptrade.ts (registration/connection endpoints), server/routes/holdings-fixed.ts (authenticated holdings fetching).
+- **SnapTrade**: For brokerage account connections, real-time quotes, and trading functionalities (buy/sell orders, account activities, positions). Complete auto-provision system implemented with file-based userSecret storage. Architecture follows SnapTrade docs precisely: single app credentials, correct redirect URI format, one SnapTrade user per Flint user with auto-provisioning on signup/first interaction. Key files: server/lib/snaptrade.ts (SDK initialization), server/store/snapUsers.ts (file-based storage), server/services/snaptradeProvision.ts (auto-provision service), server/routes/connections.snaptrade.ts (Connect button endpoint), server/routes/holdings.ts (authenticated holdings with stored userSecret pairs).
 - **Stripe**: For subscription management and payment processing.
 - **Finnhub**: Used for general financial data.
 - **Polygon.io**: For real-time market data and live pricing.
