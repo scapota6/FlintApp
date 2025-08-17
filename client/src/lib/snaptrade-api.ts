@@ -44,21 +44,55 @@ export interface SnapTradeOrder {
 
 export class SnapTradeAPI {
   static async getConnectionUrl(): Promise<{ url: string }> {
-    console.log('SnapTrade: Requesting connection URL from unified register endpoint...');
-    const response = await apiRequest("POST", "/api/snaptrade/register");
+    console.log('SnapTrade: Requesting connection URL from new register endpoint...');
+    
+    // Get authenticated user data first
+    const userResp = await apiRequest("/api/auth/user");
+    if (!userResp.ok) throw new Error("Authentication required");
+    const userData = await userResp.json();
+    
+    // Use stable userId (user.id is the stable internal identifier)
+    const userId = userData.id;
+    if (!userId) throw new Error("User ID not available");
+
+    const response = await apiRequest("/api/connections/snaptrade/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    
     const data = await response.json();
     console.log('SnapTrade: Received connection URL response:', data);
-    return data;
+    return data.connect || data;
   }
 
   static async getAccounts(): Promise<SnapTradeAccount[]> {
-    const response = await apiRequest("GET", "/api/snaptrade/accounts");
-    return response.json();
+    // Get authenticated user data first for user ID
+    const userResp = await apiRequest("/api/auth/user");
+    if (!userResp.ok) throw new Error("Authentication required");
+    const userData = await userResp.json();
+    
+    const response = await apiRequest("/api/holdings", {
+      headers: {
+        "x-user-id": userData.id
+      }
+    });
+    const data = await response.json();
+    return data.accounts || [];
   }
 
   static async getHoldings(accountId?: string): Promise<SnapTradeHolding[]> {
-    const url = accountId ? `/api/snaptrade/holdings?accountId=${accountId}` : "/api/snaptrade/holdings";
-    const response = await apiRequest("GET", url);
+    // Get authenticated user data first for user ID
+    const userResp = await apiRequest("/api/auth/user");
+    if (!userResp.ok) throw new Error("Authentication required");
+    const userData = await userResp.json();
+    
+    const url = accountId ? `/api/holdings?accountId=${accountId}` : "/api/holdings";
+    const response = await apiRequest(url, {
+      headers: {
+        "x-user-id": userData.id
+      }
+    });
     return response.json();
   }
 
