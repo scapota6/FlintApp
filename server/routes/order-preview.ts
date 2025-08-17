@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { getSnapUser } from '../store/snapUsers.js';
 import { getOrderImpact, searchSymbols, placeOrder } from '../lib/snaptrade.js';
 
@@ -209,6 +210,11 @@ router.post('/confirm', async (req, res) => {
       });
     }
 
+    // Generate idempotency key for safe retries (industry best practice)
+    const idempotencyKey = randomUUID();
+    
+    console.log('Placing order with idempotency key:', idempotencyKey);
+
     // Place the order using the confirmed preview data
     const order = await placeOrder(
       snapUser.userId || userEmail,
@@ -221,6 +227,7 @@ router.post('/confirm', async (req, res) => {
         timeInForce: data.timeInForce,
         units: data.quantity,
         price: data.limitPrice,
+        idempotencyKey,
       }
     );
 
@@ -243,6 +250,7 @@ router.post('/confirm', async (req, res) => {
       estimatedFees: data.previewData.estimatedFees,
       estimatedTotal: data.previewData.estimatedTotal,
       placedAt: new Date().toISOString(),
+      idempotencyKey,
       message: `${data.action} order for ${data.quantity} shares of ${data.symbol} placed successfully`,
       rawOrderData: order,
     });

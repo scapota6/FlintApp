@@ -241,10 +241,12 @@ export async function placeOrder(
     timeInForce?: 'Day' | 'GTC' | 'IOC' | 'FOK';
     units: number;
     price?: number;
+    idempotencyKey?: string;
   }
 ) {
   try {
-    const order = await tradingApi.placeOrder({
+    // Try multiple order placement methods for SDK compatibility
+    const orderParams = {
       userId,
       userSecret,
       accountId,
@@ -254,9 +256,38 @@ export async function placeOrder(
       timeInForce: params.timeInForce || 'Day',
       units: params.units,
       price: params.price,
+      // Include idempotency key if provided (industry best practice)
+      ...(params.idempotencyKey && { idempotencyKey: params.idempotencyKey }),
+    };
+
+    console.log('Order placement attempt with params:', {
+      ...orderParams,
+      userSecret: '[HIDDEN]'
     });
+
+    // Try placeForceOrder first (recommended method from SnapTrade docs)
+    if (hasFn(tradingApi, 'placeForceOrder')) {
+      console.log('Using placeForceOrder method (recommended by SnapTrade)');
+      const order = await (tradingApi as any).placeForceOrder(orderParams);
+      console.log('placeForceOrder successful:', { 
+        orderId: order.data?.brokerage_order_id || order.data?.id,
+        status: order.data?.status 
+      });
+      return order.data;
+    }
     
-    return order.data;
+    // Fallback to standard placeOrder
+    if (hasFn(tradingApi, 'placeOrder')) {
+      console.log('Using placeOrder method (fallback)');
+      const order = await (tradingApi as any).placeOrder(orderParams);
+      console.log('placeOrder successful:', { 
+        orderId: order.data?.brokerage_order_id || order.data?.id,
+        status: order.data?.status 
+      });
+      return order.data;
+    }
+    
+    throw new Error('No order placement methods available in SDK');
   } catch (e: any) {
     console.error('SnapTrade placeOrder error:', e?.responseBody || e?.message || e);
     throw e;

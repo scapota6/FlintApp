@@ -14,6 +14,7 @@ import {
   X
 } from 'lucide-react';
 import OrderPreviewDialog from './OrderPreviewDialog';
+import OrderStatusDialog from './OrderStatusDialog';
 
 type Props = {
   accountId: string;
@@ -152,6 +153,7 @@ function fmtTime(v: any) {
 
 export default function AccountDetailsDialog({ accountId, open, onClose, currentUserId }: Props) {
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
+  const [orderStatusDialogOpen, setOrderStatusDialogOpen] = useState(false);
   const { data, isLoading, isError } = useQuery({
     queryKey: ['account-details', accountId],
     enabled: open,
@@ -331,12 +333,15 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 <button className="rounded-xl border border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/30 dark:to-yellow-900/30 px-4 py-2 hover:from-orange-100 hover:to-yellow-100 dark:hover:from-orange-800/50 dark:hover:to-yellow-800/50 text-orange-700 dark:text-orange-300 font-medium transition-all duration-200 shadow-sm hover:shadow-md">
                   ❌ Cancel Orders
                 </button>
-                <button className="rounded-xl border border-blue-200 dark:border-blue-700 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 px-4 py-2 hover:from-blue-100 hover:to-cyan-100 dark:hover:from-blue-800/50 dark:hover:to-cyan-800/50 text-blue-700 dark:text-blue-300 font-medium transition-all duration-200 shadow-sm hover:shadow-md">
-                  📊 Order History
+                <button 
+                  onClick={() => setOrderStatusDialogOpen(true)}
+                  className="rounded-xl border border-blue-200 dark:border-blue-700 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 px-4 py-2 hover:from-blue-100 hover:to-cyan-100 dark:hover:from-blue-800/50 dark:hover:to-cyan-800/50 text-blue-700 dark:text-blue-300 font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  📊 Manage Orders
                 </button>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 italic bg-purple-50 dark:bg-purple-950/20 p-2 rounded-lg border border-purple-200 dark:border-purple-800">
-                🚀 Real SnapTrade order preview and placement system
+                🚀 Full SnapTrade integration: Preview → placeForceOrder with idempotency keys
               </p>
             </section>
 
@@ -390,6 +395,14 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
         accountId={accountId}
         accountName={data?.accountInformation?.name || 'Unknown Account'}
         cashBalance={data?.balancesAndHoldings?.cash || 0}
+      />
+      
+      {/* Order Status Dialog */}
+      <OrderStatusDialog
+        isOpen={orderStatusDialogOpen}
+        onClose={() => setOrderStatusDialogOpen(false)}
+        accountId={accountId}
+        accountName={data?.accountInformation?.name || 'Unknown Account'}
       />
     </div>
   );

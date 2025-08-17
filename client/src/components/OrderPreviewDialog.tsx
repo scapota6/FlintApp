@@ -453,6 +453,16 @@ export default function OrderPreviewDialog({
               <span className="text-gray-600 dark:text-gray-400">Estimated Total:</span>
               <span className="font-mono font-medium">{fmtMoney(placedOrder.estimatedTotal)}</span>
             </div>
+            {placedOrder.idempotencyKey && (
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Idempotency Key:</span>
+                <span className="font-mono text-xs text-gray-500">{placedOrder.idempotencyKey.slice(-8)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Placed At:</span>
+              <span className="text-xs">{new Date(placedOrder.placedAt).toLocaleString()}</span>
+            </div>
           </div>
         </div>
 
