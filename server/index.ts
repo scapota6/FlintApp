@@ -1,4 +1,5 @@
-// Environment check at the very top
+import 'dotenv/config';
+
 console.log('[ENV CHECK]', {
   CLIENT_ID: process.env.SNAPTRADE_CLIENT_ID,
   CONSUMER_KEY_LEN: process.env.SNAPTRADE_CONSUMER_KEY?.length,
