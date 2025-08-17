@@ -89,7 +89,7 @@
     "react-resizable-panels": "^2.1.7",
     "react-ts-tradingview-widgets": "^1.2.8",
     "recharts": "^2.15.4",
-    "snaptrade-typescript-sdk": "^9.0.118",
+    "snaptrade-typescript-sdk": "^9.0.125",
     "stripe": "^18.4.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
