@@ -44,39 +44,23 @@ interface AccountDetails {
       unrealized: number | null;
     }>;
   };
-  orders: {
-    open: Array<{
-      id: string;
-      symbol: string;
-      quantity: number;
-      action: string;
-      orderType: string;
-      price: number | null;
-      timeInForce: string;
-      status: string;
-      createdAt: string | null;
-    }>;
-    history: Array<{
-      id: string;
-      symbol: string;
-      quantity: number;
-      action: string;
-      orderType: string;
-      price: number | null;
-      executedAt: string | null;
-      status: string;
-    }>;
+  positionsAndOrders: {
+    activePositions: Array<any>;
+    pendingOrders: Array<any>;
+    orderHistory: Array<any>;
   };
-  activities: Array<{
-    id: string;
+  tradingActions: {
+    canPlaceOrders: boolean;
+    canCancelOrders: boolean;
+    canGetConfirmations: boolean;
+  };
+  activityAndTransactions: Array<{
     type: string;
-    symbol: string | null;
+    symbol?: string;
+    amount?: number;
+    quantity?: number;
+    timestamp: string | null;
     description: string;
-    quantity: number | null;
-    price: number | null;
-    fee: number | null;
-    netAmount: number | null;
-    settlementDate: string | null;
   }>;
   metadata: {
     fetched_at: string;
@@ -199,46 +183,46 @@ export function AccountDetailsModal({ accountId, accountName, onClose }: Account
             <Tabs defaultValue="positions" className="space-y-4">
               <TabsList>
                 <TabsTrigger value="positions">
-                  Positions ({details.balancesAndHoldings?.holdings?.length || 0})
+                  Positions ({details.positionsAndOrders?.activePositions?.length || 0})
                 </TabsTrigger>
                 <TabsTrigger value="orders">
-                  Orders ({details.orders?.open?.length || 0} open)
+                  Orders ({details.positionsAndOrders?.pendingOrders?.length || 0} open)
                 </TabsTrigger>
                 <TabsTrigger value="activities">
-                  Activities ({details.activities?.length || 0})
+                  Activities ({details.activityAndTransactions?.length || 0})
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="positions" className="space-y-4">
-                {details.balancesAndHoldings?.holdings && details.balancesAndHoldings.holdings.length > 0 ? (
+                {details.positionsAndOrders?.activePositions && details.positionsAndOrders.activePositions.length > 0 ? (
                   <div className="space-y-2">
-                    {details.balancesAndHoldings.holdings.map((position, index) => (
+                    {details.positionsAndOrders.activePositions.map((position: any, index: number) => (
                       <Card key={index}>
                         <CardContent className="p-4">
                           <div className="flex justify-between items-start">
                             <div>
-                              <h4 className="font-medium">{position.symbol}</h4>
+                              <h4 className="font-medium">{position.symbol?.symbol || position.symbol || '—'}</h4>
                               <p className="text-sm text-muted-foreground">
-                                {position.name}
+                                {position.symbol?.name || position.name || '—'}
                               </p>
                               <p className="text-xs">
-                                {position.quantity} shares {position.costBasis ? `@ ${formatCurrency(position.costBasis)}` : ''}
+                                {position.quantity} shares {position.average_purchase_price ? `@ ${formatCurrency(position.average_purchase_price)}` : ''}
                               </p>
                             </div>
                             <div className="text-right">
                               <div className="font-medium">
-                                {position.marketValue ? formatCurrency(position.marketValue) : '—'}
+                                {position.market_value ? formatCurrency(position.market_value) : '—'}
                               </div>
-                              {position.unrealized !== null && (
+                              {position.unrealized_pl !== null && position.unrealized_pl !== undefined && (
                                 <div className={`text-sm ${
-                                  position.unrealized >= 0 ? 'text-green-600' : 'text-red-600'
+                                  position.unrealized_pl >= 0 ? 'text-green-600' : 'text-red-600'
                                 }`}>
-                                  {formatCurrency(position.unrealized)}
+                                  {formatCurrency(position.unrealized_pl)}
                                 </div>
                               )}
-                              {position.currentPrice && (
+                              {position.current_price && (
                                 <div className="text-xs text-muted-foreground">
-                                  {formatCurrency(position.currentPrice)} per share
+                                  {formatCurrency(position.current_price)} per share
                                 </div>
                               )}
                             </div>
@@ -249,26 +233,26 @@ export function AccountDetailsModal({ accountId, accountName, onClose }: Account
                   </div>
                 ) : (
                   <div className="text-center p-8 text-muted-foreground">
-                    No positions found
+                    No active positions found
                   </div>
                 )}
               </TabsContent>
 
               <TabsContent value="orders" className="space-y-4">
-                {details.orders?.open && details.orders.open.length > 0 ? (
+                {details.positionsAndOrders?.pendingOrders && details.positionsAndOrders.pendingOrders.length > 0 ? (
                   <div className="space-y-2">
-                    <h3 className="font-medium">Open Orders</h3>
-                    {details.orders.open.map((order) => (
+                    <h3 className="font-medium">Pending Orders</h3>
+                    {details.positionsAndOrders.pendingOrders.map((order: any) => (
                       <Card key={order.id}>
                         <CardContent className="p-4">
                           <div className="flex justify-between items-start">
                             <div>
-                              <h4 className="font-medium">{order.symbol}</h4>
+                              <h4 className="font-medium">{order.symbol?.symbol || order.symbol || '—'}</h4>
                               <p className="text-sm text-muted-foreground">
-                                {order.action} {order.quantity} shares
+                                {order.action || order.side} {order.quantity} shares
                               </p>
                               <Badge variant="outline" className="text-xs">
-                                {order.orderType}
+                                {order.order_type || order.type}
                               </Badge>
                             </div>
                             <div className="text-right">
@@ -278,9 +262,9 @@ export function AccountDetailsModal({ accountId, accountName, onClose }: Account
                               <Badge variant={order.status === 'PENDING' ? 'default' : 'secondary'}>
                                 {order.status}
                               </Badge>
-                              {order.createdAt && (
+                              {order.created_at && (
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  {new Date(order.createdAt).toLocaleDateString()}
+                                  {new Date(order.created_at).toLocaleDateString()}
                                 </p>
                               )}
                             </div>
@@ -291,43 +275,38 @@ export function AccountDetailsModal({ accountId, accountName, onClose }: Account
                   </div>
                 ) : (
                   <div className="text-center p-8 text-muted-foreground">
-                    No open orders
+                    No pending orders
                   </div>
                 )}
               </TabsContent>
 
               <TabsContent value="activities" className="space-y-4">
-                {details.activities && details.activities.length > 0 ? (
+                {details.activityAndTransactions && details.activityAndTransactions.length > 0 ? (
                   <div className="space-y-2">
-                    {details.activities.slice(0, 20).map((activity) => (
-                      <Card key={activity.id}>
+                    {details.activityAndTransactions.slice(0, 20).map((activity, index) => (
+                      <Card key={index}>
                         <CardContent className="p-4">
                           <div className="flex items-start gap-3">
                             {getActivityIcon(activity.type)}
                             <div className="flex-1">
                               <div className="flex justify-between items-start">
                                 <div>
-                                  <h4 className="font-medium">{activity.description}</h4>
+                                  <h4 className="font-medium">{activity.description || activity.type}</h4>
                                   <p className="text-sm text-muted-foreground">
                                     {activity.symbol && `${activity.symbol} • `}
-                                    {activity.settlementDate && new Date(activity.settlementDate).toLocaleDateString()}
+                                    {activity.timestamp && new Date(activity.timestamp).toLocaleDateString()}
                                   </p>
                                 </div>
                                 <div className="text-right">
                                   <Badge variant="outline">{activity.type}</Badge>
-                                  {activity.netAmount && (
+                                  {activity.amount && (
                                     <p className="text-sm mt-1 font-medium">
-                                      {formatCurrency(activity.netAmount)}
+                                      {formatCurrency(activity.amount)}
                                     </p>
                                   )}
-                                  {activity.quantity && activity.price && (
+                                  {activity.quantity && (
                                     <p className="text-xs text-muted-foreground">
-                                      {activity.quantity} @ {formatCurrency(activity.price)}
-                                    </p>
-                                  )}
-                                  {activity.fee && (
-                                    <p className="text-xs text-muted-foreground">
-                                      Fee: {formatCurrency(activity.fee)}
+                                      Qty: {activity.quantity}
                                     </p>
                                   )}
                                 </div>

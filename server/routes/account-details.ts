@@ -78,39 +78,23 @@ r.get('/accounts/:accountId/details', async (req, res) => {
           unrealized: p.unrealized_pl ?? p.unrealizedPL ?? p.unrealizedGainLoss ?? null,
         })) : [],
       },
-      orders: {
-        open: Array.isArray(openOrders) ? openOrders.map((o: any) => ({
-          id: o.id,
-          symbol: o.symbol?.symbol || o.symbol || '—',
-          quantity: o.quantity ?? 0,
-          action: o.action || o.side || '—',
-          orderType: o.order_type || o.type || '—',
-          price: o.price ?? null,
-          timeInForce: o.time_in_force || o.tif || '—',
-          status: o.status || '—',
-          createdAt: o.created_at || o.timestamp || null,
-        })) : [],
-        history: Array.isArray(orderHistory) ? orderHistory.slice(0, 50).map((o: any) => ({
-          id: o.id,
-          symbol: o.symbol?.symbol || o.symbol || '—',
-          quantity: o.quantity ?? 0,
-          action: o.action || o.side || '—',
-          orderType: o.order_type || o.type || '—',
-          price: o.price ?? null,
-          executedAt: o.executed_at || o.filled_at || o.timestamp || null,
-          status: o.status || '—',
-        })) : [],
+      positionsAndOrders: {
+        activePositions: Array.isArray(positions) ? positions.filter((p: any) => (p.quantity ?? 0) > 0) : [],
+        pendingOrders: Array.isArray(openOrders) ? openOrders : [],
+        orderHistory: Array.isArray(orderHistory) ? orderHistory : [],
       },
-      activities: Array.isArray(activities) ? activities.slice(0, 100).map((a: any) => ({
-        id: a.id,
-        type: a.type || a.activity_type || '—',
-        symbol: a.symbol?.symbol || a.symbol || null,
-        description: a.description || `${a.type || 'Activity'} ${a.symbol?.symbol || ''}`.trim(),
-        quantity: a.quantity ?? null,
-        price: a.price ?? null,
-        fee: a.fee ?? null,
-        netAmount: a.net_amount ?? a.amount ?? null,
-        settlementDate: a.settlement_date || a.date || a.timestamp || null,
+      tradingActions: {
+        canPlaceOrders: true,
+        canCancelOrders: true,
+        canGetConfirmations: true,
+      },
+      activityAndTransactions: Array.isArray(activities) ? activities.map((a: any) => ({
+        type: a.type || a.activityType || '—',
+        symbol: a.symbol || a.ticker || a.security?.symbol || undefined,
+        amount: a.amount ?? a.value ?? undefined,
+        quantity: a.quantity ?? a.shares ?? undefined,
+        timestamp: a.timestamp || a.time || a.date || null,
+        description: a.description || a.note || '',
       })) : [],
       metadata: {
         fetched_at: new Date().toISOString(),
@@ -120,14 +104,10 @@ r.get('/accounts/:accountId/details', async (req, res) => {
       }
     };
 
-    res.json(response);
-
-  } catch (error: any) {
-    console.error('Account details error:', error);
-    res.status(500).json({ 
-      message: 'Failed to fetch account details',
-      error: error.message 
-    });
+    return res.json(response);
+  } catch (e: any) {
+    console.error('Account details error:', e?.responseBody || e?.message || e);
+    return res.status(500).json({ message: 'Failed to load account details' });
   }
 });
 
