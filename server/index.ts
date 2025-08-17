@@ -68,6 +68,10 @@ app.use((req, res, next) => {
   // Mount SnapTrade connections router
   const connectionsSnaptradeRouter = (await import("./routes/connections.snaptrade")).default;
   app.use("/api", connectionsSnaptradeRouter);
+  
+  // Mount disconnect routes
+  const disconnectRouter = (await import("./routes/connections/disconnect")).default;
+  app.use("/api/connections/disconnect", disconnectRouter);
 
   const server = await registerRoutes(app);
 

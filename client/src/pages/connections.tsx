@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   Building2, 
   CreditCard, 
@@ -11,12 +15,72 @@ import {
   ChevronRight,
   Shield,
   Link2,
-  ArrowLeft
+  ArrowLeft,
+  Unlink,
+  Trash2,
+  CheckCircle,
+  Clock
 } from "lucide-react";
+
+// Type definitions
+interface ConnectedAccount {
+  id: string;
+  provider: string;
+  accountName: string;
+  accountNumber?: string;
+  balance: number;
+  type: 'investment' | 'bank' | 'card';
+  institution: string;
+  lastUpdated: string;
+  cash?: number;
+  holdings?: number;
+  buyingPower?: number;
+}
+
+interface HoldingsResponse {
+  accounts: ConnectedAccount[];
+  positions: any[];
+}
 
 export default function Connections() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [disconnectingAccount, setDisconnectingAccount] = useState<string | null>(null);
+
+  // Fetch connected accounts
+  const { data: holdingsData, isLoading: isLoadingAccounts } = useQuery<HoldingsResponse>({
+    queryKey: ['/api/holdings'],
+    refetchInterval: 30000 // Refresh every 30 seconds
+  });
+
+  // Disconnect account mutation
+  const disconnectMutation = useMutation({
+    mutationFn: async ({ provider, accountId }: { provider: string; accountId: string }) => {
+      return apiRequest(`/api/connections/disconnect/${provider}`, {
+        method: 'POST',
+        body: JSON.stringify({ accountId })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/holdings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+      setDisconnectingAccount(null);
+    },
+    onError: (error: any) => {
+      setError(error.message || 'Failed to disconnect account');
+      setDisconnectingAccount(null);
+    }
+  });
+
+  const handleDisconnect = async (provider: string, accountId: string) => {
+    if (confirm('Are you sure you want to disconnect this account? This will remove access to its data.')) {
+      setDisconnectingAccount(accountId);
+      setError(null);
+      disconnectMutation.mutate({ provider, accountId });
+    }
+  };
+
+  const connectedAccounts = holdingsData?.accounts || [];
 
   const handleSnapTradeConnect = async () => {
     setIsConnecting(true);
@@ -164,11 +228,150 @@ export default function Connections() {
         </p>
       </div>
 
-      <Tabs defaultValue="brokerages" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="brokerages">Brokerages</TabsTrigger>
-          <TabsTrigger value="banks">Banks & Cards</TabsTrigger>
+      <Tabs defaultValue="connected" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="connected">Connected Accounts</TabsTrigger>
+          <TabsTrigger value="brokerages">Add Brokerage</TabsTrigger>
+          <TabsTrigger value="banks">Add Bank</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="connected" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Your Connected Accounts</span>
+                <Badge variant="secondary">{connectedAccounts.length} account{connectedAccounts.length !== 1 ? 's' : ''}</Badge>
+              </CardTitle>
+              <CardDescription>
+                Manage your connected financial accounts and their permissions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingAccounts ? (
+                <div className="space-y-3">
+                  {[1, 2].map(i => (
+                    <div key={i} className="animate-pulse">
+                      <div className="h-16 bg-muted rounded-lg"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : connectedAccounts.length === 0 ? (
+                <div className="text-center py-8">
+                  <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Connected Accounts</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Connect your first account to start tracking your portfolio
+                  </p>
+                  <div className="flex gap-2 justify-center">
+                    <Button onClick={() => {
+                      const tabsElement = document.querySelector('[value="brokerages"]') as HTMLButtonElement;
+                      tabsElement?.click();
+                    }}>
+                      Add Brokerage
+                    </Button>
+                    <Button variant="outline" onClick={() => {
+                      const tabsElement = document.querySelector('[value="banks"]') as HTMLButtonElement;
+                      tabsElement?.click();
+                    }}>
+                      Add Bank
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {connectedAccounts.map((account, index) => (
+                    <div key={account.id || index} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                          {account.type === 'investment' ? 
+                            <Building2 className="h-5 w-5 text-purple-600" /> : 
+                            <CreditCard className="h-5 w-5 text-purple-600" />
+                          }
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold">{account.accountName}</h3>
+                            <Badge variant={account.provider === 'snaptrade' ? 'default' : 'secondary'}>
+                              {account.provider === 'snaptrade' ? 'SnapTrade' : account.provider}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {account.institution} 
+                            {account.accountNumber && ` • ****${account.accountNumber.slice(-4)}`}
+                          </p>
+                          <div className="flex items-center gap-4 mt-1">
+                            <span className="text-sm font-medium">
+                              ${account.balance.toLocaleString()}
+                            </span>
+                            {account.cash !== undefined && (
+                              <span className="text-xs text-muted-foreground">
+                                Cash: ${account.cash.toLocaleString()}
+                              </span>
+                            )}
+                            {account.holdings !== undefined && account.holdings > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                Holdings: ${account.holdings.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <CheckCircle className="h-3 w-3 text-green-500" />
+                          <span>Active</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDisconnect(account.provider, account.id)}
+                          disabled={disconnectingAccount === account.id}
+                        >
+                          {disconnectingAccount === account.id ? (
+                            <>
+                              <Clock className="h-4 w-4 mr-1" />
+                              Disconnecting...
+                            </>
+                          ) : (
+                            <>
+                              <Unlink className="h-4 w-4 mr-1" />
+                              Disconnect
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {connectedAccounts.some(acc => acc.provider === 'snaptrade') && (
+                    <>
+                      <Separator className="my-4" />
+                      <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <span className="text-sm font-medium">Disconnect All SnapTrade Accounts</span>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm('This will disconnect ALL your brokerage accounts. Are you sure?')) {
+                              disconnectMutation.mutate({ provider: 'snaptrade', accountId: 'all' });
+                            }
+                          }}
+                          disabled={disconnectMutation.isPending}
+                        >
+                          Disconnect All
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="brokerages" className="space-y-4">
           <Card>

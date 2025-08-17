@@ -4,11 +4,10 @@
  */
 
 import { Router } from "express";
-import { isAuthenticated } from "../replitAuth";
 import { storage } from "../storage";
 import { marketDataService } from "../services/market-data";
 import { logger } from "@shared/logger";
-import { accountsApi, portfolioApi } from "../lib/snaptrade";
+import { getSnapUser } from "../store/snapUsers";
 
 const router = Router();
 
@@ -16,12 +15,15 @@ const router = Router();
  * GET /api/portfolio/summary
  * Returns comprehensive portfolio summary with net worth breakdown
  */
-router.get("/summary", isAuthenticated, async (req: any, res) => {
+router.get("/summary", async (req: any, res) => {
   try {
-    const userId = req.user.claims.sub;
+    // Get userId from session like dashboard route
+    const userId = req.user?.id;
+    const userEmail = req.user?.email;
     
-    // Fetch all connected accounts
-    const accounts = await storage.getConnectedAccounts(userId);
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
     
     // Initialize totals
     let totalCash = 0;
@@ -32,108 +34,80 @@ router.get("/summary", isAuthenticated, async (req: any, res) => {
     let totalDayChangePercent = 0;
     let totalYtdChange = 0;
     let totalYtdChangePercent = 0;
-    
-    // Process each account
-    for (const account of accounts) {
-      const balance = parseFloat(account.balance);
+    let accountCount = 0;
+
+    // Fetch real investment account data from SnapTrade (same pattern as dashboard)
+    try {
+      console.log('Fetching SnapTrade accounts for portfolio user:', userEmail);
       
-      if (account.accountType === 'brokerage') {
-        // Fetch holdings for brokerage accounts
-        if (account.provider === 'snaptrade') {
-          const snaptradeUser = await storage.getSnapTradeUser(userId);
+      // Use the same auth pattern as dashboard
+      const snapUser = await getSnapUser(userId);
+      if (snapUser?.userSecret) {
+        const { accountsApi } = await import('../lib/snaptrade');
+        const accounts = await accountsApi.listUserAccounts({
+          userId: snapUser.userId,
+          userSecret: snapUser.userSecret,
+        });
+        
+        console.log('SnapTrade accounts for portfolio:', accounts.data?.length || 0);
+        
+        if (accounts.data && Array.isArray(accounts.data)) {
+          accountCount = accounts.data.length;
           
-          if (snaptradeUser?.snaptradeUserId && snaptradeUser?.userSecret) {
+          for (const account of accounts.data) {
+            const balance = parseFloat(account.balance?.total?.amount || '0') || 0;
+            const cash = parseFloat(account.balance?.cash?.amount || '0') || 0;
+            const holdings = balance - cash;
+            
+            // Add to totals
+            totalCash += cash;
+            totalStocks += holdings; // Holdings represent invested value
+            
+            // Try to get positions for more detailed breakdown
             try {
-              // Get positions from SnapTrade
-              const positions = await portfolioApi.getPositions({
-                userId: snaptradeUser.snaptradeUserId,
-                userSecret: snaptradeUser.userSecret,
-                accountId: account.externalAccountId!
+              const { positionsApi } = await import('../lib/snaptrade');
+              const positions = await positionsApi.getPositions({
+                userId: snapUser.userId,
+                userSecret: snapUser.userSecret,
+                accountId: account.id
               });
               
-              // Calculate stock values
-              for (const position of positions) {
-                const value = (position.units || 0) * (position.price || 0);
-                const symbol = position.symbol?.symbol;
-                
-                // Determine asset type
-                if (symbol && ['BTC', 'ETH', 'DOGE', 'ADA', 'SOL'].includes(symbol)) {
-                  totalCrypto += value;
-                } else {
-                  totalStocks += value;
-                }
-                
-                // Try to get real-time quote for performance calculation
-                if (symbol) {
-                  try {
-                    const quote = await marketDataService.getMarketData(symbol);
-                    if (quote) {
-                      const dayChange = (position.units || 0) * (quote.change || 0);
-                      totalDayChange += dayChange;
-                    }
-                  } catch (error) {
-                    logger.error("Failed to fetch quote", { symbol, error });
+              if (positions.data) {
+                for (const position of positions.data) {
+                  const value = (position.units || 0) * (position.price || 0);
+                  const symbol = position.symbol?.symbol;
+                  
+                  // Determine if it's crypto
+                  if (symbol && ['BTC', 'ETH', 'DOGE', 'ADA', 'SOL', 'USDC', 'USDT'].includes(symbol)) {
+                    totalCrypto += value;
+                    totalStocks -= value; // Remove from stocks and add to crypto
                   }
                 }
               }
-              
-              // Get cash balance
-              const balances = await accountsApi.getAccountBalances({
-                userId: snaptradeUser.snaptradeUserId,
-                userSecret: snaptradeUser.userSecret,
-                accountId: account.externalAccountId!
-              });
-              
-              if (balances?.cash) {
-                totalCash += balances.cash;
-              }
-              
-            } catch (error) {
-              logger.error("Failed to fetch SnapTrade data", { error, accountId: account.id });
-              // Fall back to stored balance
-              totalCash += balance;
+            } catch (posError) {
+              console.log('Could not fetch positions for account:', account.id);
             }
-          } else {
-            // No SnapTrade credentials, use stored balance
-            totalCash += balance;
           }
-        } else {
-          // Non-SnapTrade brokerage, add to investable
-          totalStocks += balance;
         }
-        
-      } else if (account.accountType === 'bank') {
-        // Bank accounts contribute to cash
-        if (account.accountName.toLowerCase().includes('checking') || 
-            account.accountName.toLowerCase().includes('savings')) {
-          totalCash += balance;
-        }
-        
-      } else if (account.accountType === 'card') {
-        // Credit cards are debt (negative balance)
-        totalDebt += Math.abs(balance);
+      } else {
+        console.log('SnapTrade credentials not available for portfolio user');
       }
+    } catch (error: any) {
+      console.error('Error fetching SnapTrade accounts for portfolio:', error);
     }
-    
-    // Fetch holdings from database as fallback
-    const holdings = await storage.getHoldings(userId);
-    
-    // If we don't have live data, use database holdings
-    if (totalStocks === 0 && holdings.length > 0) {
-      for (const holding of holdings) {
-        const value = parseFloat(holding.marketValue);
-        const symbol = holding.symbol;
-        
-        // Determine asset type
-        if (['BTC', 'ETH', 'DOGE', 'ADA', 'SOL'].includes(symbol)) {
-          totalCrypto += value;
-        } else {
-          totalStocks += value;
-        }
-        
-        // Add day change from holdings
-        totalDayChange += parseFloat(holding.gainLoss);
+
+    // Fetch bank accounts
+    try {
+      console.log('Fetching bank accounts for portfolio user:', userEmail);
+      const bankAccounts = await storage.getBankAccounts(userId);
+      
+      for (const account of bankAccounts) {
+        const balance = parseFloat(account.balance) || 0;
+        totalCash += balance;
+        accountCount++;
       }
+    } catch (error) {
+      console.error('Error fetching bank accounts for portfolio:', error);
     }
     
     // Calculate totals
@@ -172,7 +146,7 @@ router.get("/summary", isAuthenticated, async (req: any, res) => {
         ytdValue: Math.round(totalYtdChange * 100) / 100
       },
       metadata: {
-        accountCount: accounts.length,
+        accountCount: accountCount,
         lastUpdated: new Date().toISOString(),
         currency: 'USD',
         dataDelayed: false // Set to true if using cached data
@@ -182,7 +156,7 @@ router.get("/summary", isAuthenticated, async (req: any, res) => {
     logger.info("Portfolio summary generated", { 
       userId, 
       netWorth: summary.totals.netWorth,
-      accounts: accounts.length 
+      accounts: accountCount 
     });
     
     res.json(summary);
@@ -200,10 +174,14 @@ router.get("/summary", isAuthenticated, async (req: any, res) => {
  * GET /api/portfolio/history
  * Returns historical portfolio values for charting
  */
-router.get("/history", isAuthenticated, async (req: any, res) => {
+router.get("/history/:period", async (req: any, res) => {
   try {
-    const userId = req.user.claims.sub;
-    const { period = '1D' } = req.query;
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const { period = '1D' } = req.params;
     
     // Generate mock historical data for charting
     // In production, this would fetch from a time-series database
