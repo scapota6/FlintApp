@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { AccountDetailsModal } from "@/components/account-details-modal";
+import AccountDetailsDialog from "@/components/AccountDetailsDialog";
 import { 
   Building2, 
   CreditCard, 
@@ -55,6 +55,11 @@ export default function Connections() {
   const { data: holdingsData, isLoading: isLoadingAccounts } = useQuery<HoldingsResponse>({
     queryKey: ['/api/holdings'],
     refetchInterval: 30000 // Refresh every 30 seconds
+  });
+
+  // Fetch current user data for account details
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/auth/user']
   });
 
   // Disconnect account mutation
@@ -486,9 +491,10 @@ export default function Connections() {
       </Card>
 
       {/* Account Details Modal */}
-      <AccountDetailsModal
-        accountId={selectedAccountId}
-        accountName={selectedAccountName}
+      <AccountDetailsDialog
+        accountId={selectedAccountId || ''}
+        open={!!selectedAccountId}
+        currentUserId={currentUser?.id || ''}
         onClose={() => {
           setSelectedAccountId(null);
           setSelectedAccountName(undefined);
