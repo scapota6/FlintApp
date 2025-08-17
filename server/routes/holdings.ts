@@ -16,7 +16,7 @@ r.get('/holdings', async (req, res) => {
     try {
       const accounts = await accountsApi.listUserAccounts({ userId: rec.userId, userSecret: rec.userSecret });
       const positions = await Promise.all(
-        accounts.data.map((a:any)=> portfolioApi.getUserAccountPositions({ userId: rec.userId, userSecret: rec.userSecret, accountId: a.id }))
+        accounts.data.map((a:any)=> portfolioApi.getAccountPositions({ userId: rec.userId, userSecret: rec.userSecret, accountId: a.id }))
       );
       return res.json({ accounts, positions });
     } catch (e:any) {
