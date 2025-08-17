@@ -26,33 +26,32 @@ router.get("/brokerages", isAuthenticated, async (req: any, res) => {
     
     // If SnapTrade is configured, fetch fresh data
     // SnapTrade integration always available via centralized config
-      const snaptradeUser = await storage.getSnapTradeUser(userId);
-      
-      if (snaptradeUser?.snaptradeUserId && snaptradeUser?.userSecret) {
-        try {
-          // Fetch account data from SnapTrade
-          const snaptradeAccounts = await accountsApi.listAccounts({
-            userId: snaptradeUser.snaptradeUserId,
-            userSecret: snaptradeUser.userSecret
-          });
+    const snaptradeUser = await storage.getSnapTradeUser(userId);
+    
+    if (snaptradeUser?.snaptradeUserId && snaptradeUser?.userSecret) {
+      try {
+        // Fetch account data from SnapTrade
+        const snaptradeAccounts = await accountsApi.listUserAccounts({
+          userId: snaptradeUser.snaptradeUserId,
+          userSecret: snaptradeUser.userSecret
+        });
+        
+        // Update local database with fresh data
+        for (const snapAccount of snaptradeAccounts) {
+          const existingAccount = brokerageAccounts.find(
+            acc => acc.externalAccountId === snapAccount.id
+          );
           
-          // Update local database with fresh data
-          for (const snapAccount of snaptradeAccounts) {
-            const existingAccount = brokerageAccounts.find(
-              acc => acc.externalAccountId === snapAccount.id
+          if (existingAccount) {
+            // Update balance
+            await storage.updateAccountBalance(
+              existingAccount.id,
+              String(snapAccount.balance?.total?.amount || 0)
             );
-            
-            if (existingAccount) {
-              // Update balance
-              await storage.updateAccountBalance(
-                existingAccount.id,
-                String(snapAccount.balance?.total?.amount || 0)
-              );
-            }
           }
-        } catch (error) {
-          logger.error("Failed to fetch SnapTrade accounts", { error });
         }
+      } catch (error) {
+        logger.error("Failed to fetch SnapTrade accounts", { error });
       }
     }
     

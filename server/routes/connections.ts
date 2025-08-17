@@ -3,7 +3,7 @@
  */
 
 import { Router } from "express";
-import { authApi, accountsApi } from "../lib/snaptrade";
+import { authApi, accountsApi, snaptradeClient } from "../lib/snaptrade";
 import { isAuthenticated } from "../replitAuth";
 import { storage } from "../storage";
 import { logger } from "@shared/logger";
@@ -57,11 +57,6 @@ router.get("/", isAuthenticated, async (req: any, res) => {
 router.post("/snaptrade/register", isAuthenticated, async (req: any, res) => {
   try {
     // SnapTrade always available via centralized config
-      return res.status(503).json({ 
-        message: "SnapTrade integration not configured",
-        error: "SNAPTRADE_NOT_CONFIGURED"
-      });
-    }
 
     const userId = req.user.claims.sub;
     const userEmail = req.user.claims.email || `user${userId}@flint.app`;

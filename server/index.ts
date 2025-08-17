@@ -1,4 +1,9 @@
-import 'dotenv/config';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// Load environment variables in the correct order
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local'), override: true });
 
 function clean(v?: string) {
   return (v ?? '').trim().replace(/\r|\n/g, '');
@@ -116,7 +121,7 @@ app.use((req, res, next) => {
 
         await authApi.deleteSnapTradeUser({ userId }); // provider-side async delete
         await deleteSnapUser(userId);
-        const created = await authApi.registerUser({ userId });
+        const created = await authApi.registerSnapTradeUser({ userId });
         await saveSnapUser({ userId: created.userId!, userSecret: created.userSecret! });
         res.json({ ok: true, userId, userSecretLen: created.userSecret?.length || 0 });
       } catch (e: any) {
