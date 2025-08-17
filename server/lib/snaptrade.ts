@@ -1,10 +1,4 @@
-import { 
-  AuthenticationApi, 
-  AccountInformationApi, 
-  TradingApi, 
-  TransactionsAndReportingApi,
-  Configuration 
-} from 'snaptrade-typescript-sdk';
+import * as Snaptrade from 'snaptrade-typescript-sdk';
 
 const env = process.env.SNAPTRADE_ENV || 'sandbox';
 const clientId = process.env.SNAPTRADE_CLIENT_ID;
@@ -16,17 +10,13 @@ console.log('[SnapTrade] SDK init', {
   consumerKeyLen: consumerKey?.length,
 });
 
-if (!clientId || !consumerKey) {
-  console.error('[SnapTrade] Missing CLIENT_ID or CONSUMER_KEY');
-}
-
-const config = new Configuration({
-  clientId: clientId!,
+export const snaptradeConfig = new Snaptrade.Configuration({
   consumerKey: consumerKey!,
-  environment: env as 'production' | 'sandbox',
+  clientId: clientId!,
+  environment: env as any,
 });
 
-export const authApi = new AuthenticationApi(config);
-export const accountsApi = new AccountInformationApi(config);
-export const portfoliosApi = new TransactionsAndReportingApi(config);
-export const ordersApi = new TradingApi(config);
+export const authApi = new Snaptrade.AuthenticationApi(snaptradeConfig);
+export const accountsApi = new Snaptrade.AccountInformationApi(snaptradeConfig);
+export const portfoliosApi = new Snaptrade.TransactionsAndReportingApi(snaptradeConfig);
+export const ordersApi = new Snaptrade.TradingApi(snaptradeConfig);
