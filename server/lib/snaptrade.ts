@@ -50,17 +50,27 @@ export async function listAccounts(userId: string, userSecret: string) {
 
 export async function getPositions(userId: string, userSecret: string, accountId: string) {
   try {
-    // Try the correct method name for getting positions
-    const response = await accountsApi.getAllUserHoldings({ userId, userSecret, accountId });
-    return response.data;
+    // First get all holdings for the user, then filter by account
+    const response = await accountsApi.getAllUserHoldings({ userId, userSecret });
+    console.log('DEBUG: getAllUserHoldings response length:', response.data?.length);
+    
+    // Find the specific account's data
+    const accountData = response.data?.find((acc: any) => acc.account?.id === accountId);
+    if (accountData && accountData.positions) {
+      console.log('DEBUG: Found positions for account:', accountId, 'count:', accountData.positions.length);
+      // Return the account wrapped in an array to match expected structure
+      return [accountData];
+    }
+    
+    console.log('DEBUG: No positions found for account:', accountId);
+    return [];
   } catch (e: any) {
     // If that doesn't work, try alternate method
     try {
-      const response = await (accountsApi as any).getPositions({ userId, userSecret, accountId });
-      return response.data;
-    } catch {
-      // Log the error and return empty array
-      console.error('Failed to get positions for account:', accountId, e?.message);
+      const response = await accountsApi.getUserAccountHoldings({ userId, userSecret, accountId });
+      return response.data ? [response.data] : [];
+    } catch (fallbackError: any) {
+      console.error('SnapTrade getPositions error:', e?.responseBody || e?.message || e);
       return [];
     }
   }

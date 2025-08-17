@@ -46,6 +46,8 @@ r.get('/accounts/:accountId/details', async (req, res) => {
       listActivities(rec.userId, rec.userSecret, accountId).catch(() => []),
     ]);
 
+
+
     // Shape response for UI
     const response = {
       accountInformation: {
@@ -68,15 +70,25 @@ r.get('/accounts/:accountId/details', async (req, res) => {
           totalEquityValue: balances?.equity ?? balances?.accountValue ?? account.balance?.total?.amount ?? null,
           buyingPowerOrMargin: balances?.buyingPower ?? balances?.marginBuyingPower ?? null,
         },
-        holdings: Array.isArray(positions) ? positions.map((p: any) => ({
-          symbol: p.symbol?.symbol || p.symbol || p.ticker || p.instrument?.symbol || '—',
-          name: p.symbol?.name || p.name || '—',
-          quantity: p.quantity ?? p.qty ?? 0,
-          costBasis: p.average_purchase_price ?? p.costBasis ?? p.avgPrice ?? null,
-          marketValue: p.market_value ?? p.marketValue ?? p.value ?? null,
-          currentPrice: p.current_price ?? p.price ?? null,
-          unrealized: p.unrealized_pl ?? p.unrealizedPL ?? p.unrealizedGainLoss ?? null,
-        })) : [],
+        holdings: Array.isArray(positions) && positions.length > 0 ? 
+          positions.flatMap(accountData => {
+            const accountPositions = accountData.positions || [];
+            
+            return accountPositions.map(p => {
+              const symbol = p.symbol?.symbol?.symbol || 'UNKNOWN';
+              const quantity = parseFloat(p.units || '0');
+              
+              return {
+                symbol,
+                name: p.symbol?.symbol?.description || symbol,
+                quantity,
+                costBasis: parseFloat(p.average_purchase_price || '0'),
+                marketValue: quantity * parseFloat(p.price || '0'),
+                currentPrice: parseFloat(p.price || '0'),
+                unrealized: parseFloat(p.open_pnl || '0'),
+              };
+            }).filter(h => h.quantity > 0);
+          }) : [],
       },
       positionsAndOrders: {
         activePositions: Array.isArray(positions) ? positions.filter((p: any) => (p.quantity ?? 0) > 0) : [],
