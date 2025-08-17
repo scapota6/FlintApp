@@ -1,17 +1,11 @@
-/**
- * SnapTrade Holdings API routes - Fixed authentication
- */
 import { Router } from 'express';
 import { accountsApi, portfoliosApi } from '../lib/snaptrade';
 import { storage } from '../storage';
 import { isAuthenticated } from '../replitAuth';
 
-const router = Router();
+const r = Router();
 
-/**
- * Get holdings for all connected accounts
- */
-router.get('/', isAuthenticated, async (req: any, res) => {
+r.get('/', isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.claims.sub;
     const userEmail = req.user.claims.email?.toLowerCase();
@@ -45,42 +39,17 @@ router.get('/', isAuthenticated, async (req: any, res) => {
     const userSecret = snaptradeUser.snaptradeUserSecret;
     console.log('Found SnapTrade credentials, fetching accounts...');
 
-    // List all connected accounts
-    let accounts = [];
-    try {
-      const accountsResponse = await accountsApi.listUserAccounts({
-        userId: userEmail, // Use email as SnapTrade userId
-        userSecret: userSecret,
-      });
-      accounts = accountsResponse.data || [];
-      console.log(`Found ${accounts.length} connected accounts`);
-    } catch (error: any) {
-      console.error('Error fetching SnapTrade accounts:', error.response?.data || error);
-      return res.json({
-        holdings: [],
-        summary: {
-          totalValue: 0,
-          totalCost: 0,
-          totalProfitLoss: 0,
-          totalProfitLossPercent: 0,
-          positionCount: 0,
-          accountCount: 0,
-        },
-        needsConnection: true,
-        message: 'Failed to fetch accounts'
-      });
-    }
+    const accounts = await accountsApi.listAccounts({ userId: userEmail, userSecret });
 
-    // Fetch positions for each account
-    const holdingsPromises = accounts.map(async (account: any) => {
-      try {
-        const positionsResponse = await portfoliosApi.listUserAccountPositions({
+    const positions = await Promise.all(
+      accounts.map(a =>
+        portfoliosApi.getPositions({
           userId: userEmail,
-          userSecret: userSecret,
-          accountId: account.id,
-        });
-
-        const positions = positionsResponse.data || [];
+          userSecret,
+          accountId: a.id!,
+        })
+      )
+    );
         
         // Transform positions
         return positions.map((position: any) => {

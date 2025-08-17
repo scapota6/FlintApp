@@ -73,6 +73,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(flags);
   });
 
+  // SnapTrade health check endpoint
+  app.get('/api/snaptrade/health', async (_req, res) => {
+    try {
+      const { authApi } = await import('./lib/snaptrade');
+      const testUser = 'healthcheck@flint-investing.com';
+      const testSecret = 'healthcheck-secret-1234567890';
+      await authApi.registerSnapTradeUser({ userId: testUser, userSecret: testSecret });
+      res.json({ ok: true });
+    } catch (e: any) {
+      console.error('Healthcheck error:', e?.responseBody || e?.message || e);
+      res.status(500).json({ ok: false, error: e?.responseBody || e?.message });
+    }
+  });
+
   // GET /api/me endpoint - returns current user info
   app.get('/api/me', rateLimits.auth, isAuthenticated, async (req: any, res) => {
     try {
@@ -1498,7 +1512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(watchlistRouter.default);
   
   // Mount the fixed holdings router
-  const holdingsRouter = await import('./routes/holdings-fixed');
+  const holdingsRouter = await import('./routes/holdings');
   app.use('/api/holdings', holdingsRouter.default);
   
   // Mount the fixed SnapTrade routes
