@@ -46,7 +46,9 @@ r.get('/accounts/:accountId/details', async (req, res) => {
       listActivities(rec.userId, rec.userSecret, accountId).catch(() => []),
     ]);
 
-
+    // Extract balance data from positions response (balances API failed, but balance data is in positions)
+    const balanceArray = positions?.[0]?.balances || [];
+    const balanceData = Array.isArray(balanceArray) && balanceArray.length > 0 ? balanceArray[0] : null;
 
     // Shape response for UI
     const response = {
@@ -59,22 +61,22 @@ r.get('/accounts/:accountId/details', async (req, res) => {
         status: account.meta?.status || 'ACTIVE',
         currency: account.balance?.total?.currency || 'USD',
         balancesOverview: {
-          cash: balances?.cash || balances?.cashBalance || null,
-          equity: balances?.equity || balances?.accountValue || account.balance?.total?.amount || null,
-          buyingPower: balances?.buyingPower || balances?.marginBuyingPower || null,
+          cash: balanceData?.cash || null,
+          equity: balanceData?.equity || account.balance?.total?.amount || null,
+          buyingPower: balanceData?.buying_power || null,
         },
       },
       balancesAndHoldings: {
         balances: {
-          cashAvailableToTrade: balances?.cashAvailableToTrade ?? balances?.cash ?? null,
-          totalEquityValue: balances?.equity ?? balances?.accountValue ?? account.balance?.total?.amount ?? null,
-          buyingPowerOrMargin: balances?.buyingPower ?? balances?.marginBuyingPower ?? null,
+          cashAvailableToTrade: balanceData?.cash ?? null,
+          totalEquityValue: balanceData?.equity ?? account.balance?.total?.amount ?? null,
+          buyingPowerOrMargin: balanceData?.buying_power ?? null,
         },
         holdings: Array.isArray(positions) && positions.length > 0 ? 
           positions.flatMap(accountData => {
             const accountPositions = accountData.positions || [];
             
-            return accountPositions.map(p => {
+            return accountPositions.map((p: any) => {
               const symbol = p.symbol?.symbol?.symbol || 'UNKNOWN';
               const quantity = parseFloat(p.units || '0');
               
@@ -87,7 +89,7 @@ r.get('/accounts/:accountId/details', async (req, res) => {
                 currentPrice: parseFloat(p.price || '0'),
                 unrealized: parseFloat(p.open_pnl || '0'),
               };
-            }).filter(h => h.quantity > 0);
+            }).filter((h: any) => h.quantity > 0);
           }) : [],
       },
       positionsAndOrders: {
