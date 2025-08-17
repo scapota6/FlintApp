@@ -1526,16 +1526,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // 3) Re-register to get a fresh provider-side userSecret
       const created = await authApi.registerSnapTradeUser({ userId });
-      const newRecord = { userId: created.data.userId!, userSecret: created.data.userSecret! };
-      await saveUser(newRecord);
-      
-      console.log('[Debug] User re-registered with fresh secret len:', newRecord.userSecret.length);
+      await saveUser({ userId: created.userId!, userSecret: created.userSecret! });
 
-      return res.json({ 
-        ok: true, 
-        userId: newRecord.userId, 
-        userSecretLen: newRecord.userSecret?.length || 0 
-      });
+      res.json({ ok: true, userId, userSecretLen: created.userSecret?.length || 0 });
     } catch (e: any) {
       console.error('[Debug] Repair user error:', e?.responseBody || e?.message);
       return res.status(500).json({ 

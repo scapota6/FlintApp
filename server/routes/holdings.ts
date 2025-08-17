@@ -6,7 +6,7 @@ const r = Router();
 
 // Pick your internal userId (NOT email). For now allow header or query.
 function pickId(req: any) {
-  return (req.user?.id || req.headers['x-user-id'] || req.query.userId || '').toString().trim();
+  return (req.user?.claims?.sub || req.user?.id || req.headers['x-user-id'] || req.query.userId || '').toString().trim();
 }
 
 r.get('/holdings', async (req, res) => {
@@ -18,11 +18,11 @@ r.get('/holdings', async (req, res) => {
     if (!rec?.userSecret) return res.status(428).json({ code: 'SNAPTRADE_NOT_REGISTERED', message: 'No SnapTrade user for this userId' });
 
     try {
-      const accounts = await accountsApi.listAccounts({ userId: rec.userId, userSecret: rec.userSecret });
+      const accounts = await accountsApi.listUserAccounts({ userId: rec.userId, userSecret: rec.userSecret });
       const positions = await Promise.all(
-        accounts.map((a: any) => portfolioApi.getPositions({ userId: rec.userId, userSecret: rec.userSecret, accountId: a.id }))
+        accounts.data.map((a: any) => portfolioApi.getUserAccountPositions({ userId: rec.userId, userSecret: rec.userSecret, accountId: a.id }))
       );
-      return res.json({ accounts, positions });
+      return res.json({ accounts: accounts.data, positions: positions.map((p: any) => p.data) });
     } catch (e: any) {
       const body = e?.responseBody || {};
       if (e?.status === 401 && String(body?.code) === '1083') {
