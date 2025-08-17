@@ -27,17 +27,26 @@ export interface DashboardData {
 
 export class FinancialAPI {
   static async getDashboardData(): Promise<DashboardData> {
-    const response = await apiRequest("GET", "/api/dashboard");
+    const response = await apiRequest("/api/dashboard");
+    if (!response.ok) {
+      throw new Error(`${response.status}: ${response.statusText}`);
+    }
     return response.json();
   }
 
   static async getMarketData(symbol: string): Promise<MarketData> {
-    const response = await apiRequest("GET", `/api/market/${symbol}`);
+    const response = await apiRequest(`/api/market/${symbol}`);
+    if (!response.ok) {
+      throw new Error(`${response.status}: ${response.statusText}`);
+    }
     return response.json();
   }
 
   static async getAccounts() {
-    const response = await apiRequest("GET", "/api/accounts");
+    const response = await apiRequest("/api/accounts");
+    if (!response.ok) {
+      throw new Error(`${response.status}: ${response.statusText}`);
+    }
     return response.json();
   }
 
