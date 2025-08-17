@@ -4,15 +4,18 @@ import { getSnapUserByEmail } from '../store/snapUserStore';
 
 const r = Router();
 
-function getEmailFromReq(req: any): string | null {
-  // prefer authenticated user if you have auth middleware; fallback to query for now
-  const email = (req.user?.claims?.email || req.query.userEmail || req.headers['x-user-email'] || '').toString().toLowerCase();
+function pickEmail(req: any): string | null {
+  // Preferred: req.user.email from your auth middleware
+  const e1 = req.user?.claims?.email;
+  const e2 = req.headers["x-user-email"];
+  const e3 = req.query.userEmail;
+  const email = (e1 || e2 || e3 || "").toString().trim().toLowerCase();
   return email || null;
 }
 
 r.get('/', async (req, res) => {
   try {
-    const userId = getEmailFromReq(req);
+    const userId = pickEmail(req);
     if (!userId) return res.status(401).json({ message: 'No user' });
 
     const rec = await getSnapUserByEmail(userId);

@@ -177,84 +177,54 @@ export default function SimpleConnectButtons({ accounts, userTier }: SimpleConne
     }
   });
 
-  // SnapTrade Connect mutation - simplified flow with auto-registration
+  // SnapTrade Connect mutation - robust email resolution
   const snapTradeConnectMutation = useMutation({
     mutationFn: async () => {
       console.log('📈 SnapTrade Connect: Starting brokerage connection process');
+      
+      // Resolve user email with fallbacks
+      function resolveUserEmail(): string | null {
+        // 1) Try authenticated user
+        if (user?.email) return user.email.toLowerCase();
+        
+        // 2) Try localStorage
+        const ls = (globalThis?.localStorage?.getItem("userEmail") || "").trim().toLowerCase();
+        if (ls) return ls;
+        
+        // 3) Fallback: prompt once
+        const entered = (globalThis?.prompt?.("Enter your email to connect your brokerage:") || "")
+          .trim()
+          .toLowerCase();
+        if (entered) {
+          try { globalThis?.localStorage?.setItem("userEmail", entered); } catch {}
+          return entered;
+        }
+        return null;
+      }
+      
+      const userEmail = resolveUserEmail();
+      if (!userEmail) throw new Error("No user email available for SnapTrade Connect.");
+      
       try {
         console.log('📈 SnapTrade Connect: Calling backend for connection URL...');
-        // Call our Saturday night working registration endpoint
+        // Call registration endpoint with guaranteed userEmail
         const response = await apiRequest('POST', '/api/snaptrade/register', { 
-          userEmail: user?.email 
+          userEmail 
         });
-        const { url } = await response.json();
-        console.log('📈 SnapTrade Connect: Successfully got connection URL:', url);
+        const data = await response.json();
         
-        // Open SnapTrade portal in new window (user will complete connection there)
-        const popup = window.open(url, '_blank', 'width=500,height=600,scrollbars=yes,resizable=yes');
-        
-        if (!popup) {
-          throw new Error('Popup blocked. Please allow popups and try again.');
+        if (!response.ok) {
+          throw new Error(data?.message || "Failed to create SnapTrade connect session");
         }
         
-        console.log('📈 SnapTrade Connect: Opened connection popup successfully');
+        const url = data?.connect?.redirectURL || data?.connect?.loginRedirectURI || data?.connect?.url || data?.url;
+        if (!url) throw new Error("No SnapTrade connect URL returned from backend.");
         
-        // Monitor popup for completion or closure
-        let synced = false;
-        const interval = setInterval(async () => {
-          try {
-            // Check if popup URL indicates completion
-            if (popup && !popup.closed) {
-              try {
-                const popupUrl = popup.location.href;
-                if (popupUrl.includes('/connection-complete') || 
-                    popupUrl.includes('success=true') ||
-                    popupUrl.includes('/done')) {
-                  // Connection complete - close popup and sync
-                  popup.close();
-                }
-              } catch (e) {
-                // Cross-origin error is expected, ignore it
-              }
-            }
-            
-            // Check if popup is closed
-            if (popup && popup.closed && !synced) {
-              synced = true;
-              clearInterval(interval);
-              toast({
-                title: "Connection Complete",
-                description: "Syncing your accounts...",
-              });
-              
-              // Automatically sync accounts after popup closes
-              try {
-                const syncResponse = await apiRequest('POST', '/api/snaptrade/sync');
-                const syncData = await syncResponse.json();
-                
-                if (syncData.success) {
-                  toast({
-                    title: "Accounts Synced",
-                    description: `Successfully synced ${syncData.syncedCount} account(s)`,
-                  });
-                  // Refresh dashboard to show the new accounts
-                  await queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
-                }
-              } catch (error) {
-                console.error('Auto-sync error:', error);
-                toast({
-                  title: "Sync Failed", 
-                  description: "Please try again",
-                  variant: "destructive",
-                });
-              }
-            }
-          } catch (error) {
-            console.error('Popup monitoring error:', error);
-          }
-        }, 500);
+        console.log('📈 SnapTrade Connect: Successfully got connection URL:', url);
         
-        return { success: true };
+        // Redirect user into SnapTrade Connect
+        window.location.href = url;
+        return true;
       } catch (error) {
         console.error('📈 SnapTrade Connect Error:', error);
         throw error;

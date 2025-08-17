@@ -31,7 +31,7 @@ r.post('/register', async (req, res) => {
       brokerRedirectUri: process.env.SNAPTRADE_REDIRECT_URI!,
     });
 
-    return res.json({ url: connect.data?.redirectUrl });
+    return res.json({ connect });
   } catch (err: any) {
     console.error('SnapTrade Registration Error:', err?.responseBody || err?.message || err);
     return res.status(500).json({ message: err?.message || 'SnapTrade register failed' });
