@@ -19,30 +19,48 @@ r.get('/holdings', async (req, res) => {
       
       const positionsArrays = await Promise.all(
         accounts.map(async (a:any) => {
-          const positions = await getPositions(rec.userId, rec.userSecret, a.id);
-          console.log(`DEBUG: Found positions for account: ${a.id} count: ${positions.length}`);
-          return positions.map((pos: any) => ({
-            accountId: a.id,
-            accountName: a.name || 'Unknown Account',
-            brokerageName: a.institution_name || 'Unknown',
-            symbol: pos.symbol || pos.universal_symbol?.symbol || 'N/A',
-            name: pos.universal_symbol?.description || pos.instrument?.name || pos.symbol || 'N/A',
-            quantity: parseFloat(pos.units) || 0,
-            averageCost: parseFloat(pos.average_purchase_price) || 0,
-            currentPrice: parseFloat(pos.price) || 0,
-            currentValue: parseFloat(pos.price) * parseFloat(pos.units) || 0,
-            totalCost: parseFloat(pos.average_purchase_price) * parseFloat(pos.units) || 0,
-            profitLoss: (parseFloat(pos.price) - parseFloat(pos.average_purchase_price)) * parseFloat(pos.units) || 0,
-            profitLossPercent: pos.average_purchase_price ? 
-              ((parseFloat(pos.price) - parseFloat(pos.average_purchase_price)) / parseFloat(pos.average_purchase_price)) * 100 : 0,
-            currency: pos.universal_symbol?.currency?.code || 'USD',
-            type: pos.universal_symbol?.type || 'stock',
-          }));
+          const accountData = await getPositions(rec.userId, rec.userSecret, a.id);
+          console.log(`DEBUG: Found account data for account: ${a.id} count: ${accountData.length}`);
+          
+          if (!accountData || accountData.length === 0) return [];
+          
+          // Extract positions from the account data structure
+          const positions = accountData[0]?.positions || [];
+          console.log(`DEBUG: Extracted positions for account ${a.id}:`, positions.length);
+          console.log(`DEBUG: Raw position data sample:`, JSON.stringify(positions[0], null, 2));
+          
+          return positions.map((pos: any) => {
+            const symbol = pos.symbol?.symbol || pos.symbol || pos.universal_symbol?.symbol || 'N/A';
+            const units = parseFloat(pos.units || pos.quantity) || 0;
+            const avgPrice = parseFloat(pos.average_purchase_price || pos.average_cost || pos.avg_cost) || 0;
+            const currentPrice = parseFloat(pos.price || pos.current_price || pos.market_value) || 0;
+            
+            console.log(`DEBUG: Processing position - Symbol: ${symbol}, Units: ${units}, AvgPrice: ${avgPrice}, CurrentPrice: ${currentPrice}`);
+            
+            return {
+              accountId: a.id,
+              accountName: a.name || 'Unknown Account',
+              brokerageName: a.institution_name || 'Unknown',
+              symbol: symbol,
+              name: pos.universal_symbol?.description || pos.instrument?.name || pos.symbol?.description || symbol,
+              quantity: units,
+              averageCost: avgPrice,
+              currentPrice: currentPrice,
+              currentValue: currentPrice * units,
+              totalCost: avgPrice * units,
+              profitLoss: (currentPrice - avgPrice) * units,
+              profitLossPercent: avgPrice ? ((currentPrice - avgPrice) / avgPrice) * 100 : 0,
+              currency: pos.universal_symbol?.currency?.code || pos.currency || 'USD',
+              type: pos.universal_symbol?.type || pos.type || 'stock',
+            };
+          });
         })
       );
       
-      // Flatten all positions into a single array
-      const holdings = positionsArrays.flat();
+      // Flatten all positions into a single array and filter out empty positions
+      const holdings = positionsArrays.flat().filter(h => h.quantity > 0 && h.symbol !== 'N/A');
+      
+      console.log(`DEBUG: Final holdings count after filtering: ${holdings.length}`);
       
       // Calculate summary
       const summary = {
