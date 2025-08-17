@@ -41,9 +41,11 @@ export default function Accounts() {
   // Fetch brokerage accounts from SnapTrade
   const { data: brokerageData, isLoading: brokeragesLoading, refetch: refetchBrokerages } = useQuery({
     queryKey: ['/api/dashboard'],
-    select: (data) => {
+    select: (data: any) => {
       // Extract accounts from dashboard response
-      return data?.snaptradeAccounts || [];
+      const accounts = data?.accounts || [];
+      // Filter for investment/brokerage accounts (SnapTrade accounts)
+      return accounts.filter((acc: any) => acc.provider === 'snaptrade' || acc.type === 'investment');
     },
     retry: false
   });
@@ -85,11 +87,11 @@ export default function Accounts() {
   // Map SnapTrade accounts to BrokerageAccount interface
   const brokerageAccounts: BrokerageAccount[] = (brokerageData || []).map((account: any) => ({
     id: account.id,
-    name: account.institution_name === 'Coinbase' ? 'Coinbase' : (account.name || account.institution_name || 'Unknown'),
-    currency: account.balance?.total?.currency || 'USD',
-    balance: account.balance?.total?.amount || 0,
-    buyingPower: (account.balance?.total?.amount || 0) * 0.5, // Estimate
-    lastSync: account.sync_status?.holdings?.last_successful_sync || new Date().toISOString(),
+    name: account.accountName || account.institution || 'Investment Account',
+    currency: 'USD',
+    balance: account.balance || 0,
+    buyingPower: account.buyingPower || (account.balance * 0.5) || 0,
+    lastSync: account.lastUpdated || new Date().toISOString(),
   }));
   
   const bankAccounts: BankAccount[] = bankData?.accounts || [];

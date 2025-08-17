@@ -10,13 +10,17 @@ router.get('/portfolio-holdings', async (req: any, res) => {
   }
 
   try {
-    // Get user ID from authenticated session
-    const userId = req.user?.claims?.email?.toLowerCase();
+    // Get user ID from authenticated session (use sub, not email)
+    const userId = req.user?.claims?.sub;
+    console.log('[Holdings API] User ID from claims.sub:', userId);
+    
     if (!userId) {
       return res.status(400).json({ message: 'User ID is required' });
     }
 
     const rec = await getSnapUser(userId);
+    console.log('[Holdings API] SnapTrade user found:', rec ? 'yes' : 'no', 'userId:', rec?.userId);
+    
     if (!rec?.userSecret) {
       return res.status(428).json({ 
         code: 'SNAPTRADE_NOT_REGISTERED', 
