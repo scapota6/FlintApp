@@ -115,7 +115,7 @@ function Card({ title, children }: any) {
 
 function List({ items, empty, render }: any) {
   if (!items || items.length === 0) return <div className="text-gray-500 dark:text-gray-400 text-sm p-3 italic">{empty}</div>;
-  return <div className="space-y-3">{items.map((x: any, i: number) => <div key={i} className="p-3 rounded-lg bg-gray-50 dark:bg-gray-750 border border-gray-100 dark:border-gray-600">{render(x)}</div>)}</div>;
+  return <div className="space-y-3">{items.map((x: any, i: number) => <div key={i} className="p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors duration-200">{render(x)}</div>)}</div>;
 }
 
 function Th({ children, className = '' }: any) { 
@@ -123,7 +123,7 @@ function Th({ children, className = '' }: any) {
 }
 
 function Td({ children, className = '', ...rest }: any) { 
-  return <td className={`px-4 py-3 text-gray-800 dark:text-gray-200 ${className}`} {...rest}>{children}</td>; 
+  return <td className={`px-4 py-3 text-gray-800 dark:text-gray-200 transition-colors duration-150 ${className}`} {...rest}>{children}</td>; 
 }
 
 function TdRight({ children, className = '', ...rest }: any) { 
@@ -252,12 +252,12 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     </thead>
                     <tbody>
                       {data.balancesAndHoldings.holdings.map((h: any, i: number) => (
-                        <tr key={i} className="border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors duration-150">
-                          <Td className="font-semibold text-purple-600 dark:text-purple-400">{h.symbol}</Td>
-                          <TdRight>{fmtNum(h.quantity)}</TdRight>
-                          <TdRight>{fmtMoney(h.costBasis)}</TdRight>
-                          <TdRight className="font-semibold">{fmtMoney(h.marketValue)}</TdRight>
-                          <TdRight className={`font-bold ${Number(h.unrealized) < 0 ? 'text-red-500 dark:text-red-400' : 'text-green-500 dark:text-green-400'}`}>
+                        <tr key={i} className="border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors duration-150">
+                          <Td className="font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300">{h.symbol}</Td>
+                          <TdRight className="hover:text-gray-900 dark:hover:text-gray-100">{fmtNum(h.quantity)}</TdRight>
+                          <TdRight className="hover:text-gray-900 dark:hover:text-gray-100">{fmtMoney(h.costBasis)}</TdRight>
+                          <TdRight className="font-semibold hover:text-gray-900 dark:hover:text-gray-100">{fmtMoney(h.marketValue)}</TdRight>
+                          <TdRight className={`font-bold ${Number(h.unrealized) < 0 ? 'text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300' : 'text-green-500 dark:text-green-400 hover:text-green-600 dark:hover:text-green-300'}`}>
                             {Number(h.unrealized) < 0 ? '▼' : '▲'} {fmtMoney(h.unrealized)}
                           </TdRight>
                         </tr>
@@ -346,12 +346,12 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
               </h3>
               <Card title="Recent Activity">
                 <List items={data.activityAndTransactions} empty="No recent activity" render={(a: any) => (
-                  <div className="grid grid-cols-5 gap-2">
-                    <span>{a.type}</span>
-                    <span>{a.symbol || '—'}</span>
-                    <span className="text-right">{fmtNum(a.quantity)}</span>
-                    <span className="text-right">{fmtMoney(a.amount)}</span>
-                    <span className="text-right text-gray-500">{fmtTime(a.timestamp)}</span>
+                  <div className="grid grid-cols-5 gap-2 text-gray-900 dark:text-gray-100">
+                    <span className="font-medium text-gray-800 dark:text-gray-200">{a.type}</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-200">{a.symbol || '—'}</span>
+                    <span className="text-right font-medium text-gray-800 dark:text-gray-200">{fmtNum(a.quantity)}</span>
+                    <span className="text-right font-medium text-gray-800 dark:text-gray-200">{fmtMoney(a.amount)}</span>
+                    <span className="text-right text-gray-600 dark:text-gray-300">{fmtTime(a.timestamp)}</span>
                   </div>
                 )}/>
               </Card>
