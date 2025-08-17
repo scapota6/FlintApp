@@ -6,7 +6,7 @@ app.post('/api/snaptrade/register-user', isAuthenticated, async (req: any, res) 
     const flintUserId = req.user.claims.sub;
     console.log('SnapTrade: Registering user for Flint user:', flintUserId);
     
-    if (!process.env.SNAPTRADE_CLIENT_ID || !process.env.SNAPTRADE_CLIENT_SECRET) {
+    if (!process.env.SNAPTRADE_CLIENT_ID || !process.env.SNAPTRADE_CONSUMER_KEY) {
       return res.status(500).json({ 
         success: false, 
         message: 'SnapTrade not configured. Missing API credentials.' 
@@ -98,7 +98,7 @@ app.get('/api/snaptrade/connect-url', isAuthenticated, async (req: any, res) => 
     }
     
     console.log('SnapTrade Client ID:', process.env.SNAPTRADE_CLIENT_ID);
-    console.log('SnapTrade Consumer Secret present:', !!process.env.SNAPTRADE_CLIENT_SECRET);
+    console.log('SnapTrade Consumer Key present:', !!process.env.SNAPTRADE_CONSUMER_KEY);
     
     // Check if user is registered with SnapTrade
     const snapTradeUser = await storage.getSnapTradeUser(flintUserId);
@@ -115,7 +115,7 @@ app.get('/api/snaptrade/connect-url', isAuthenticated, async (req: any, res) => 
     
     // Clean environment variables
     const clientId = process.env.SNAPTRADE_CLIENT_ID.trim();
-    const consumerSecret = process.env.SNAPTRADE_CLIENT_SECRET
+    const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY
       .replace(/[\u2028\u2029]/g, '')
       .replace(/[^\x00-\xFF]/g, '')
       .trim();
@@ -136,7 +136,7 @@ app.get('/api/snaptrade/connect-url', isAuthenticated, async (req: any, res) => 
       method: 'POST',
       headers: {
         'clientId': clientId,
-        'consumerSecret': consumerSecret,
+        'consumerKey': consumerKey,
         'Content-Type': 'application/json',
         'accept': 'application/json'
       },

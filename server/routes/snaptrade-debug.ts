@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { Snaptrade } from "snaptrade-typescript-sdk";
+import { authApi } from "../lib/snaptrade";
 import { isAuthenticated } from "../replitAuth";
 
 const router = Router();
@@ -7,27 +7,15 @@ const router = Router();
 // SnapTrade debug configuration route  
 router.get('/debug-config', isAuthenticated, async (req: any, res) => {
   try {
-    // Instantiate SnapTrade SDK with process.env keys
+    // Use centralized SnapTrade SDK configuration
     const clientId = process.env.SNAPTRADE_CLIENT_ID;
-    const consumerKey = process.env.SNAPTRADE_CLIENT_SECRET;
-    
-    let testClient = null;
-    let initError = null;
-    
-    try {
-      testClient = new Snaptrade({
-        clientId: clientId || '',
-        consumerKey: consumerKey || '',
-      });
-    } catch (error: any) {
-      initError = error.message;
-    }
+    const consumerKey = process.env.SNAPTRADE_CONSUMER_KEY;
     
     res.json({
       clientId: clientId || 'missing',
       consumerKey: consumerKey ? 'loaded' : 'missing',
       baseUrl: 'https://api.snaptrade.com/api/v1',
-      initError: initError,
+      sdkConfigured: !!authApi,
       envVarLengths: {
         clientId: clientId?.length || 0,
         consumerKey: consumerKey?.length || 0
