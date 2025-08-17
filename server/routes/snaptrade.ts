@@ -1,37 +1,39 @@
-import { Router } from 'express';
-import { authApi } from '../lib/snaptrade';
-import { generateUserSecret } from '../lib/crypto';
-import { getSnapUserByEmail, upsertSnapUserSecret } from '../store/snapUserStore';
-import { isAuthenticated } from '../replitAuth';
+import { Router } from "express";
+import { authApi } from "../lib/snaptrade";
+import { generateUserSecret } from "../lib/crypto";
+import { getSnapUserByEmail, upsertSnapUserSecret } from "../store/snapUserStore";
+import { isAuthenticated } from "../replitAuth";
 
 const r = Router();
 
-r.post('/register', async (req, res) => {
+r.post("/register", async (req, res) => {
   try {
-    const userId = (req.body?.userEmail || '').toString().trim().toLowerCase();
-    if (!userId) return res.status(400).json({ message: 'userEmail required' });
+    const userId = (req.body?.userEmail || "").toString().trim().toLowerCase();
+    if (!userId) return res.status(400).json({ message: "userEmail required" });
 
     let rec = await getSnapUserByEmail(userId);
     let userSecret = rec?.snaptrade_user_secret;
+
     if (!userSecret) {
       userSecret = generateUserSecret();
       await upsertSnapUserSecret(userId, userSecret);
-      console.log('[SnapTrade] Generated userSecret len:', userSecret.length, 'for', userId);
+      console.log("[SnapTrade] Generated userSecret len:", userSecret.length, "for", userId);
     } else {
-      console.log('[SnapTrade] Using existing userSecret len:', userSecret.length, 'for', userId);
+      console.log("[SnapTrade] Using existing userSecret len:", userSecret.length, "for", userId);
     }
 
-    await authApi.registerSnapTradeUser({ userId, userSecret }); // idempotent OK
-    const connect = await authApi.loginSnapTradeUser({
+    await authApi.registerSnapTradeUser({ userId, userSecret }); // idempotent if same app/secret
+
+    const connect = await authApi.createSnapTradeLogin({
       userId,
       userSecret,
-      customRedirect: process.env.SNAPTRADE_REDIRECT_URI!,
+      brokerRedirectUri: process.env.SNAPTRADE_REDIRECT_URI!,
     });
 
     return res.json({ connect });
   } catch (err: any) {
-    console.error('SnapTrade Registration Error:', err?.responseBody || err?.message || err);
-    return res.status(500).json({ message: err?.message || 'SnapTrade register failed' });
+    console.error("SnapTrade Registration Error:", err?.responseBody || err?.message || err);
+    return res.status(500).json({ message: err?.message || "SnapTrade register failed" });
   }
 });
 
