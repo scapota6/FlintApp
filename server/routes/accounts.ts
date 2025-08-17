@@ -25,13 +25,13 @@ router.get("/brokerages", isAuthenticated, async (req: any, res) => {
     const brokerageAccounts = accounts.filter(acc => acc.accountType === 'brokerage');
     
     // If SnapTrade is configured, fetch fresh data
-    if (snaptradeClient) {
+    // SnapTrade integration always available via centralized config
       const snaptradeUser = await storage.getSnapTradeUser(userId);
       
       if (snaptradeUser?.snaptradeUserId && snaptradeUser?.userSecret) {
         try {
           // Fetch account data from SnapTrade
-          const { data: snaptradeAccounts } = await snaptradeClient.accountInformation.listUserAccounts({
+          const snaptradeAccounts = await accountsApi.listAccounts({
             userId: snaptradeUser.snaptradeUserId,
             userSecret: snaptradeUser.userSecret
           });

@@ -56,7 +56,7 @@ router.get("/", isAuthenticated, async (req: any, res) => {
  */
 router.post("/snaptrade/register", isAuthenticated, async (req: any, res) => {
   try {
-    if (!snaptradeClient) {
+    // SnapTrade always available via centralized config
       return res.status(503).json({ 
         message: "SnapTrade integration not configured",
         error: "SNAPTRADE_NOT_CONFIGURED"

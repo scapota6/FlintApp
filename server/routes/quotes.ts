@@ -41,7 +41,7 @@ router.get("/:symbol", isAuthenticated, async (req: any, res) => {
     console.log(`Getting quote for ${symbol.toUpperCase()}`);
 
     // First get user's accounts to use for quotes
-    const { data: userAccounts } = await snaptrade.accountInformation.listUserAccounts({
+    const userAccounts = await accountsApi.listAccounts({
       userId: credentials.userId,
       userSecret: credentials.userSecret
     });

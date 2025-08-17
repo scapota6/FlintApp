@@ -38,7 +38,7 @@ router.post('/orders', async (req, res) => {
     }
 
     // Verify account belongs to user
-    const accounts = await snaptrade.accountInformation.listUserAccounts({
+    const accounts = await accountsApi.listAccounts({
       userId: user.email,
       userSecret,
     });

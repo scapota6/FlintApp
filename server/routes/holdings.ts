@@ -14,9 +14,9 @@ r.get('/holdings', async (req, res) => {
     if (!rec?.userSecret) return res.status(428).json({ code:'SNAPTRADE_NOT_REGISTERED', message:'No SnapTrade user for this userId' });
 
     try {
-      const accounts = await accountsApi.listUserAccounts({ userId: rec.userId, userSecret: rec.userSecret });
+      const accounts = await accountsApi.listAccounts({ userId: rec.userId, userSecret: rec.userSecret });
       const positions = await Promise.all(
-        accounts.data.map((a:any)=> portfolioApi.getAccountPositions({ userId: rec.userId, userSecret: rec.userSecret, accountId: a.id }))
+        accounts.map((a:any)=> portfolioApi.getPositions({ userId: rec.userId, userSecret: rec.userSecret, accountId: a.id }))
       );
       return res.json({ accounts, positions });
     } catch (e:any) {

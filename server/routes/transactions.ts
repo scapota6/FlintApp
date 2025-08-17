@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { db } from '../db';
 import { users, connectedAccounts } from '@/shared/schema';
 import { eq } from 'drizzle-orm';
-import { snaptradeClient } from '../lib/snaptrade';
+import { accountsApi, portfolioApi } from '../lib/snaptrade';
 
 const router = Router();
 
@@ -16,9 +16,7 @@ const requireAuth = (req: any, res: any, next: any) => {
 
 
 
-const getSnapTradeClient = () => {
-  return snaptradeClient;
-};
+// Using centralized SnapTrade configuration
 
 // Get all transactions across all accounts
 router.get('/transactions', requireAuth, async (req, res) => {
@@ -34,17 +32,15 @@ router.get('/transactions', requireAuth, async (req, res) => {
     const transactions: any[] = [];
 
     // Fetch SnapTrade transactions (brokerage)
-    if (snaptradeClient && user[0].snaptradeUserSecret) {
+    if (user[0].snaptradeUserSecret) {
       try {
-        const snaptrade = getSnapTradeClient();
-        
         // Get all connected SnapTrade accounts
-        const accountsResponse = await snaptrade.accountInformation.listUserAccounts({
+        const accounts = await accountsApi.listAccounts({
           userId: user[0].email,
           userSecret: user[0].snaptradeUserSecret,
         });
 
-        const accounts = accountsResponse.data || [];
+        // accounts is already the data array
         
         // Fetch activities for each account
         for (const account of accounts) {
@@ -52,7 +48,7 @@ router.get('/transactions', requireAuth, async (req, res) => {
           if (accountId && account.id !== accountId) continue;
 
           try {
-            const activitiesResponse = await snaptrade.transactionsAndReporting.getActivities({
+            const activities = await portfolioApi.getActivities({
               userId: user[0].email,
               userSecret: user[0].snaptradeUserSecret,
               accountId: account.id,
@@ -60,7 +56,7 @@ router.get('/transactions', requireAuth, async (req, res) => {
               endDate: endDate as string,
             });
 
-            const activities = activitiesResponse.data || [];
+            // activities is already the data array
             
             // Transform SnapTrade activities to unified format
             activities.forEach((activity: any) => {

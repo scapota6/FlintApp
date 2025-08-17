@@ -8,7 +8,7 @@ import { isAuthenticated } from "../replitAuth";
 import { storage } from "../storage";
 import { marketDataService } from "../services/market-data";
 import { logger } from "@shared/logger";
-import { snaptradeClient } from "../lib/snaptrade";
+import { accountsApi, portfolioApi } from "../lib/snaptrade";
 
 const router = Router();
 
@@ -39,13 +39,13 @@ router.get("/summary", isAuthenticated, async (req: any, res) => {
       
       if (account.accountType === 'brokerage') {
         // Fetch holdings for brokerage accounts
-        if (snaptradeClient && account.provider === 'snaptrade') {
+        if (account.provider === 'snaptrade') {
           const snaptradeUser = await storage.getSnapTradeUser(userId);
           
           if (snaptradeUser?.snaptradeUserId && snaptradeUser?.userSecret) {
             try {
               // Get positions from SnapTrade
-              const { data: positions } = await snaptradeClient.accountInformation.getUserAccountPositions({
+              const positions = await portfolioApi.getPositions({
                 userId: snaptradeUser.snaptradeUserId,
                 userSecret: snaptradeUser.userSecret,
                 accountId: account.externalAccountId!
@@ -78,7 +78,7 @@ router.get("/summary", isAuthenticated, async (req: any, res) => {
               }
               
               // Get cash balance
-              const { data: balances } = await snaptradeClient.accountInformation.getUserAccountBalance({
+              const balances = await accountsApi.getAccountBalances({
                 userId: snaptradeUser.snaptradeUserId,
                 userSecret: snaptradeUser.userSecret,
                 accountId: account.externalAccountId!
