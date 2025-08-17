@@ -1,47 +1,39 @@
-import { Router } from "express";
-import { accountsApi, portfoliosApi } from "../lib/snaptrade";
-import { getSnapUserByEmail } from "../store/snapUserStore";
+import { Router } from 'express';
+import { accountsApi, portfoliosApi } from '../lib/snaptrade';
+import { getUser } from '../store/snapUsers';
+import { isAuthenticated } from '../replitAuth';
 
 const r = Router();
 
-function pickEmail(req: any): string | null {
-  const e1 = req.user?.email, e2 = req.headers["x-user-email"], e3 = req.query.userEmail;
-  const email = (e1 || e2 || e3 || "").toString().trim().toLowerCase();
-  return email || null;
+// Pick immutable userId you send from the client (NOT email). For now accept header/query.
+function pickId(req: any) {
+  console.log('[Holdings] User object:', req.user);
+  console.log('[Holdings] User claims:', req.user?.claims);
+  return (req.user?.claims?.email || req.headers['x-user-id'] || req.query.userId || '').toString().trim().toLowerCase();
 }
 
-r.get("/", async (req, res) => {
+r.get('/', isAuthenticated, async (req, res) => {
+  console.log('[Holdings] Route hit with authentication verified');
+  const userId = pickId(req);
+  if (!userId) return res.status(401).json({ message: 'No userId' });
+
+  const rec = await getUser(userId);
+  if (!rec?.userSecret) return res.status(428).json({ code: 'SNAPTRADE_NOT_REGISTERED', message: 'No SnapTrade user' });
+
   try {
-    const userId = pickEmail(req);
-    if (!userId) return res.status(401).send("No user");
-
-    const rec = await getSnapUserByEmail(userId);
-    const userSecret = rec?.snaptrade_user_secret;
-    if (!userSecret) return res.status(428).json({ // 428 Precondition Required
-      code: "SNAPTRADE_NOT_REGISTERED",
-      message: "SnapTrade not registered for user",
-    });
-
-    try {
-      const accounts = await accountsApi.listUserAccounts({ userId, userSecret });
-      // For now, just return accounts data - positions can be added when method name is confirmed
-      return res.json({ accounts: accounts.data || [], positions: [] });
-    } catch (e: any) {
-      const body = e?.responseBody || {};
-      const code = body?.code || body?.status_code;
-
-      // SnapTrade: 401 / 1083 -> invalid userId/userSecret pair (mismatch with what SnapTrade already has)
-      if (e?.status === 401 && String(code) === "1083") {
-        return res.status(409).json({
-          code: "SNAPTRADE_USER_MISMATCH",
-          message: "Your SnapTrade user on the provider doesn't match our stored secret. Reconnect with a fresh alias or reset the user.",
-        });
-      }
-      throw e;
+    const accounts = await accountsApi.listUserAccounts({ userId: rec.userId, userSecret: rec.userSecret });
+    const positions = await Promise.all(
+      accounts.data.map((a: any) => portfoliosApi.listPortfolioAccountPositions({ userId: rec.userId, userSecret: rec.userSecret, accountId: a.id }))
+    );
+    return res.json({ accounts: accounts.data, positions: positions.map(p => p.data) });
+  } catch (e: any) {
+    const body = e?.responseBody || {};
+    if (e?.status === 401 && String(body?.code) === '1083') {
+      // SnapTrade says: the stored secret doesn't match their copy
+      return res.status(409).json({ code: 'SNAPTRADE_USER_MISMATCH', message: 'Stored secret does not match SnapTrade.' });
     }
-  } catch (err: any) {
-    console.error("Error fetching holdings:", err?.responseBody || err?.message || err);
-    return res.status(500).json({ message: "Failed to fetch holdings" });
+    console.error('Holdings error:', body || e?.message || e);
+    return res.status(500).json({ message: 'Failed to fetch holdings' });
   }
 });
 
