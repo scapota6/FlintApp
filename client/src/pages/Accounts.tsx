@@ -138,49 +138,69 @@ export default function Accounts() {
   const hasNoAccounts = !isLoading && brokerageAccounts.length === 0 && bankAccounts.length === 0;
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Accounts</h1>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleRefresh}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Link href="/connections">
-            <Button>
-              Connect Account
-            </Button>
-          </Link>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
+      <div className="container mx-auto px-4 pt-24 pb-12 max-w-7xl">
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-purple-200 to-purple-400 bg-clip-text text-transparent">
+                Connected Accounts
+              </h1>
+              <p className="text-slate-400 mt-2">
+                Manage your linked brokerage and bank accounts
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="border-purple-500/50 bg-purple-500/10 hover:bg-purple-500/20"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh All
+              </Button>
+              <Link href="/connections">
+                <Button className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800">
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Connect Account
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {hasNoAccounts ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No Accounts Connected</h3>
-            <p className="text-muted-foreground text-center mb-4">
-              Connect your brokerage or bank accounts to start managing your finances
-            </p>
-            <Link href="/connections">
-              <Button>Connect Your First Account</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      ) : (
-        <Tabs defaultValue="brokerages" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="brokerages">
-              Brokerages ({brokerageAccounts.length})
-            </TabsTrigger>
-            <TabsTrigger value="banks">
-              Banks & Cards ({bankAccounts.length})
-            </TabsTrigger>
-          </TabsList>
+        {hasNoAccounts ? (
+          <Card className="border-dashed bg-slate-800/30 border-slate-700">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <AlertCircle className="h-12 w-12 text-slate-400 mb-4" />
+              <h3 className="text-lg font-semibold mb-2 text-white">No Accounts Connected</h3>
+              <p className="text-slate-400 text-center mb-4">
+                Connect your brokerage or bank accounts to start managing your finances
+              </p>
+              <Link href="/connections">
+                <Button className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800">
+                  Connect Your First Account
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <Tabs defaultValue="brokerages" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 border-slate-700">
+              <TabsTrigger 
+                value="brokerages"
+                className="data-[state=active]:bg-purple-600/20 data-[state=active]:text-purple-200 data-[state=active]:border-purple-500/50 text-slate-300"
+              >
+                Brokerages ({brokerageAccounts.length})
+              </TabsTrigger>
+              <TabsTrigger 
+                value="banks"
+                className="data-[state=active]:bg-purple-600/20 data-[state=active]:text-purple-200 data-[state=active]:border-purple-500/50 text-slate-300"
+              >
+                Banks & Cards ({bankAccounts.length})
+              </TabsTrigger>
+            </TabsList>
 
           <TabsContent value="brokerages" className="space-y-4">
             {isLoading ? (
@@ -195,19 +215,19 @@ export default function Accounts() {
                 ))}
               </div>
             ) : brokerageAccounts.length === 0 ? (
-              <Card className="border-dashed">
+              <Card className="border-dashed bg-slate-800/30 border-slate-700">
                 <CardContent className="text-center py-8">
-                  <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No brokerage accounts connected</p>
+                  <Building2 className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                  <p className="text-slate-400">No brokerage accounts connected</p>
                   <Link href="/connections">
-                    <Button variant="link" className="mt-2">Connect Brokerage</Button>
+                    <Button variant="link" className="mt-2 text-purple-400 hover:text-purple-300">Connect Brokerage</Button>
                   </Link>
                 </CardContent>
               </Card>
             ) : (
               <div className="space-y-4">
                 {brokerageAccounts.map((account) => (
-                  <Card key={account.id} className="hover:shadow-md transition-shadow">
+                  <Card key={account.id} className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:bg-slate-800/70 transition-colors">
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-start">
                         <div>
@@ -336,8 +356,9 @@ export default function Accounts() {
               </div>
             )}
           </TabsContent>
-        </Tabs>
-      )}
+          </Tabs>
+        )}
+      </div>
     </div>
   );
 }

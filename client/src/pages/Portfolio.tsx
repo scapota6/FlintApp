@@ -163,57 +163,65 @@ export default function Portfolio() {
   const isPositive = (summary?.performance?.dayValue || 0) >= 0;
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Portfolio Overview</h1>
-          <p className="text-muted-foreground mt-1">
-            Your complete financial picture across {summary?.metadata?.accountCount || 0} accounts
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
+      <div className="container mx-auto px-4 pt-24 pb-12 max-w-7xl">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-purple-200 to-purple-400 bg-clip-text text-transparent">
+                Portfolio Overview
+              </h1>
+              <p className="text-slate-400 mt-2">
+                Your complete financial picture across {summary?.metadata?.accountCount || 0} accounts
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="border-purple-500/50 bg-purple-500/10 hover:bg-purple-500/20"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+          </div>
         </div>
-        <Button 
-          variant="outline" 
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </div>
 
-      {/* Data freshness indicator */}
-      {summary?.metadata?.dataDelayed && (
-        <Alert className="mb-6">
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            Some market data may be delayed. Last updated: {new Date(summary.metadata.lastUpdated).toLocaleTimeString()}
-          </AlertDescription>
-        </Alert>
-      )}
+        {/* Data freshness indicator */}
+        {summary?.metadata?.dataDelayed && (
+          <Alert className="mb-8 bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+            <Info className="h-4 w-4 text-purple-400" />
+            <AlertDescription className="text-slate-300">
+              Some market data may be delayed. Last updated: {new Date(summary.metadata.lastUpdated).toLocaleTimeString()}
+            </AlertDescription>
+          </Alert>
+        )}
 
-      {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Net Worth
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(summary?.totals?.netWorth || 0)}
-            </div>
-            <div className={`flex items-center mt-2 text-sm ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-              {isPositive ? <ArrowUpRight className="h-4 w-4 mr-1" /> : <ArrowDownRight className="h-4 w-4 mr-1" />}
-              <span>{formatPercent(summary?.performance?.dayPct || 0)} today</span>
-            </div>
-          </CardContent>
+        {/* Key Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:bg-slate-800/70 transition-colors">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-slate-400">
+                Net Worth
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-white">
+                {formatCurrency(summary?.totals?.netWorth || 0)}
+              </div>
+              <div className={`flex items-center mt-2 text-sm ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                {isPositive ? <ArrowUpRight className="h-4 w-4 mr-1" /> : <ArrowDownRight className="h-4 w-4 mr-1" />}
+                <span>{formatPercent(summary?.performance?.dayPct || 0)} today</span>
+              </div>
+            </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:bg-slate-800/70 transition-colors">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-slate-400">
               <div className="flex items-center gap-2">
                 <Wallet className="h-4 w-4" />
                 Investable Assets
@@ -221,18 +229,18 @@ export default function Portfolio() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold text-white">
               {formatCurrency(summary?.totals?.investable || 0)}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-xs text-slate-400 mt-2">
               Stocks & Crypto
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:bg-slate-800/70 transition-colors">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-slate-400">
               <div className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
                 Cash & Equivalents
@@ -240,30 +248,30 @@ export default function Portfolio() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold text-white">
               {formatCurrency(summary?.totals?.cash || 0)}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Liquid funds
+            <p className="text-xs text-slate-400 mt-2">
+              Available for investment
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:bg-slate-800/70 transition-colors">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-slate-400">
               <div className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4" />
-                Liabilities
+                Total Debt
               </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(summary?.totals?.debt || 0)}
+            <div className="text-2xl font-bold text-red-400">
+              {formatCurrency(Math.abs(summary?.totals?.debt || 0))}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Credit & Loans
+            <p className="text-xs text-slate-400 mt-2">
+              Credit cards & loans
             </p>
           </CardContent>
         </Card>
@@ -272,10 +280,10 @@ export default function Portfolio() {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Asset Mix Donut Chart */}
-        <Card>
+        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle>Asset Allocation</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-white">Asset Allocation</CardTitle>
+            <CardDescription className="text-slate-400">
               Portfolio breakdown by asset class
             </CardDescription>
           </CardHeader>
@@ -315,12 +323,12 @@ export default function Portfolio() {
         </Card>
 
         {/* Performance Chart */}
-        <Card>
+        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
           <CardHeader>
             <div className="flex justify-between items-center">
               <div>
-                <CardTitle>Performance</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-white">Performance</CardTitle>
+                <CardDescription className="text-slate-400">
                   Portfolio value over time
                 </CardDescription>
               </div>
@@ -372,9 +380,9 @@ export default function Portfolio() {
       </div>
 
       {/* Performance Summary */}
-      <Card className="mt-6">
+      <Card className="mt-6 bg-slate-800/50 border-slate-700 backdrop-blur-sm">
         <CardHeader>
-          <CardTitle>Performance Summary</CardTitle>
+          <CardTitle className="text-white">Performance Summary</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -412,9 +420,10 @@ export default function Portfolio() {
         </CardContent>
       </Card>
 
-      {/* Footer disclaimer */}
-      <div className="mt-6 text-center text-xs text-muted-foreground">
-        All values displayed in USD. Market data may be delayed by up to 15 minutes.
+        {/* Footer disclaimer */}
+        <div className="mt-6 text-center text-xs text-slate-400">
+          All values displayed in USD. Market data may be delayed by up to 15 minutes.
+        </div>
       </div>
     </div>
   );

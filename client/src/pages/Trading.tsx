@@ -77,35 +77,38 @@ export default function Trading() {
   const hasAccounts = accounts && accounts.length > 0;
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Trading</h1>
-        <p className="text-muted-foreground mt-1">
-          Execute trades across your connected brokerage accounts
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
+      <div className="container mx-auto px-4 pt-24 pb-12 max-w-7xl">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-purple-200 to-purple-400 bg-clip-text text-transparent">
+            Trading
+          </h1>
+          <p className="text-slate-400 mt-2">
+            Execute trades across your connected brokerage accounts
+          </p>
+        </div>
 
-      {/* Account Warning */}
-      {!hasAccounts && (
-        <Alert className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Connect a brokerage account to start trading.{' '}
-            <Button variant="link" className="p-0 h-auto" onClick={() => window.location.href = '/connections'}>
-              Connect Account
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+        {/* Account Warning */}
+        {!hasAccounts && (
+          <Alert className="mb-8 bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+            <AlertCircle className="h-4 w-4 text-purple-400" />
+            <AlertDescription className="text-slate-300">
+              Connect a brokerage account to start trading.{' '}
+              <Button variant="link" className="p-0 h-auto text-purple-400 hover:text-purple-300" onClick={() => window.location.href = '/connections'}>
+                Connect Account
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
-      {/* Symbol Search */}
-      <Card className="mb-6 border-gray-800">
-        <CardHeader>
-          <CardTitle>Symbol Search</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2 relative">
+        {/* Symbol Search */}
+        <Card className="mb-8 bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-white">Symbol Search</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2 relative">
             <Input
               placeholder="Search stocks, ETFs..."
               value={searchInput}
@@ -137,11 +140,11 @@ export default function Trading() {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Main Trading Interface */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Trading Interface */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chart - Takes 2 columns */}
         <div className="lg:col-span-2 space-y-6">
           <SimpleTradingChart 
@@ -165,9 +168,9 @@ export default function Trading() {
         <div className="space-y-6">
           {/* Account Selector */}
           {hasAccounts && (
-            <Card className="border-gray-800">
+            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="text-sm">Trading Account</CardTitle>
+                <CardTitle className="text-sm text-white">Trading Account</CardTitle>
               </CardHeader>
               <CardContent>
                 <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
@@ -202,29 +205,30 @@ export default function Trading() {
           />
           
           {/* Market Info */}
-          <Card className="border-gray-800">
+          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="text-sm">Market Info</CardTitle>
+              <CardTitle className="text-sm text-white">Market Info</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Symbol</span>
-                <span className="font-semibold">{symbol}</span>
+                <span className="text-slate-400">Symbol</span>
+                <span className="font-semibold text-white">{symbol}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Last Price</span>
-                <span className="font-semibold">
+                <span className="text-slate-400">Last Price</span>
+                <span className="font-semibold text-white">
                   ${currentPrice.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Market Status</span>
-                <span className="font-semibold">
+                <span className="text-slate-400">Market Status</span>
+                <span className="font-semibold text-white">
                   {new Date().getHours() >= 9 && new Date().getHours() < 16 ? 'Open' : 'Closed'}
                 </span>
               </div>
             </CardContent>
           </Card>
+          </div>
         </div>
       </div>
     </div>
