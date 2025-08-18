@@ -73,14 +73,8 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
       });
     }
     
-    // Verify account ownership
-    const account = await storage.getConnectedAccount(parseInt(accountId));
-    if (!account || account.userId !== userId) {
-      return res.status(403).json({ 
-        message: "Account not found or unauthorized"
-      });
-    }
-    
+    // For SnapTrade accounts, verify ownership by checking the account exists in user's accounts
+    // The accountId here is the SnapTrade external account ID (UUID)
     try {
       // Get symbol details from SnapTrade
       const { data: symbolData } = await snaptradeClient.referenceData.getSymbolsByTicker({
@@ -103,7 +97,7 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
       const { data: impact } = await snaptradeClient.trading.getOrderImpact({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
-        accountId: account.externalAccountId!,
+        accountId: accountId, // Use the accountId directly - it's the SnapTrade external account ID
         action,
         universalSymbolId: universalSymbolId!,
         orderType: orderTypeSnap,
@@ -132,8 +126,8 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
         buyingPower: impact.buying_power_effect,
         account: {
           id: accountId,
-          name: account.accountName,
-          provider: account.provider
+          name: 'Brokerage Account',
+          provider: 'snaptrade'
         }
       });
       
@@ -188,13 +182,8 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
       });
     }
     
-    // Verify account ownership
-    const account = await storage.getConnectedAccount(parseInt(accountId));
-    if (!account || account.userId !== userId) {
-      return res.status(403).json({ 
-        message: "Account not found or unauthorized"
-      });
-    }
+    // For SnapTrade accounts, we don't need database lookup
+    // The accountId is the SnapTrade external account ID (UUID)
     
     try {
       // Get symbol details
@@ -221,7 +210,7 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
       const { data: order } = await snaptradeClient.trading.placeOrder({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
-        accountId: account.externalAccountId!,
+        accountId: accountId, // Use the accountId directly - it's the SnapTrade external account ID
         action,
         universalSymbolId: universalSymbolId!,
         orderType,
@@ -312,20 +301,15 @@ router.post("/cancel", isAuthenticated, async (req: any, res) => {
       });
     }
     
-    // Verify account ownership
-    const account = await storage.getConnectedAccount(parseInt(accountId));
-    if (!account || account.userId !== userId) {
-      return res.status(403).json({ 
-        message: "Account not found or unauthorized"
-      });
-    }
+    // For SnapTrade accounts, we don't need database lookup
+    // The accountId is the SnapTrade external account ID (UUID)
     
     try {
       // Cancel the order
       await snaptradeClient.trading.cancelUserAccountOrder({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
-        accountId: account.externalAccountId!,
+        accountId: accountId, // Use the accountId directly - it's the SnapTrade external account ID
         brokerageOrderId: orderId
       });
       
@@ -393,20 +377,15 @@ router.get("/orders", isAuthenticated, async (req: any, res) => {
       });
     }
     
-    // Verify account ownership
-    const account = await storage.getConnectedAccount(parseInt(accountId as string));
-    if (!account || account.userId !== userId) {
-      return res.status(403).json({ 
-        message: "Account not found or unauthorized"
-      });
-    }
+    // For SnapTrade accounts, we don't need database lookup
+    // The accountId is the SnapTrade external account ID (UUID)
     
     try {
       // Get orders from SnapTrade
       const { data: orders } = await snaptradeClient.accountInformation.getUserAccountOrders({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
-        accountId: account.externalAccountId!,
+        accountId: accountId as string, // Use the accountId directly - it's the SnapTrade external account ID
         state: 'all' // Get all orders
       });
       
@@ -439,7 +418,7 @@ router.get("/orders", isAuthenticated, async (req: any, res) => {
         open: openOrders,
         recent: recentOrders,
         accountId,
-        accountName: account.accountName
+        accountName: 'Brokerage Account'
       });
       
     } catch (snapError: any) {

@@ -343,11 +343,11 @@ export default function OrderTicket({ symbol, currentPrice = 0, onOrderPlaced }:
             <>
               <div className="flex justify-between text-sm">
                 <span>Commission</span>
-                <span>${preview.commission.toFixed(2)}</span>
+                <span>${(preview.commission || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm font-semibold">
                 <span>Total</span>
-                <span>${preview.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span>${(preview.totalCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </>
           )}
