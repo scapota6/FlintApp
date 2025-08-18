@@ -295,50 +295,72 @@ export default function Portfolio() {
           </CardHeader>
           <CardContent>
             {chartData.length > 0 ? (
-              <div className="relative">
-                {/* Background glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-lg blur-xl"></div>
-                <ResponsiveContainer width="100%" height={350}>
+              <div className="chart-container chart-glow relative overflow-hidden">
+                {/* Animated background effects */}
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-blue-500/5 to-emerald-500/10 rounded-lg blur-2xl animate-pulse"></div>
+                <div className="floating-element absolute top-0 left-0 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl"></div>
+                <div className="floating-element absolute bottom-0 right-0 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl" style={{animationDelay: '2s'}}></div>
+                <div className="floating-element absolute top-1/3 right-1/4 w-16 h-16 bg-emerald-500/15 rounded-full blur-2xl" style={{animationDelay: '1s'}}></div>
+                <ResponsiveContainer width="100%" height={380}>
                   <PieChart>
                     <defs>
-                      <linearGradient id="stocksGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1}/>
-                        <stop offset="100%" stopColor="#a855f7" stopOpacity={0.8}/>
-                      </linearGradient>
-                      <linearGradient id="cryptoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#3b82f6" stopOpacity={1}/>
-                        <stop offset="100%" stopColor="#1d4ed8" stopOpacity={0.8}/>
-                      </linearGradient>
-                      <linearGradient id="cashGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#10b981" stopOpacity={1}/>
-                        <stop offset="100%" stopColor="#059669" stopOpacity={0.8}/>
-                      </linearGradient>
-                      <linearGradient id="debtGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#ef4444" stopOpacity={1}/>
-                        <stop offset="100%" stopColor="#dc2626" stopOpacity={0.8}/>
-                      </linearGradient>
+                      {/* 3D Effect Gradients */}
+                      <radialGradient id="stocksGrad3D" cx="30%" cy="30%">
+                        <stop offset="0%" stopColor="#c084fc" stopOpacity={1}/>
+                        <stop offset="50%" stopColor="#8b5cf6" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="#6d28d9" stopOpacity={0.9}/>
+                      </radialGradient>
+                      <radialGradient id="cryptoGrad3D" cx="30%" cy="30%">
+                        <stop offset="0%" stopColor="#60a5fa" stopOpacity={1}/>
+                        <stop offset="50%" stopColor="#3b82f6" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="#1e40af" stopOpacity={0.9}/>
+                      </radialGradient>
+                      <radialGradient id="cashGrad3D" cx="30%" cy="30%">
+                        <stop offset="0%" stopColor="#34d399" stopOpacity={1}/>
+                        <stop offset="50%" stopColor="#10b981" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="#047857" stopOpacity={0.9}/>
+                      </radialGradient>
+                      <radialGradient id="debtGrad3D" cx="30%" cy="30%">
+                        <stop offset="0%" stopColor="#f87171" stopOpacity={1}/>
+                        <stop offset="50%" stopColor="#ef4444" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="#b91c1c" stopOpacity={0.9}/>
+                      </radialGradient>
+                      {/* Glow filters */}
+                      <filter id="pieGlow" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                        <feMerge> 
+                          <feMergeNode in="coloredBlur"/>
+                          <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                      </filter>
                     </defs>
                     <Pie
                       data={chartData}
                       cx="50%"
-                      cy="50%"
-                      innerRadius={80}
-                      outerRadius={130}
-                      paddingAngle={4}
+                      cy="47%"
+                      innerRadius={70}
+                      outerRadius={140}
+                      paddingAngle={6}
                       dataKey="value"
                       animationBegin={0}
-                      animationDuration={800}
+                      animationDuration={1200}
                       animationEasing="ease-out"
+                      startAngle={90}
+                      endAngle={450}
                     >
                       {chartData.map((entry: any, index: number) => (
                         <Cell 
                           key={`cell-${index}`} 
-                          fill={entry.bucket === 'Stocks' ? 'url(#stocksGrad)' :
-                                entry.bucket === 'Crypto' ? 'url(#cryptoGrad)' :
-                                entry.bucket === 'Cash' ? 'url(#cashGrad)' :
-                                'url(#debtGrad)'}
-                          stroke="rgba(255,255,255,0.1)"
-                          strokeWidth={2}
+                          fill={entry.bucket === 'Stocks' ? 'url(#stocksGrad3D)' :
+                                entry.bucket === 'Crypto' ? 'url(#cryptoGrad3D)' :
+                                entry.bucket === 'Cash' ? 'url(#cashGrad3D)' :
+                                'url(#debtGrad3D)'}
+                          stroke="rgba(255,255,255,0.2)"
+                          strokeWidth={3}
+                          style={{
+                            filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.3)) drop-shadow(0 0 20px rgba(139, 92, 246, 0.3))',
+                            cursor: 'pointer'
+                          }}
                         />
                       ))}
                     </Pie>
@@ -393,29 +415,44 @@ export default function Portfolio() {
           </CardHeader>
           <CardContent>
             {history?.dataPoints ? (
-              <div className="relative">
-                {/* Background glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 rounded-lg"></div>
-                <ResponsiveContainer width="100%" height={350}>
+              <div className="chart-container chart-glow relative overflow-hidden">
+                {/* Dynamic background effects */}
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 via-transparent to-blue-500/5 rounded-lg"></div>
+                <div className="floating-element absolute top-0 left-1/4 w-16 h-16 bg-gradient-to-br from-purple-400/30 to-transparent rounded-full blur-xl"></div>
+                <div className="floating-element absolute bottom-0 right-1/3 w-20 h-20 bg-gradient-to-tl from-blue-400/25 to-transparent rounded-full blur-2xl" style={{animationDelay: '1.5s'}}></div>
+                <div className="floating-element absolute top-1/2 left-1/2 w-12 h-12 bg-gradient-to-r from-cyan-400/20 to-transparent rounded-full blur-xl" style={{animationDelay: '3s'}}></div>
+                <ResponsiveContainer width="100%" height={380}>
                   <AreaChart data={history.dataPoints} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                     <defs>
-                      <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05}/>
+                      {/* 3D Area Chart Gradients */}
+                      <linearGradient id="areaGradient3D" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#c084fc" stopOpacity={0.6}/>
+                        <stop offset="25%" stopColor="#8b5cf6" stopOpacity={0.4}/>
+                        <stop offset="75%" stopColor="#7c3aed" stopOpacity={0.2}/>
+                        <stop offset="100%" stopColor="#5b21b6" stopOpacity={0.05}/>
                       </linearGradient>
-                      <filter id="glow">
-                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                      {/* Enhanced glow effect */}
+                      <filter id="areaGlow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="5" result="coloredBlur"/>
+                        <feOffset dx="0" dy="0" result="offsetBlur"/>
+                        <feFlood floodColor="#8b5cf6" floodOpacity="0.3"/>
+                        <feComposite in2="offsetBlur" operator="in"/>
                         <feMerge> 
-                          <feMergeNode in="coloredBlur"/>
+                          <feMergeNode/>
                           <feMergeNode in="SourceGraphic"/>
                         </feMerge>
                       </filter>
+                      {/* Grid line effect */}
+                      <pattern id="gridPattern" patternUnits="userSpaceOnUse" width="40" height="40">
+                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(139, 92, 246, 0.05)" strokeWidth="1"/>
+                      </pattern>
                     </defs>
                     <CartesianGrid 
-                      strokeDasharray="3 3" 
-                      stroke="rgba(148, 163, 184, 0.1)" 
+                      strokeDasharray="8 4" 
+                      stroke="rgba(139, 92, 246, 0.15)" 
                       horizontal={true}
                       vertical={false}
+                      className="recharts-cartesian-grid-horizontal"
                     />
                     <XAxis 
                       dataKey="timestamp" 
@@ -448,11 +485,13 @@ export default function Portfolio() {
                       type="monotone"
                       dataKey="value"
                       stroke="#8b5cf6"
-                      strokeWidth={3}
-                      fill="url(#colorGradient)"
-                      filter="url(#glow)"
-                      animationDuration={1000}
-                      animationEasing="ease-in-out"
+                      strokeWidth={4}
+                      fill="url(#areaGradient3D)"
+                      filter="url(#areaGlow)"
+                      animationDuration={1500}
+                      animationEasing="ease-out"
+                      dot={{ fill: '#8b5cf6', stroke: '#fff', strokeWidth: 2, r: 0 }}
+                      activeDot={{ r: 8, fill: '#8b5cf6', stroke: '#fff', strokeWidth: 3, filter: 'drop-shadow(0 0 10px rgba(139, 92, 246, 0.8))' }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
