@@ -134,10 +134,20 @@ export function PortfolioBreakdown({
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg">
-          <p className="text-white font-medium">{data.name}</p>
-          <p className="text-green-400 font-semibold">{formatCurrency(data.value)}</p>
-          <p className="text-gray-400 text-sm">{formatPercent(data.percentage)}</p>
+        <div className="bg-slate-800/95 border border-slate-700 rounded-lg p-4 shadow-2xl backdrop-blur-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div 
+              className="w-3 h-3 rounded-full" 
+              style={{ backgroundColor: data.color }}
+            ></div>
+            <p className="font-semibold text-white">{data.name}</p>
+          </div>
+          <p className="text-lg font-bold text-white mb-1">
+            {formatCurrency(data.value)}
+          </p>
+          <p className="text-xs text-slate-400">
+            {formatPercent(data.percentage)} of total portfolio
+          </p>
         </div>
       );
     }
@@ -215,27 +225,77 @@ export function PortfolioBreakdown({
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Pie Chart */}
+            {/* 3D Pie Chart */}
             <div className="flex flex-col">
               <h3 className="text-white font-medium mb-4 text-center">Asset Allocation</h3>
-              <div className="h-64">
+              <div className="chart-container chart-glow relative overflow-hidden h-80">
+                {/* Animated background effects */}
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-green-500/5 to-orange-500/10 rounded-lg blur-2xl animate-pulse"></div>
+                <div className="floating-element absolute top-0 left-0 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl"></div>
+                <div className="floating-element absolute bottom-0 right-0 w-24 h-24 bg-green-500/20 rounded-full blur-2xl" style={{animationDelay: '2s'}}></div>
+                <div className="floating-element absolute top-1/3 right-1/4 w-16 h-16 bg-orange-500/15 rounded-full blur-2xl" style={{animationDelay: '1s'}}></div>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
+                    <defs>
+                      {/* 3D Effect Gradients for each category */}
+                      <radialGradient id="stocksGradient3D" cx="30%" cy="30%">
+                        <stop offset="0%" stopColor="#34d399" stopOpacity={1}/>
+                        <stop offset="50%" stopColor="#10b981" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="#047857" stopOpacity={0.9}/>
+                      </radialGradient>
+                      <radialGradient id="bankGradient3D" cx="30%" cy="30%">
+                        <stop offset="0%" stopColor="#60a5fa" stopOpacity={1}/>
+                        <stop offset="50%" stopColor="#3b82f6" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="#1e40af" stopOpacity={0.9}/>
+                      </radialGradient>
+                      <radialGradient id="cryptoGradient3D" cx="30%" cy="30%">
+                        <stop offset="0%" stopColor="#fbbf24" stopOpacity={1}/>
+                        <stop offset="50%" stopColor="#f59e0b" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="#d97706" stopOpacity={0.9}/>
+                      </radialGradient>
+                      <radialGradient id="cashGradient3D" cx="30%" cy="30%">
+                        <stop offset="0%" stopColor="#c084fc" stopOpacity={1}/>
+                        <stop offset="50%" stopColor="#8b5cf6" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="#6d28d9" stopOpacity={0.9}/>
+                      </radialGradient>
+                      {/* Glow filters */}
+                      <filter id="pieGlowEffect" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                        <feMerge> 
+                          <feMergeNode in="coloredBlur"/>
+                          <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                      </filter>
+                    </defs>
                     <Pie
                       data={portfolioData.chartData}
                       cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
+                      cy="47%"
+                      innerRadius={65}
+                      outerRadius={120}
+                      paddingAngle={6}
                       dataKey="value"
+                      animationBegin={0}
+                      animationDuration={1200}
+                      animationEasing="ease-out"
+                      startAngle={90}
+                      endAngle={450}
                     >
                       {portfolioData.chartData.map((entry, index) => (
                         <Cell 
                           key={`cell-${index}`} 
-                          fill={entry.color} 
-                          stroke={entry.color}
-                          strokeWidth={2}
+                          fill={
+                            entry.name.includes('Stocks') || entry.name.includes('ETF') ? 'url(#stocksGradient3D)' :
+                            entry.name.includes('Bank') ? 'url(#bankGradient3D)' :
+                            entry.name.includes('Crypto') ? 'url(#cryptoGradient3D)' :
+                            'url(#cashGradient3D)'
+                          }
+                          stroke="rgba(255,255,255,0.2)"
+                          strokeWidth={3}
+                          style={{
+                            filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.3)) drop-shadow(0 0 20px rgba(139, 92, 246, 0.3))',
+                            cursor: 'pointer'
+                          }}
                         />
                       ))}
                     </Pie>
