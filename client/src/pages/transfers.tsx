@@ -106,13 +106,19 @@ export default function Transfers() {
     }
   };
 
-  const quickTransferOptions = accounts?.slice(0, 4).map((account: any) => ({
+  // Combine all accounts into a single array for transfers
+  const allAccounts = [
+    ...(accounts?.brokerages || []),
+    ...(accounts?.banks || [])
+  ];
+
+  const quickTransferOptions = allAccounts.slice(0, 4).map((account: any) => ({
     id: account.id,
-    name: account.accountName,
+    name: account.accountName || account.name,
     balance: account.balance,
-    type: account.accountType,
-    institution: account.institutionName,
-  })) || [];
+    type: account.accountType || (accounts?.brokerages?.includes(account) ? 'brokerage' : 'bank'),
+    institution: account.institutionName || account.institution,
+  }));
 
   if (accountsLoading || transfersLoading) {
     return (
