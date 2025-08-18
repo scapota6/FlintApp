@@ -15,7 +15,7 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid, Area, AreaChart } from "recharts";
 import { queryClient } from "@/lib/queryClient";
 
 // Type definitions
@@ -77,18 +77,24 @@ const formatPercent = (value: number) => {
   return `${sign}${value.toFixed(2)}%`;
 };
 
-// Custom tooltip for donut chart
+// Enhanced custom tooltip for donut chart
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0];
     return (
-      <div className="bg-background border rounded-lg p-3 shadow-lg">
-        <p className="font-semibold">{data.name}</p>
-        <p className="text-sm text-muted-foreground">
+      <div className="bg-slate-800/95 border border-slate-700 rounded-lg p-4 shadow-2xl backdrop-blur-sm">
+        <div className="flex items-center gap-2 mb-2">
+          <div 
+            className="w-3 h-3 rounded-full" 
+            style={{ backgroundColor: data.fill || data.color }}
+          ></div>
+          <p className="font-semibold text-white">{data.name}</p>
+        </div>
+        <p className="text-lg font-bold text-white mb-1">
           {formatCurrency(Math.abs(data.value))}
         </p>
-        <p className="text-xs text-muted-foreground">
-          {data.payload.percentage.toFixed(1)}% of portfolio
+        <p className="text-xs text-slate-400">
+          {data.payload.percentage.toFixed(1)}% of total portfolio
         </p>
       </div>
     );
@@ -289,34 +295,76 @@ export default function Portfolio() {
           </CardHeader>
           <CardContent>
             {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {chartData.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend 
-                    verticalAlign="bottom" 
-                    height={36}
-                    formatter={(value: string) => (
-                      <span className="text-sm">{value}</span>
-                    )}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="relative">
+                {/* Background glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-lg blur-xl"></div>
+                <ResponsiveContainer width="100%" height={350}>
+                  <PieChart>
+                    <defs>
+                      <linearGradient id="stocksGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="#a855f7" stopOpacity={0.8}/>
+                      </linearGradient>
+                      <linearGradient id="cryptoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#3b82f6" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="#1d4ed8" stopOpacity={0.8}/>
+                      </linearGradient>
+                      <linearGradient id="cashGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="#059669" stopOpacity={0.8}/>
+                      </linearGradient>
+                      <linearGradient id="debtGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#ef4444" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="#dc2626" stopOpacity={0.8}/>
+                      </linearGradient>
+                    </defs>
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={80}
+                      outerRadius={130}
+                      paddingAngle={4}
+                      dataKey="value"
+                      animationBegin={0}
+                      animationDuration={800}
+                      animationEasing="ease-out"
+                    >
+                      {chartData.map((entry: any, index: number) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.bucket === 'Stocks' ? 'url(#stocksGrad)' :
+                                entry.bucket === 'Crypto' ? 'url(#cryptoGrad)' :
+                                entry.bucket === 'Cash' ? 'url(#cashGrad)' :
+                                'url(#debtGrad)'}
+                          stroke="rgba(255,255,255,0.1)"
+                          strokeWidth={2}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={50}
+                      iconType="circle"
+                      formatter={(value: string) => (
+                        <span className="text-sm text-slate-300 font-medium">{value}</span>
+                      )}
+                      wrapperStyle={{
+                        paddingTop: '20px'
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                No data available
+              <div className="h-[350px] flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-500/20 to-blue-500/20 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-blue-500"></div>
+                  </div>
+                  <p className="text-slate-400">No portfolio data available</p>
+                </div>
               </div>
             )}
           </CardContent>
@@ -345,34 +393,78 @@ export default function Portfolio() {
           </CardHeader>
           <CardContent>
             {history?.dataPoints ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={history.dataPoints}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis 
-                    dataKey="timestamp" 
-                    tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                    stroke="#666"
-                  />
-                  <YAxis 
-                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
-                    stroke="#666"
-                  />
-                  <Tooltip 
-                    formatter={(value: any) => formatCurrency(value)}
-                    labelFormatter={(label) => new Date(label).toLocaleString()}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="#8b5cf6" 
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="relative">
+                {/* Background glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 rounded-lg"></div>
+                <ResponsiveContainer width="100%" height={350}>
+                  <AreaChart data={history.dataPoints} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                    <defs>
+                      <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05}/>
+                      </linearGradient>
+                      <filter id="glow">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                        <feMerge> 
+                          <feMergeNode in="coloredBlur"/>
+                          <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                      </filter>
+                    </defs>
+                    <CartesianGrid 
+                      strokeDasharray="3 3" 
+                      stroke="rgba(148, 163, 184, 0.1)" 
+                      horizontal={true}
+                      vertical={false}
+                    />
+                    <XAxis 
+                      dataKey="timestamp" 
+                      tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                      stroke="#64748b"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis 
+                      tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                      stroke="#64748b"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      width={60}
+                    />
+                    <Tooltip 
+                      formatter={(value: any) => [formatCurrency(value), 'Portfolio Value']}
+                      labelFormatter={(label) => new Date(label).toLocaleString()}
+                      contentStyle={{
+                        backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                        border: '1px solid rgba(148, 163, 184, 0.2)',
+                        borderRadius: '8px',
+                        color: '#f1f5f9',
+                        backdropFilter: 'blur(10px)'
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#8b5cf6"
+                      strokeWidth={3}
+                      fill="url(#colorGradient)"
+                      filter="url(#glow)"
+                      animationDuration={1000}
+                      animationEasing="ease-in-out"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                Loading chart data...
+              <div className="h-[350px] flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-500/20 to-blue-500/20 flex items-center justify-center">
+                    <div className="w-2 h-8 bg-gradient-to-t from-purple-500 to-blue-500 rounded-full animate-pulse"></div>
+                  </div>
+                  <p className="text-slate-400">Loading performance data...</p>
+                </div>
               </div>
             )}
           </CardContent>
