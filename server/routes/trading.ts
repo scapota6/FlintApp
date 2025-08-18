@@ -206,8 +206,12 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
                   timeInForce === 'ioc' ? 'IOC' :
                   timeInForce === 'fok' ? 'FOK' : 'Day';
       
-      // Place the order
-      const { data: order } = await snaptradeClient.trading.placeOrder({
+      // Generate a unique order ID for idempotency
+      const { v4: uuidv4 } = require('uuid');
+      const orderUUID = uuidv4();
+      
+      // Use placeForceOrder as recommended by SnapTrade for better error handling
+      const { data: order } = await snaptradeClient.trading.placeForceOrder({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
         accountId: accountId, // Use the accountId directly - it's the SnapTrade external account ID
@@ -217,7 +221,8 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
         timeInForce: tif,
         units: qty,
         price: limitPrice,
-        notionalValue: undefined // Let SnapTrade calculate
+        notionalValue: undefined, // Let SnapTrade calculate
+        brokerageOrderId: orderUUID // Unique ID for idempotency
       });
       
       // Log trade activity
@@ -348,6 +353,77 @@ router.post("/cancel", isAuthenticated, async (req: any, res) => {
 });
 
 /**
+ * GET /api/trade/quotes
+ * Get live quotes for symbols in an account
+ */
+router.get("/quotes", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { accountId, symbols } = req.query;
+    
+    if (!accountId) {
+      return res.status(400).json({ 
+        message: "Account ID is required"
+      });
+    }
+    
+    if (!symbols) {
+      return res.status(400).json({ 
+        message: "Symbols are required"
+      });
+    }
+    
+    // Check if SnapTrade is configured
+    if (!snaptradeClient) {
+      return res.status(503).json({ 
+        message: "Trading service not configured"
+      });
+    }
+    
+    // Get SnapTrade credentials
+    const snaptradeUser = await storage.getSnapTradeUser(userId);
+    if (!snaptradeUser?.snaptradeUserId || !snaptradeUser?.userSecret) {
+      return res.status(403).json({ 
+        message: "No brokerage account connected"
+      });
+    }
+    
+    try {
+      // Parse symbols (comma-separated)
+      const symbolList = symbols.split(',').map((s: string) => s.trim());
+      
+      // Get quotes from SnapTrade
+      const { data: quotes } = await snaptradeClient.trading.getUserAccountQuotes({
+        userId: snaptradeUser.snaptradeUserId,
+        userSecret: snaptradeUser.userSecret,
+        accountId: accountId as string,
+        symbols: symbolList.join(',')
+      });
+      
+      res.json({
+        quotes,
+        accountId
+      });
+      
+    } catch (snapError: any) {
+      logger.error("SnapTrade get quotes error", { snapError });
+      
+      return res.status(400).json({ 
+        message: "Failed to fetch quotes",
+        error: snapError.response?.data?.detail?.message || snapError.message
+      });
+    }
+    
+  } catch (error) {
+    logger.error("Error fetching quotes", { error });
+    res.status(500).json({ 
+      message: "Failed to fetch quotes",
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
+
+/**
  * GET /api/trade/orders
  * Get open and recent orders
  */
@@ -434,6 +510,134 @@ router.get("/orders", isAuthenticated, async (req: any, res) => {
     logger.error("Error fetching orders", { error });
     res.status(500).json({ 
       message: "Failed to fetch orders",
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
+
+/**
+ * POST /api/trade/replace
+ * Replace/modify an existing order
+ */
+router.post("/replace", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    
+    const { orderId, accountId, quantity, limitPrice } = req.body;
+    
+    if (!orderId || !accountId) {
+      return res.status(400).json({ 
+        message: "Order ID and Account ID are required"
+      });
+    }
+    
+    // Check if SnapTrade is configured
+    if (!snaptradeClient) {
+      return res.status(503).json({ 
+        message: "Trading service not configured"
+      });
+    }
+    
+    // Get SnapTrade credentials
+    const snaptradeUser = await storage.getSnapTradeUser(userId);
+    if (!snaptradeUser?.snaptradeUserId || !snaptradeUser?.userSecret) {
+      return res.status(403).json({ 
+        message: "No brokerage account connected"
+      });
+    }
+    
+    try {
+      // Replace the order
+      const { data: replacedOrder } = await snaptradeClient.trading.replaceOrder({
+        userId: snaptradeUser.snaptradeUserId,
+        userSecret: snaptradeUser.userSecret,
+        accountId: accountId,
+        brokerageOrderId: orderId,
+        units: quantity,
+        price: limitPrice
+      });
+      
+      // Log activity
+      await storage.logActivity(userId, 'order_replaced', {
+        orderId,
+        accountId,
+        newQuantity: quantity,
+        newPrice: limitPrice
+      });
+      
+      res.json({
+        success: true,
+        order: replacedOrder,
+        message: "Order replaced successfully"
+      });
+      
+    } catch (snapError: any) {
+      logger.error("SnapTrade replace order error", { snapError });
+      
+      const errorMessage = snapError.response?.data?.detail?.message || 
+                          snapError.response?.data?.message || 
+                          snapError.message;
+      
+      return res.status(400).json({ 
+        message: "Failed to replace order",
+        error: errorMessage
+      });
+    }
+    
+  } catch (error) {
+    logger.error("Error replacing order", { error });
+    res.status(500).json({ 
+      message: "Failed to replace order",
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
+
+/**
+ * GET /api/trade/crypto/search
+ * Search for cryptocurrency trading pairs
+ */
+router.get("/crypto/search", isAuthenticated, async (req: any, res) => {
+  try {
+    const { query } = req.query;
+    
+    if (!query) {
+      return res.status(400).json({ 
+        message: "Search query is required"
+      });
+    }
+    
+    // Check if SnapTrade is configured
+    if (!snaptradeClient) {
+      return res.status(503).json({ 
+        message: "Trading service not configured"
+      });
+    }
+    
+    try {
+      // Search for crypto pairs
+      const { data: pairs } = await snaptradeClient.trading.searchCryptocurrencyPairInstruments({
+        query: query as string
+      });
+      
+      res.json({
+        pairs,
+        query
+      });
+      
+    } catch (snapError: any) {
+      logger.error("SnapTrade crypto search error", { snapError });
+      
+      return res.status(400).json({ 
+        message: "Failed to search crypto pairs",
+        error: snapError.response?.data?.detail?.message || snapError.message
+      });
+    }
+    
+  } catch (error) {
+    logger.error("Error searching crypto pairs", { error });
+    res.status(500).json({ 
+      message: "Failed to search crypto pairs",
       error: error instanceof Error ? error.message : "Unknown error"
     });
   }
