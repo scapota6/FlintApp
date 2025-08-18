@@ -7,7 +7,7 @@ import { Router } from "express";
 import { isAuthenticated } from "../replitAuth";
 import { storage } from "../storage";
 import { logger } from "@shared/logger";
-import { snaptradeClient } from '../lib/snaptrade';
+import { snaptradeClient, searchSymbols, getOrderImpact, placeOrder } from '../lib/snaptrade';
 import { z } from "zod";
 
 const router = Router();
@@ -87,10 +87,8 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
         limitPrice
       });
       
-      // Get symbol details from SnapTrade
-      const { data: symbolData } = await snaptradeClient.tradingApi.getSymbolsByTicker({
-        query: symbol
-      });
+      // Get symbol details from SnapTrade using wrapper function
+      const symbolData = await searchSymbols(snaptradeUser.snaptradeUserId, snaptradeUser.userSecret, accountId, symbol);
       
       if (!symbolData || symbolData.length === 0) {
         return res.status(404).json({ 
@@ -105,7 +103,7 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
       const action = side === 'buy' ? 'BUY' : 'SELL';
       const orderTypeSnap = orderType === 'market' ? 'Market' : 'Limit';
       
-      // Get order impact from SnapTrade
+      // Get order impact from SnapTrade using wrapper function
       console.log('Calling getOrderImpact with:', {
         userId: snaptradeUser.snaptradeUserId,
         accountId,
@@ -117,17 +115,19 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
         price: limitPrice
       });
       
-      const { data: impact } = await snaptradeClient.tradingApi.getOrderImpact({
-        userId: snaptradeUser.snaptradeUserId,
-        userSecret: snaptradeUser.userSecret,
-        accountId: accountId, // Use the accountId directly - it's the SnapTrade external account ID
-        action,
-        universalSymbolId: universalSymbolId!,
-        orderType: orderTypeSnap,
-        timeInForce: 'Day',
-        units: quantity,
-        price: limitPrice
-      });
+      const impact = await getOrderImpact(
+        snaptradeUser.snaptradeUserId,
+        snaptradeUser.userSecret,
+        accountId,
+        {
+          action,
+          universalSymbolId: universalSymbolId!,
+          orderType: orderTypeSnap,
+          timeInForce: 'Day',
+          units: quantity,
+          price: limitPrice
+        }
+      );
       
       // Calculate estimated costs
       const estimatedValue = (limitPrice || impact.price || 0) * quantity;
@@ -219,10 +219,8 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
     // The accountId is the SnapTrade external account ID (UUID)
     
     try {
-      // Get symbol details
-      const { data: symbolData } = await snaptradeClient.tradingApi.getSymbolsByTicker({
-        query: symbol
-      });
+      // Get symbol details using wrapper function
+      const symbolData = await searchSymbols(snaptradeUser.snaptradeUserId, snaptradeUser.userSecret, accountId, symbol);
       
       if (!symbolData || symbolData.length === 0) {
         return res.status(404).json({ 
@@ -243,20 +241,21 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
       const { v4: uuidv4 } = require('uuid');
       const orderUUID = uuidv4();
       
-      // Use placeOrder method
-      const { data: order } = await snaptradeClient.tradingApi.placeOrder({
-        userId: snaptradeUser.snaptradeUserId,
-        userSecret: snaptradeUser.userSecret,
-        accountId: accountId, // Use the accountId directly - it's the SnapTrade external account ID
-        action,
-        universalSymbolId: universalSymbolId!,
-        orderType,
-        timeInForce: tif,
-        units: qty,
-        price: limitPrice,
-        notionalValue: undefined, // Let SnapTrade calculate
-        brokerageOrderId: orderUUID // Unique ID for idempotency
-      });
+      // Use placeOrder wrapper function
+      const order = await placeOrder(
+        snaptradeUser.snaptradeUserId,
+        snaptradeUser.userSecret,
+        accountId,
+        {
+          action,
+          universalSymbolId: universalSymbolId!,
+          orderType,
+          timeInForce: tif,
+          units: qty,
+          price: limitPrice,
+          idempotencyKey: orderUUID
+        }
+      );
       
       // Log trade activity
       await storage.logActivity({
