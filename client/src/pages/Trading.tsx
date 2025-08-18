@@ -195,6 +195,7 @@ export default function Trading() {
           <OrderTicket 
             symbol={symbol}
             currentPrice={currentPrice}
+            selectedAccountId={selectedAccountId}
             onOrderPlaced={() => {
               // Optionally refresh orders
             }}

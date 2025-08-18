@@ -28,6 +28,7 @@ import {
 interface OrderTicketProps {
   symbol: string;
   currentPrice?: number;
+  selectedAccountId?: string;
   onOrderPlaced?: () => void;
 }
 
@@ -57,28 +58,23 @@ interface OrderPreview {
   };
 }
 
-export default function OrderTicket({ symbol, currentPrice = 0, onOrderPlaced }: OrderTicketProps) {
+export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountId: propAccountId, onOrderPlaced }: OrderTicketProps) {
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
   const [quantity, setQuantity] = useState<string>('1');
   const [limitPrice, setLimitPrice] = useState<string>('');
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [timeInForce, setTimeInForce] = useState<'day' | 'gtc'>('day');
   const [preview, setPreview] = useState<OrderPreview | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
-  // Fetch connected brokerage accounts
+  // Use the account ID from props
+  const selectedAccountId = propAccountId || '';
+
+  // Fetch connected brokerage accounts for balance display
   const { data: accounts, isLoading: accountsLoading } = useQuery<BrokerageAccount[]>({
     queryKey: ['/api/accounts'],
     select: (data: any) => data.brokerages || []
   });
-
-  // Set default account when loaded
-  useEffect(() => {
-    if (accounts && accounts.length > 0 && !selectedAccountId) {
-      setSelectedAccountId(accounts[0].id);
-    }
-  }, [accounts, selectedAccountId]);
 
   // Set limit price to current price when switching to limit order
   useEffect(() => {
@@ -230,37 +226,6 @@ export default function OrderTicket({ symbol, currentPrice = 0, onOrderPlaced }:
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Account Selector */}
-        <div className="space-y-2">
-          <Label>Account</Label>
-          <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select account" />
-            </SelectTrigger>
-            <SelectContent className="bg-gray-900 border-gray-700">
-              {accounts?.map((account) => {
-                const balance = account.balance ? parseFloat(account.balance) : 0;
-                const formattedBalance = !isNaN(balance) ? balance.toLocaleString() : '0';
-                
-                return (
-                  <SelectItem 
-                    key={account.id} 
-                    value={account.id}
-                    className="hover:bg-gray-800 focus:bg-gray-800"
-                  >
-                    <div className="flex justify-between items-center w-full">
-                      <span className="text-white">{account.accountName}</span>
-                      <span className="text-xs text-gray-400 ml-2">
-                        ${formattedBalance}
-                      </span>
-                    </div>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        </div>
-
         {/* Buy/Sell Toggle */}
         <div className="space-y-2">
           <Label>Side</Label>

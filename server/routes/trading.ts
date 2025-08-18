@@ -76,6 +76,17 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
     // For SnapTrade accounts, verify ownership by checking the account exists in user's accounts
     // The accountId here is the SnapTrade external account ID (UUID)
     try {
+      // Log request data for debugging
+      console.log('Preview request data:', {
+        userId,
+        accountId,
+        symbol,
+        side,
+        quantity,
+        orderType,
+        limitPrice
+      });
+      
       // Get symbol details from SnapTrade
       const { data: symbolData } = await snaptradeClient.tradingApi.getSymbolsByTicker({
         query: symbol
@@ -88,12 +99,24 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
       }
       
       const universalSymbolId = symbolData[0].id;
+      console.log('Found symbol:', { symbol, universalSymbolId });
       
       // Build order impact preview
       const action = side === 'buy' ? 'BUY' : 'SELL';
       const orderTypeSnap = orderType === 'market' ? 'Market' : 'Limit';
       
       // Get order impact from SnapTrade
+      console.log('Calling getOrderImpact with:', {
+        userId: snaptradeUser.snaptradeUserId,
+        accountId,
+        action,
+        universalSymbolId,
+        orderType: orderTypeSnap,
+        timeInForce: 'Day',
+        units: quantity,
+        price: limitPrice
+      });
+      
       const { data: impact } = await snaptradeClient.tradingApi.getOrderImpact({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
@@ -132,10 +155,20 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
       });
       
     } catch (snapError: any) {
+      console.error("SnapTrade preview error - Full details:", {
+        message: snapError.message,
+        response: snapError.response?.data,
+        status: snapError.response?.status,
+        statusText: snapError.response?.statusText
+      });
+      
       logger.error("SnapTrade preview error", snapError);
       return res.status(400).json({ 
         message: "Failed to preview order",
-        error: snapError.response?.data?.detail?.message || snapError.message
+        error: snapError.response?.data?.detail?.message || 
+               snapError.response?.data?.message || 
+               snapError.message,
+        details: snapError.response?.data
       });
     }
     
@@ -254,6 +287,13 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
       });
       
     } catch (snapError: any) {
+      console.error("SnapTrade place order error - Full details:", {
+        message: snapError.message,
+        response: snapError.response?.data,
+        status: snapError.response?.status,
+        statusText: snapError.response?.statusText
+      });
+      
       logger.error("SnapTrade place order error", snapError);
       
       // Parse error message
