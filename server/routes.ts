@@ -1775,6 +1775,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Mount comprehensive admin routes
+  const adminRouter = await import('./routes/admin');
+  app.use('/api/admin', adminRouter.default);
+  
   const tradingRouter = await import('./routes/trading');
   app.use('/api/trade', tradingRouter.default);
 

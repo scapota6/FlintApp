@@ -77,7 +77,7 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
     // The accountId here is the SnapTrade external account ID (UUID)
     try {
       // Get symbol details from SnapTrade
-      const { data: symbolData } = await snaptradeClient.referenceData.getSymbolsByTicker({
+      const { data: symbolData } = await snaptradeClient.tradingApi.getSymbolsByTicker({
         query: symbol
       });
       
@@ -94,7 +94,7 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
       const orderTypeSnap = orderType === 'market' ? 'Market' : 'Limit';
       
       // Get order impact from SnapTrade
-      const { data: impact } = await snaptradeClient.trading.getOrderImpact({
+      const { data: impact } = await snaptradeClient.tradingApi.getOrderImpact({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
         accountId: accountId, // Use the accountId directly - it's the SnapTrade external account ID
@@ -132,7 +132,7 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
       });
       
     } catch (snapError: any) {
-      logger.error("SnapTrade preview error", { snapError });
+      logger.error("SnapTrade preview error", snapError);
       return res.status(400).json({ 
         message: "Failed to preview order",
         error: snapError.response?.data?.detail?.message || snapError.message
@@ -187,7 +187,7 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
     
     try {
       // Get symbol details
-      const { data: symbolData } = await snaptradeClient.referenceData.getSymbolsByTicker({
+      const { data: symbolData } = await snaptradeClient.tradingApi.getSymbolsByTicker({
         query: symbol
       });
       
@@ -210,8 +210,8 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
       const { v4: uuidv4 } = require('uuid');
       const orderUUID = uuidv4();
       
-      // Use placeForceOrder as recommended by SnapTrade for better error handling
-      const { data: order } = await snaptradeClient.trading.placeForceOrder({
+      // Use placeOrder method
+      const { data: order } = await snaptradeClient.tradingApi.placeOrder({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
         accountId: accountId, // Use the accountId directly - it's the SnapTrade external account ID
@@ -226,14 +226,19 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
       });
       
       // Log trade activity
-      await storage.logActivity(userId, 'trade_placed', {
-        orderId: order.brokerage_order_id,
-        symbol,
-        side,
-        quantity: qty,
-        orderType: type,
-        limitPrice,
-        accountId
+      await storage.logActivity({
+        userId,
+        action: 'trade_placed',
+        description: `Placed ${side} order for ${qty} shares of ${symbol}`,
+        metadata: {
+          orderId: order.brokerage_order_id,
+          symbol,
+          side,
+          quantity: qty,
+          orderType: type,
+          limitPrice,
+          accountId
+        }
       });
       
       res.json({
@@ -249,7 +254,7 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
       });
       
     } catch (snapError: any) {
-      logger.error("SnapTrade place order error", { snapError });
+      logger.error("SnapTrade place order error", snapError);
       
       // Parse error message
       const errorMessage = snapError.response?.data?.detail?.message || 
@@ -311,7 +316,7 @@ router.post("/cancel", isAuthenticated, async (req: any, res) => {
     
     try {
       // Cancel the order
-      await snaptradeClient.trading.cancelUserAccountOrder({
+      await snaptradeClient.tradingApi.cancelUserAccountOrder({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
         accountId: accountId, // Use the accountId directly - it's the SnapTrade external account ID
@@ -319,9 +324,14 @@ router.post("/cancel", isAuthenticated, async (req: any, res) => {
       });
       
       // Log activity
-      await storage.logActivity(userId, 'trade_cancelled', {
-        orderId,
-        accountId
+      await storage.logActivity({
+        userId,
+        action: 'trade_cancelled',
+        description: `Cancelled order ${orderId}`,
+        metadata: {
+          orderId,
+          accountId
+        }
       });
       
       res.json({
@@ -331,7 +341,7 @@ router.post("/cancel", isAuthenticated, async (req: any, res) => {
       });
       
     } catch (snapError: any) {
-      logger.error("SnapTrade cancel order error", { snapError });
+      logger.error("SnapTrade cancel order error", snapError);
       
       const errorMessage = snapError.response?.data?.detail?.message || 
                           snapError.response?.data?.message || 
@@ -393,7 +403,7 @@ router.get("/quotes", isAuthenticated, async (req: any, res) => {
       const symbolList = symbols.split(',').map((s: string) => s.trim());
       
       // Get quotes from SnapTrade
-      const { data: quotes } = await snaptradeClient.trading.getUserAccountQuotes({
+      const { data: quotes } = await snaptradeClient.tradingApi.getUserAccountQuotes({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
         accountId: accountId as string,
@@ -406,7 +416,7 @@ router.get("/quotes", isAuthenticated, async (req: any, res) => {
       });
       
     } catch (snapError: any) {
-      logger.error("SnapTrade get quotes error", { snapError });
+      logger.error("SnapTrade get quotes error", snapError);
       
       return res.status(400).json({ 
         message: "Failed to fetch quotes",
@@ -458,7 +468,7 @@ router.get("/orders", isAuthenticated, async (req: any, res) => {
     
     try {
       // Get orders from SnapTrade
-      const { data: orders } = await snaptradeClient.accountInformation.getUserAccountOrders({
+      const { data: orders } = await snaptradeClient.accountsApi.getUserAccountOrders({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
         accountId: accountId as string, // Use the accountId directly - it's the SnapTrade external account ID
@@ -498,7 +508,7 @@ router.get("/orders", isAuthenticated, async (req: any, res) => {
       });
       
     } catch (snapError: any) {
-      logger.error("SnapTrade get orders error", { snapError });
+      logger.error("SnapTrade get orders error", snapError);
       
       return res.status(400).json({ 
         message: "Failed to fetch orders",
@@ -548,7 +558,7 @@ router.post("/replace", isAuthenticated, async (req: any, res) => {
     
     try {
       // Replace the order
-      const { data: replacedOrder } = await snaptradeClient.trading.replaceOrder({
+      const { data: replacedOrder } = await snaptradeClient.tradingApi.replaceOrder({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
         accountId: accountId,
@@ -558,11 +568,16 @@ router.post("/replace", isAuthenticated, async (req: any, res) => {
       });
       
       // Log activity
-      await storage.logActivity(userId, 'order_replaced', {
-        orderId,
-        accountId,
-        newQuantity: quantity,
-        newPrice: limitPrice
+      await storage.logActivity({
+        userId,
+        action: 'order_replaced',
+        description: `Replaced order ${orderId} with new quantity: ${quantity}, price: ${limitPrice}`,
+        metadata: {
+          orderId,
+          accountId,
+          newQuantity: quantity,
+          newPrice: limitPrice
+        }
       });
       
       res.json({
@@ -572,7 +587,7 @@ router.post("/replace", isAuthenticated, async (req: any, res) => {
       });
       
     } catch (snapError: any) {
-      logger.error("SnapTrade replace order error", { snapError });
+      logger.error("SnapTrade replace order error", snapError);
       
       const errorMessage = snapError.response?.data?.detail?.message || 
                           snapError.response?.data?.message || 
@@ -616,7 +631,7 @@ router.get("/crypto/search", isAuthenticated, async (req: any, res) => {
     
     try {
       // Search for crypto pairs
-      const { data: pairs } = await snaptradeClient.trading.searchCryptocurrencyPairInstruments({
+      const { data: pairs } = await snaptradeClient.tradingApi.searchCryptocurrencyPairInstruments({
         query: query as string
       });
       
@@ -626,7 +641,7 @@ router.get("/crypto/search", isAuthenticated, async (req: any, res) => {
       });
       
     } catch (snapError: any) {
-      logger.error("SnapTrade crypto search error", { snapError });
+      logger.error("SnapTrade crypto search error", snapError);
       
       return res.status(400).json({ 
         message: "Failed to search crypto pairs",
