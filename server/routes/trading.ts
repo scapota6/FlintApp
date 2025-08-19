@@ -237,7 +237,7 @@ r.post("/cancel", isAuthenticated, async (req: any, res) => {
     
     try {
       // Cancel the order
-      await snaptradeClient.tradingApi.cancelUserAccountOrder({
+      await snaptradeClient.trading.cancelUserAccountOrder({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
         accountId: accountId, // Use the accountId directly - it's the SnapTrade external account ID
@@ -274,7 +274,7 @@ r.post("/cancel", isAuthenticated, async (req: any, res) => {
       });
     }
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Error cancelling order", { error });
     res.status(500).json({ 
       message: "Failed to cancel order",
@@ -324,7 +324,7 @@ r.get("/quotes", isAuthenticated, async (req: any, res) => {
       const symbolList = symbols.split(',').map((s: string) => s.trim());
       
       // Get quotes from SnapTrade
-      const { data: quotes } = await snaptradeClient.tradingApi.getUserAccountQuotes({
+      const { data: quotes } = await snaptradeClient.trading.getUserAccountQuotes({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
         accountId: accountId as string,
@@ -345,7 +345,7 @@ r.get("/quotes", isAuthenticated, async (req: any, res) => {
       });
     }
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Error fetching quotes", { error });
     res.status(500).json({ 
       message: "Failed to fetch quotes",
@@ -389,7 +389,7 @@ r.get("/orders", isAuthenticated, async (req: any, res) => {
     
     try {
       // Get orders from SnapTrade
-      const { data: orders } = await snaptradeClient.accountsApi.getUserAccountOrders({
+      const { data: orders } = await snaptradeClient.accountInformation.getUserAccountOrders({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
         accountId: accountId as string, // Use the accountId directly - it's the SnapTrade external account ID
@@ -437,7 +437,7 @@ r.get("/orders", isAuthenticated, async (req: any, res) => {
       });
     }
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Error fetching orders", { error });
     res.status(500).json({ 
       message: "Failed to fetch orders",
@@ -479,7 +479,7 @@ r.post("/replace", isAuthenticated, async (req: any, res) => {
     
     try {
       // Replace the order
-      const { data: replacedOrder } = await snaptradeClient.tradingApi.replaceOrder({
+      const { data: replacedOrder } = await snaptradeClient.trading.replaceOrder({
         userId: snaptradeUser.snaptradeUserId,
         userSecret: snaptradeUser.userSecret,
         accountId: accountId,
@@ -520,7 +520,7 @@ r.post("/replace", isAuthenticated, async (req: any, res) => {
       });
     }
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Error replacing order", { error });
     res.status(500).json({ 
       message: "Failed to replace order",
@@ -552,7 +552,7 @@ r.get("/crypto/search", isAuthenticated, async (req: any, res) => {
     
     try {
       // Search for crypto pairs
-      const { data: pairs } = await snaptradeClient.tradingApi.searchCryptocurrencyPairInstruments({
+      const { data: pairs } = await snaptradeClient.trading.searchCryptocurrencyPairInstruments({
         query: query as string
       });
       
@@ -570,7 +570,7 @@ r.get("/crypto/search", isAuthenticated, async (req: any, res) => {
       });
     }
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Error searching crypto pairs", { error });
     res.status(500).json({ 
       message: "Failed to search crypto pairs",
