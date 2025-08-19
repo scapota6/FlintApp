@@ -14,8 +14,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/hooks/use-toast';
-import { queryClient, apiRequest } from '@/lib/queryClient';
-import { apiPost } from '@/lib/apiPost';
+import { queryClient } from '@/lib/queryClient';
+import { ensureCsrf } from '@/lib/csrf';
+import { requestJSON } from '@/lib/http';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -93,19 +94,22 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
         throw new Error('Invalid order parameters');
       }
 
-      const orderData = {
-        accountId: selectedAccountId,
-        symbol,
-        side,
-        quantity: parseFloat(quantity),
-        type: orderType.toUpperCase(),
-        limitPrice: orderType === 'limit' ? parseFloat(limitPrice) : undefined,
-        timeInForce: timeInForce.toUpperCase()
-      };
-
-      // apiPost now returns parsed JSON directly with defensive parsing
-      const data = await apiPost('/api/trade/preview', orderData);
-      return data;
+      // Get CSRF token and make request using defensive JSON parsing
+      const token = await ensureCsrf();
+      const preview = await requestJSON('/api/trade/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': token },
+        body: JSON.stringify({
+          accountId: selectedAccountId,
+          symbol,
+          side,
+          quantity: parseFloat(quantity),
+          type: orderType.toUpperCase(),
+          limitPrice: orderType === 'limit' ? parseFloat(limitPrice) : undefined,
+          timeInForce: timeInForce.toUpperCase()
+        }),
+      });
+      return preview;
     },
     onSuccess: (data) => {
       setImpact(data.impact);
@@ -145,25 +149,26 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
         throw new Error('Invalid order parameters');
       }
 
-      // Use tradeId if available, otherwise send full order data
-      const orderData = tradeId ? 
-        { 
-          accountId: selectedAccountId, 
-          tradeId 
-        } : 
-        {
-          accountId: selectedAccountId,
-          symbol,
-          side,
-          type: orderType.toUpperCase(),
-          quantity: parseFloat(quantity),
-          limitPrice: orderType === 'limit' ? parseFloat(limitPrice) : undefined,
-          timeInForce: timeInForce.toUpperCase()
-        };
-
-      // apiPost now returns parsed JSON directly with defensive parsing
-      const data = await apiPost('/api/trade/place', orderData);
-      return data;
+      // Get CSRF token and make request using defensive JSON parsing
+      const token = await ensureCsrf();
+      const placed = await requestJSON('/api/trade/place', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': token },
+        body: JSON.stringify(
+          tradeId ? 
+            { accountId: selectedAccountId, tradeId } : 
+            {
+              accountId: selectedAccountId,
+              symbol,
+              side,
+              type: orderType.toUpperCase(),
+              quantity: parseFloat(quantity),
+              limitPrice: orderType === 'limit' ? parseFloat(limitPrice) : undefined,
+              timeInForce: timeInForce.toUpperCase()
+            }
+        ),
+      });
+      return placed;
     },
     onSuccess: (data) => {
       toast({
