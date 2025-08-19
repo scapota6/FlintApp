@@ -84,260 +84,146 @@ async function tradingPlaceOrder(input:any){
   throw new Error('No place order method on Trading API');
 }
 
-const router = Router();
+const r = Router();
+const pickUserId = (req:any)=> (req.user?.id || req.headers['x-user-id'] || req.body?.userId || '').toString().trim();
+
+function validateOrder(b:any){
+  const e:string[]=[];
+  if(!b.accountId) e.push('accountId required');
+  if(!b.symbol) e.push('symbol required');
+  if(!b.side || !['BUY','SELL'].includes(String(b.side).toUpperCase())) e.push('side must be BUY or SELL');
+  if(!b.quantity || Number(b.quantity)<=0) e.push('quantity must be > 0');
+  if(!b.type || !['MARKET','LIMIT'].includes(String(b.type).toUpperCase())) e.push('type must be MARKET or LIMIT');
+  if(String(b.type).toUpperCase()==='LIMIT' && (!b.limitPrice || Number(b.limitPrice)<=0)) e.push('limitPrice required for LIMIT');
+  return e;
+}
 
 
 
-// Order validation schemas
-const PreviewOrderSchema = z.object({
-  accountId: z.string(),
-  symbol: z.string(),
-  side: z.enum(['buy', 'sell']),
-  quantity: z.number().positive(),
-  orderType: z.enum(['market', 'limit']),
-  limitPrice: z.number().positive().optional()
-});
+r.post('/trade/preview', async (req,res)=>{
+  try{
+    const userId = pickUserId(req);
+    if(!userId) return res.status(401).json({message:'No userId'});
 
-const PlaceOrderSchema = z.object({
-  accountId: z.string(),
-  symbol: z.string(),
-  side: z.enum(['buy', 'sell']),
-  type: z.enum(['market', 'limit']),
-  qty: z.number().positive(),
-  limitPrice: z.number().positive().optional(),
-  timeInForce: z.enum(['day', 'gtc', 'ioc', 'fok']).default('day')
-});
+    const body = req.body||{};
+    body.side = String(body.side||'').toUpperCase();
+    body.type = String(body.type||'').toUpperCase();
+    const errs = validateOrder(body);
+    if (errs.length) return res.status(400).json({ message:'Invalid order', errors:errs });
 
-const CancelOrderSchema = z.object({
-  orderId: z.string(),
-  accountId: z.string()
-});
+    const rec = await getSnapUser(userId);
+    if(!rec?.userSecret) return res.status(428).json({ code:'SNAPTRADE_NOT_REGISTERED', message:'Connect brokerage first' });
 
-/**
- * POST /api/trade/preview
- * Preview an order before placement using enhanced instrument resolution
- */
-router.post("/preview", isAuthenticated, async (req: any, res) => {
-  try {
-    const userId = req.user.claims.sub;
-    
-    // Validate request body
-    const validation = PreviewOrderSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({ 
-        message: "Invalid request",
-        errors: validation.error.flatten() 
-      });
-    }
-    
-    const { accountId, symbol, side, quantity, orderType, limitPrice } = validation.data;
-    
-    // Get SnapTrade credentials using the robust store
-    const snapUser = await getSnapUser(userId);
-    if (!snapUser?.userSecret) {
-      return res.status(403).json({ 
-        message: "No brokerage account connected"
-      });
-    }
-
-    console.log('Preview request:', {
-      userId: userId.slice(-6),
-      accountId: accountId.slice(-6),
-      symbol,
-      side,
-      quantity,
-      orderType
-    });
-
-    // Enhanced instrument resolution
-    let instrument;
-    try {
-      instrument = await resolveInstrumentBySymbol(symbol);
-      console.log('Resolved instrument:', { 
-        symbol, 
-        instrumentId: instrument?.id,
-        universalSymbolId: instrument?.id 
-      });
-    } catch (error) {
-      console.error('Instrument resolution failed:', error);
-      return res.status(404).json({ 
-        message: `Symbol ${symbol} not found or not supported`
-      });
-    }
-    
-    // Prepare order impact request
-    const impactRequest = {
-      userId: snapUser.snaptradeUserId,
-      userSecret: snapUser.userSecret,
-      accountId,
-      symbol,
-      universalSymbol: instrument?.symbol || instrument?.id,
-      instrumentId: instrument?.id,
-      side: side.toUpperCase(),
-      type: orderType.toUpperCase(),
-      quantity,
-      limitPrice,
+    // Resolve instrument for the symbol to prevent 400s from missing instrument fields
+    const inst = await resolveInstrumentBySymbol(body.symbol).catch(()=> null);
+    const payload = {
+      userId: rec.snaptradeUserId,
+      userSecret: rec.userSecret,
+      accountId: body.accountId,
+      symbol: body.symbol,
+      universalSymbol: inst?.symbol || inst?.id,
+      instrumentId: inst?.id,
+      side: body.side,
+      type: body.type,
+      quantity: Number(body.quantity),
+      limitPrice: body.type === 'LIMIT' ? Number(body.limitPrice) : undefined,
       timeInForce: 'DAY',
     };
 
-    console.log('Impact request prepared:', impactRequest);
-
-    // Use the robust trading API wrapper
-    const impactResult = await tradingCheckOrderImpact(impactRequest);
-    console.log('Impact result received:', !!impactResult);
-
-    // Normalize the response using the helper function
-    const normalized = normalizePreview(impactResult);
-    console.log('Normalized preview:', { 
-      hasTradeId: !!normalized.tradeId, 
-      hasImpact: !!normalized.impact 
-    });
-
-    // Return normalized response
+    const result = await tradingCheckOrderImpact(payload);
+    const norm = normalizePreview(result);
+    
     return res.json({
       success: true,
-      preview: normalized.impact,
-      tradeId: normalized.tradeId,
-      symbol,
-      accountId
+      preview: norm.impact,
+      tradeId: norm.tradeId,
+      symbol: body.symbol,
+      accountId: body.accountId
     });
 
-  } catch (error: any) {
-    console.error('Trade preview error:', error);
-    return res.status(500).json({ 
-      message: 'Failed to preview trade',
-      error: error.message 
-    });
+  }catch(err:any){
+    console.error('Preview error:', err);
+    return res.status(500).json({ message: 'Preview failed', error: err.message });
   }
 });
 
-/**
- * POST /api/trade/place
- * Place an order
- */
-router.post("/place", isAuthenticated, async (req: any, res) => {
-  try {
-    const userId = req.user.claims.sub;
-    
-    // Validate request body
-    const validation = PlaceOrderSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({ 
-        message: "Invalid request",
-        errors: validation.error.flatten() 
-      });
-    }
-    
-    const { accountId, symbol, side, type, qty, limitPrice, timeInForce } = validation.data;
-    
-    // Check if SnapTrade is configured
-    if (!snaptradeClient) {
-      return res.status(503).json({ 
-        message: "Trading service not configured"
-      });
-    }
-    
-    // Get SnapTrade credentials using the robust store
-    const snapUser = await getSnapUser(userId);
-    if (!snapUser?.userSecret) {
-      return res.status(403).json({ 
-        message: "No brokerage account connected"
-      });
-    }
+r.post('/trade/place', async (req,res)=>{
+  try{
+    const userId = pickUserId(req);
+    if(!userId) return res.status(401).json({message:'No userId'});
 
-    // Enhanced instrument resolution
-    let instrument;
-    try {
-      instrument = await resolveInstrumentBySymbol(symbol);
-      console.log('Resolved instrument for placement:', { 
-        symbol, 
-        instrumentId: instrument?.id 
-      });
-    } catch (error) {
-      console.error('Instrument resolution failed:', error);
-      return res.status(404).json({ 
-        message: `Symbol ${symbol} not found or not supported`
-      });
-    }
-      
-    // Generate idempotency key for order placement
+    const body = req.body||{};
+    body.side = String(body.side||'').toUpperCase();
+    body.type = String(body.type||'').toUpperCase();
+    const errs = validateOrder(body);
+    if (errs.length) return res.status(400).json({ message:'Invalid order', errors:errs });
+
+    const rec = await getSnapUser(userId);
+    if(!rec?.userSecret) return res.status(428).json({ code:'SNAPTRADE_NOT_REGISTERED', message:'Connect brokerage first' });
+
+    // Resolve instrument for the symbol
+    const inst = await resolveInstrumentBySymbol(body.symbol).catch(()=> null);
     const idempotencyKey = crypto.randomUUID();
-
-    // Prepare order placement request
-    const orderRequest = {
-      userId: snapUser.snaptradeUserId,
-      userSecret: snapUser.userSecret,
-      accountId,
-      symbol,
-      universalSymbol: instrument?.symbol || instrument?.id,
-      instrumentId: instrument?.id,
-      side: side.toUpperCase(),
-      type: type.toUpperCase(),
-      quantity: qty,
-      limitPrice,
-      timeInForce: timeInForce.toUpperCase(),
+    
+    const payload = {
+      userId: rec.snaptradeUserId,
+      userSecret: rec.userSecret,
+      accountId: body.accountId,
+      symbol: body.symbol,
+      universalSymbol: inst?.symbol || inst?.id,
+      instrumentId: inst?.id,
+      side: body.side,
+      type: body.type,
+      quantity: Number(body.quantity),
+      limitPrice: body.type === 'LIMIT' ? Number(body.limitPrice) : undefined,
+      timeInForce: body.timeInForce || 'DAY',
       idempotencyKey,
-      tradeId: null, // Will be populated from preview if available
+      tradeId: body.tradeId || null, // From preview if available
     };
 
-    console.log('Order placement request prepared:', orderRequest);
-
-    // Use the robust trading API wrapper
-    const orderResult = await tradingPlaceOrder(orderRequest);
-    console.log('Order placement result received:', !!orderResult);
-
-    // Normalize the response
-    const normalized = normalizePreview(orderResult);
-    console.log('Normalized order result:', { 
-      hasTradeId: !!normalized.tradeId, 
-      hasImpact: !!normalized.impact 
-    });
-
-    // Log trade activity (with safe access to order properties)
-    const orderId = normalized.tradeId || orderResult?.id || 'unknown';
+    const result = await tradingPlaceOrder(payload);
+    const norm = normalizePreview(result);
+    
+    // Log trade activity
+    const orderId = norm.tradeId || result?.id || 'unknown';
     await storage.logActivity({
       userId,
       action: 'trade_placed',
-      description: `Placed ${side} order for ${qty} shares of ${symbol}`,
+      description: `Placed ${body.side} order for ${body.quantity} shares of ${body.symbol}`,
       metadata: {
         orderId,
-        symbol,
-        side,
-        quantity: qty,
-        orderType: type,
-        limitPrice,
-        accountId
+        symbol: body.symbol,
+        side: body.side,
+        quantity: body.quantity,
+        orderType: body.type,
+        limitPrice: body.limitPrice,
+        accountId: body.accountId
       }
     });
 
-    // Return normalized response
     return res.json({
       success: true,
       orderId,
-      symbol,
-      side,
-      quantity: qty,
-      orderType: type,
-      limitPrice,
-      status: orderResult?.status || 'pending',
-      message: `Order placed successfully`
+      symbol: body.symbol,
+      side: body.side,
+      quantity: Number(body.quantity),
+      orderType: body.type,
+      limitPrice: body.limitPrice,
+      status: result?.status || 'pending',
+      message: 'Order placed successfully'
     });
 
-  } catch (error: any) {
-    console.error('Trade placement error:', error);
-    return res.status(500).json({ 
-      message: 'Failed to place trade',
-      error: error.message 
-    });
+  }catch(err:any){
+    console.error('Place order error:', err);
+    return res.status(500).json({ message: 'Order placement failed', error: err.message });
   }
-
 });
 
 /**
  * POST /api/trade/cancel
  * Cancel an order
  */
-router.post("/cancel", isAuthenticated, async (req: any, res) => {
+r.post("/cancel", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.claims.sub;
     
@@ -422,7 +308,7 @@ router.post("/cancel", isAuthenticated, async (req: any, res) => {
  * GET /api/trade/quotes
  * Get live quotes for symbols in an account
  */
-router.get("/quotes", isAuthenticated, async (req: any, res) => {
+r.get("/quotes", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.claims.sub;
     const { accountId, symbols } = req.query;
@@ -493,7 +379,7 @@ router.get("/quotes", isAuthenticated, async (req: any, res) => {
  * GET /api/trade/orders
  * Get open and recent orders
  */
-router.get("/orders", isAuthenticated, async (req: any, res) => {
+r.get("/orders", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.claims.sub;
     const { accountId } = req.query;
@@ -585,7 +471,7 @@ router.get("/orders", isAuthenticated, async (req: any, res) => {
  * POST /api/trade/replace
  * Replace/modify an existing order
  */
-router.post("/replace", isAuthenticated, async (req: any, res) => {
+r.post("/replace", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.claims.sub;
     
@@ -668,7 +554,7 @@ router.post("/replace", isAuthenticated, async (req: any, res) => {
  * GET /api/trade/crypto/search
  * Search for cryptocurrency trading pairs
  */
-router.get("/crypto/search", isAuthenticated, async (req: any, res) => {
+r.get("/crypto/search", isAuthenticated, async (req: any, res) => {
   try {
     const { query } = req.query;
     
@@ -714,4 +600,4 @@ router.get("/crypto/search", isAuthenticated, async (req: any, res) => {
   }
 });
 
-export default router;
+export default r;
