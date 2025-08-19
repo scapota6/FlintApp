@@ -186,7 +186,7 @@ export default function EnhancedTradeModal({
     const quantity = parseFloat(form.watch('quantity') || '0');
     const price = orderType === 'limit' 
       ? parseFloat(form.watch('limitPrice') || '0')
-      : quote?.price || currentPrice;
+      : (quote as any)?.price || currentPrice;
     return quantity * price;
   };
 
@@ -219,15 +219,15 @@ export default function EnhancedTradeModal({
               <div>
                 <p className="text-sm text-muted-foreground">Current Price</p>
                 <p className="text-2xl font-bold">
-                  {formatCurrency(quote?.price || currentPrice)}
+                  {formatCurrency((quote as any)?.price || currentPrice)}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Daily Change</p>
                 <p className={`text-lg font-semibold ${
-                  (quote?.change || 0) >= 0 ? 'text-green-500' : 'text-red-500'
+                  ((quote as any)?.change || 0) >= 0 ? 'text-green-500' : 'text-red-500'
                 }`}>
-                  {quote?.changePercent ? `${quote.changePercent.toFixed(2)}%` : '0.00%'}
+                  {(quote as any)?.changePercent ? `${(quote as any).changePercent.toFixed(2)}%` : '0.00%'}
                 </p>
               </div>
             </div>
@@ -251,8 +251,8 @@ export default function EnhancedTradeModal({
                       <SelectContent>
                         {accountsLoading ? (
                           <SelectItem value="loading" disabled>Loading accounts...</SelectItem>
-                        ) : accounts?.brokerageAccounts?.length > 0 ? (
-                          accounts.brokerageAccounts.map((account: any) => (
+                        ) : (accounts as any)?.brokerageAccounts?.length > 0 ? (
+                          (accounts as any).brokerageAccounts.map((account: any) => (
                             <SelectItem key={account.id} value={account.id}>
                               {account.institutionName} - {account.accountNumber}
                             </SelectItem>
