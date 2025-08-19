@@ -222,8 +222,8 @@ app.use((req, res, next) => {
   });
   
   // 404 handler for API routes (must be before static files)
-  app.use("/api/*", (_req: Request, res: Response) => {
-    res.status(404).json({ message: "API endpoint not found" });
+  app.use("/api/*", (req: Request, res: Response) => {
+    res.status(404).json({ message: "Not found", path: req.originalUrl });
   });
 
   // ========================================
