@@ -9,7 +9,7 @@ async function throwIfResNotOk(res: Response) {
 
 // Get CSRF token from cookies (double-submit pattern)
 function getCSRFTokenFromCookie(): string | null {
-  const name = '_csrf=';
+  const name = 'flint_csrf=';
   const cookies = document.cookie.split(';');
   for (let cookie of cookies) {
     cookie = cookie.trim();

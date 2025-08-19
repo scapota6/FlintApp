@@ -16,6 +16,7 @@ console.log('[ENV CHECK]', {
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import csrf from "csurf";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initSentry, sentryErrorHandler } from "./lib/sentry";
@@ -30,9 +31,21 @@ import quotesRouter from "./routes/quotes";
 initSentry();
 
 const app = express();
+
+// Trust proxy (Replit/Heroku-style) so secure cookies & proto work
+app.set('trust proxy', 1);
+
+// Parse JSON & cookies BEFORE csurf
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+
+// CORS: allow front-end origin and cookies
+const FRONT_ORIGIN = process.env.FRONT_ORIGIN || '*';
+app.use(cors({
+  origin: (origin, cb) => cb(null, true),
+  credentials: true,
+}));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -82,25 +95,43 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
 
-  // Configure CSRF protection with double-submit-cookie pattern
+  // CSRF via double-submit cookie
+  const isProd = process.env.NODE_ENV === 'production';
   const csrfProtection = csrf({
     cookie: {
-      httpOnly: false, // Must be false for double-submit pattern
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict'
-    }
+      key: 'flint_csrf',
+      httpOnly: false,        // double-submit cookie must be readable by JS
+      sameSite: isProd ? 'none' : 'lax', // 'none' if front/back on different origins
+      secure: isProd,         // true in prod behind HTTPS; false in local dev
+    },
   });
 
-  // CSRF token endpoint - provides token for client
-  app.get('/api/csrf-token', csrfProtection, (req, res) => {
+  // Issue a CSRF token to the client
+  app.get('/api/csrf-token', csrfProtection, (req: any, res) => {
+    // Send token in body; cookie is already set by csurf
     res.json({ csrfToken: req.csrfToken() });
   });
 
-  // Apply CSRF protection to state-changing routes
-  app.use('/api/trade', csrfProtection);
-  app.use('/api/transfers', csrfProtection);
-  app.use('/api/deposits', csrfProtection);
-  app.use('/api/watchlist', csrfProtection);
+  // Apply CSRF to state-changing routes only.
+  // Keep GET/HEAD out, and optionally bypass webhooks/health.
+  const needsCsrf = (req: Request) =>
+    ['POST','PUT','PATCH','DELETE'].includes(req.method) &&
+    !req.path.startsWith('/api/webhooks') &&
+    !req.path.startsWith('/health');
+
+  app.use((req, res, next) => needsCsrf(req) ? csrfProtection(req, res, next) : next());
+
+  // Friendly CSRF error handler
+  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+    if (err.code === 'EBADCSRFTOKEN') {
+      logger.warn('Invalid CSRF token detected', { 
+        path: _req.path,
+        method: _req.method
+      });
+      return res.status(403).json({ message: 'Invalid CSRF token' });
+    }
+    next(err);
+  });
   
   // Mount Orders API router
   app.use("/api", ordersRouter);
