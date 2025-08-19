@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
+import { apiPost } from '@/lib/apiPost';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -102,13 +103,7 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
         timeInForce: timeInForce.toUpperCase()
       };
 
-      const response = await apiRequest('/api/trade/preview', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(orderData)
-      });
+      const response = await apiPost('/api/trade/preview', orderData);
       
       if (!response.ok) {
         const error = await response.json();
@@ -171,13 +166,7 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
           timeInForce: timeInForce.toUpperCase()
         };
 
-      const response = await apiRequest('/api/trade/place', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(orderData)
-      });
+      const response = await apiPost('/api/trade/place', orderData);
       
       if (!response.ok) {
         const error = await response.json();

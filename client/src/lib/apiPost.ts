@@ -1,9 +1,9 @@
 import { ensureCsrf, resetCsrf } from './csrf';
 
 /**
- * Helper function for making CSRF-protected POST requests
+ * Helper function for making CSRF-protected POST requests with auto-retry
  */
-export async function apiPost(path: string, body: any) {
+export async function apiPost(path: string, body: any, retryCount = 0): Promise<Response> {
   const token = await ensureCsrf();
   const resp = await fetch(path, {
     method: 'POST',
@@ -15,9 +15,10 @@ export async function apiPost(path: string, body: any) {
     body: JSON.stringify(body),
   });
 
-  if (resp.status === 403) {
-    // CSRF mismatch, refresh token
+  if (resp.status === 403 && retryCount === 0) {
+    // CSRF mismatch, refresh token and retry once
     resetCsrf();
+    return apiPost(path, body, 1);
   }
   
   return resp;
