@@ -7,7 +7,7 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-import { ensureCsrf } from './csrf';
+import { ensureCsrf, resetCsrf } from './csrf';
 
 export async function apiRequest(path: string, options: RequestInit = {}) {
   const base = '';
@@ -21,7 +21,7 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
   // Add CSRF token for state-changing requests
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || '')) {
     const csrfToken = await ensureCsrf();
-    headers['X-CSRF-Token'] = csrfToken;
+    headers['x-csrf-token'] = csrfToken; // csurf reads from this header by default
   }
 
   const resp = await fetch(url, {
@@ -30,6 +30,11 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
     credentials: 'include', // keep cookies/session
     ...options,
   });
+
+  // Handle CSRF mismatch - refresh token and caller can retry
+  if (resp.status === 403) {
+    resetCsrf();
+  }
 
   return resp; // callers can do resp.ok / resp.json()
 }
