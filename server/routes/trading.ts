@@ -157,65 +157,31 @@ r.post('/trade/place', async (req,res)=>{
     const rec = await getSnapUser(userId);
     if(!rec?.userSecret) return res.status(428).json({ code:'SNAPTRADE_NOT_REGISTERED', message:'Connect brokerage first' });
 
-    // Validate the order before processing
-    const errs = validateOrder(body);
-    if (errs.length) return res.status(400).json({ message:'Invalid order', errors:errs });
+    // If no tradeId provided, validate and resolve instrument, then direct place
+    let inst:any = null;
+    if (!body.tradeId) {
+      const errs = validateOrder(body);
+      if (errs.length) return res.status(400).json({ message:'Invalid order', errors:errs });
+      inst = await resolveInstrumentBySymbol(body.symbol).catch(()=> null);
+    }
 
-    // Resolve instrument for the symbol
-    const inst = await resolveInstrumentBySymbol(body.symbol).catch(()=> null);
     const idempotencyKey = crypto.randomUUID();
-    
-    const payload = {
-      userId: rec.userId,
-      userSecret: rec.userSecret,
-      accountId: body.accountId,
+    const placed = await tradingPlaceOrder({
+      userId: rec.userId, userSecret: rec.userSecret, accountId: body.accountId,
+      tradeId: body.tradeId || undefined,
       symbol: body.symbol,
-      side: body.side,
-      quantity: Number(body.quantity),
-      type: body.type,
-      limitPrice: body.type === 'LIMIT' ? Number(body.limitPrice) : undefined,
+      side: body.side, quantity: Number(body.quantity),
+      type: body.type, limitPrice: body.limitPrice ? Number(body.limitPrice) : undefined,
       timeInForce: body.timeInForce || 'DAY',
+      universalSymbol: inst?.universalSymbol || inst?.universal_symbol,
+      instrumentId: inst?.id || inst?.instrumentId,
       idempotencyKey,
-      tradeId: body.tradeId || null, // From preview if available
-      universalSymbol: inst?.universalSymbol || inst?.universal_symbol || undefined,
-      instrumentId: inst?.id || inst?.instrumentId || undefined,
-    };
-
-    const result = await tradingPlaceOrder(payload);
-    const norm = normalizePreview(result);
-    
-    // Log trade activity
-    const orderId = norm.tradeId || result?.id || 'unknown';
-    await storage.logActivity({
-      userId,
-      action: 'trade_placed',
-      description: `Placed ${body.side} order for ${body.quantity} shares of ${body.symbol}`,
-      metadata: {
-        orderId,
-        symbol: body.symbol,
-        side: body.side,
-        quantity: body.quantity,
-        orderType: body.type,
-        limitPrice: body.limitPrice,
-        accountId: body.accountId
-      }
     });
 
-    return res.json({
-      success: true,
-      orderId,
-      symbol: body.symbol,
-      side: body.side,
-      quantity: Number(body.quantity),
-      orderType: body.type,
-      limitPrice: body.limitPrice,
-      status: result?.status || 'pending',
-      message: 'Order placed successfully'
-    });
-
-  }catch(err:any){
-    console.error('Place order error:', err);
-    return res.status(500).json({ message: 'Order placement failed', error: err.message });
+    return res.json({ ok:true, order: placed, idempotencyKey });
+  }catch(e:any){
+    console.error('SnapTrade place order error - Full details:', e?.responseBody || e?.message || e);
+    return res.status(400).json({ message:'Failed to place order', error: e?.responseBody || e?.message || e });
   }
 });
 
