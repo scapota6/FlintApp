@@ -9,19 +9,31 @@ async function throwIfResNotOk(res: Response) {
 
 let csrfToken: string | null = null;
 
+// Fetch CSRF token explicitly
+async function fetchCSRFToken() {
+  try {
+    const tokenResp = await fetch('/api/auth/user', {
+      credentials: 'include'
+    });
+    const token = tokenResp.headers.get('X-CSRF-Token');
+    if (token) {
+      csrfToken = token;
+    }
+    return token;
+  } catch (e) {
+    console.error('Failed to fetch CSRF token:', e);
+    return null;
+  }
+}
+
 export async function apiRequest(path: string, options: RequestInit = {}) {
   const base = '';
   const url = path.startsWith('http') ? path : `${base}${path}`;
 
-  // Get CSRF token if we don't have it yet or if it's a GET request (to refresh)
-  if (!csrfToken || options.method === 'GET') {
-    try {
-      const tokenResp = await fetch('/api/auth/user', {
-        credentials: 'include'
-      });
-      csrfToken = tokenResp.headers.get('X-CSRF-Token');
-    } catch (e) {
-      // Ignore CSRF token fetch errors
+  // Ensure we have a CSRF token for state-changing requests
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || '')) {
+    if (!csrfToken) {
+      await fetchCSRFToken();
     }
   }
 
@@ -50,6 +62,9 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
 
   return resp; // callers can do resp.ok / resp.json()
 }
+
+// Initialize CSRF token on page load
+fetchCSRFToken();
 
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {

@@ -170,6 +170,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
+      // Ensure CSRF token is in session and send it in response header
+      if (!req.session.csrfToken) {
+        req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+      }
+      res.setHeader('X-CSRF-Token', req.session.csrfToken);
+      
       // Enable demo mode if feature flag is set
       if (getServerFeatureFlags().FF_DEMO_MODE && !user) {
         const demoUser = {
