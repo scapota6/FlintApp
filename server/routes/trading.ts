@@ -4,11 +4,79 @@
  */
 
 import { Router } from "express";
+import crypto from 'crypto';
 import { isAuthenticated } from "../replitAuth";
 import { storage } from "../storage";
 import { logger } from "@shared/logger";
-import { snaptradeClient, searchSymbols, getOrderImpact, placeOrder } from '../lib/snaptrade';
+import { getSnapUser } from '../store/snapUsers';
+import { resolveInstrumentBySymbol, normalizePreview } from '../lib/snaptrade';
 import { z } from "zod";
+
+// Import SnapTrade SDK and utility functions
+import * as Snaptrade from 'snaptrade-typescript-sdk';
+function hasFn(obj:any,n:string){ return obj && typeof obj[n]==='function'; }
+function mkTradingApi(){
+  const S:any = Snaptrade;
+  const Ctor = S.TradingApi || S.TradesApi || S.AccountsAndTradesApi;
+  if (!Ctor) throw new Error('Trading API not available in SDK');
+  return new Ctor((S as any).configuration || undefined);
+}
+
+async function tradingCheckOrderImpact(input:any){
+  const api = mkTradingApi();
+  const payload = {
+    userId: input.userId,
+    userSecret: input.userSecret,
+    accountId: input.accountId,
+    // Common fields:
+    symbol: input.symbol,                        // equity symbol
+    universalSymbol: input.universalSymbol,      // if resolver provided it
+    instrumentId: input.instrumentId,            // if resolver provided it
+    action: input.side,                          // BUY/SELL
+    orderType: input.type,                       // MARKET/LIMIT
+    units: Number(input.quantity),
+    limitPrice: input.type === 'LIMIT' ? Number(input.limitPrice) : undefined,
+    timeInForce: input.timeInForce || 'DAY',
+  };
+
+  // Try multiple method names for order impact/preview
+  const methods = ['getOrderImpact', 'checkOrderImpact', 'previewOrder', 'calculateImpact'];
+  for (const method of methods) {
+    if (hasFn(api, method)) {
+      console.log(`Using ${method} for order impact`);
+      return await (api as any)[method](payload);
+    }
+  }
+  throw new Error('No order impact method available');
+}
+
+async function tradingPlaceOrder(input:any){
+  const api = mkTradingApi();
+  const payload = {
+    userId: input.userId,
+    userSecret: input.userSecret,
+    accountId: input.accountId,
+    symbol: input.symbol,
+    universalSymbol: input.universalSymbol,
+    instrumentId: input.instrumentId,
+    action: input.side,
+    orderType: input.type,
+    units: Number(input.quantity),
+    limitPrice: input.type === 'LIMIT' ? Number(input.limitPrice) : undefined,
+    timeInForce: input.timeInForce || 'DAY',
+    idempotencyKey: input.idempotencyKey,
+  };
+
+  // Try multiple method names for order placement
+  const methods = ['placeForceOrder', 'placeOrder', 'submitOrder', 'createOrder'];
+  for (const method of methods) {
+    if (hasFn(api, method)) {
+      console.log(`Using ${method} for order placement`);
+      return await (api as any)[method](payload);
+    }
+  }
+  throw new Error('No order placement method available');
+}
 
 const router = Router();
 
@@ -41,7 +109,7 @@ const CancelOrderSchema = z.object({
 
 /**
  * POST /api/trade/preview
- * Preview an order before placement
+ * Preview an order before placement using enhanced instrument resolution
  */
 router.post("/preview", isAuthenticated, async (req: any, res) => {
   try {
@@ -58,126 +126,81 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
     
     const { accountId, symbol, side, quantity, orderType, limitPrice } = validation.data;
     
-    // Check if SnapTrade is configured
-    if (!snaptradeClient) {
-      return res.status(503).json({ 
-        message: "Trading service not configured"
-      });
-    }
-    
-    // Get SnapTrade credentials
-    const snaptradeUser = await storage.getSnapTradeUser(userId);
-    if (!snaptradeUser?.snaptradeUserId || !snaptradeUser?.userSecret) {
+    // Get SnapTrade credentials using the robust store
+    const snapUser = await getSnapUser(userId);
+    if (!snapUser?.userSecret) {
       return res.status(403).json({ 
         message: "No brokerage account connected"
       });
     }
-    
-    // For SnapTrade accounts, verify ownership by checking the account exists in user's accounts
-    // The accountId here is the SnapTrade external account ID (UUID)
+
+    console.log('Preview request:', {
+      userId: userId.slice(-6),
+      accountId: accountId.slice(-6),
+      symbol,
+      side,
+      quantity,
+      orderType
+    });
+
+    // Enhanced instrument resolution
+    let instrument;
     try {
-      // Log request data for debugging
-      console.log('Preview request data:', {
-        userId,
-        accountId,
-        symbol,
-        side,
-        quantity,
-        orderType,
-        limitPrice
+      instrument = await resolveInstrumentBySymbol(symbol);
+      console.log('Resolved instrument:', { 
+        symbol, 
+        instrumentId: instrument?.id,
+        universalSymbolId: instrument?.id 
       });
-      
-      // Get symbol details from SnapTrade using wrapper function
-      const symbolData = await searchSymbols(snaptradeUser.snaptradeUserId, snaptradeUser.userSecret, accountId, symbol);
-      
-      if (!symbolData || symbolData.length === 0) {
-        return res.status(404).json({ 
-          message: `Symbol ${symbol} not found`
-        });
-      }
-      
-      const universalSymbolId = symbolData[0].id;
-      console.log('Found symbol:', { symbol, universalSymbolId });
-      
-      // Build order impact preview
-      const action = side === 'buy' ? 'BUY' : 'SELL';
-      const orderTypeSnap = orderType === 'market' ? 'Market' : 'Limit';
-      
-      // Get order impact from SnapTrade using wrapper function
-      console.log('Calling getOrderImpact with:', {
-        userId: snaptradeUser.snaptradeUserId,
-        accountId,
-        action,
-        universalSymbolId,
-        orderType: orderTypeSnap,
-        timeInForce: 'Day',
-        units: quantity,
-        price: limitPrice
-      });
-      
-      const impact = await getOrderImpact(
-        snaptradeUser.snaptradeUserId,
-        snaptradeUser.userSecret,
-        accountId,
-        {
-          action,
-          universalSymbolId: universalSymbolId!,
-          orderType: orderTypeSnap,
-          timeInForce: 'Day',
-          units: quantity,
-          price: limitPrice
-        }
-      );
-      
-      // Calculate estimated costs (with safe fallbacks)
-      const estimatedPrice = impact?.price || limitPrice || 0;
-      const estimatedValue = estimatedPrice * quantity;
-      const commission = impact?.brokerage_order_impact?.estimated_commissions || 0;
-      const totalCost = side === 'buy' 
-        ? estimatedValue + commission
-        : estimatedValue - commission;
-      
-      res.json({
-        symbol,
-        side,
-        quantity,
-        orderType,
-        limitPrice,
-        estimatedPrice,
-        estimatedValue,
-        commission,
-        totalCost,
-        buyingPower: impact?.buying_power_effect || null,
-        account: {
-          id: accountId,
-          name: 'Brokerage Account',
-          provider: 'snaptrade'
-        }
-      });
-      
-    } catch (snapError: any) {
-      console.error("SnapTrade preview error - Full details:", {
-        message: snapError.message,
-        response: snapError.response?.data,
-        status: snapError.response?.status,
-        statusText: snapError.response?.statusText
-      });
-      
-      logger.error("SnapTrade preview error", snapError);
-      return res.status(400).json({ 
-        message: "Failed to preview order",
-        error: snapError.response?.data?.detail?.message || 
-               snapError.response?.data?.message || 
-               snapError.message,
-        details: snapError.response?.data
+    } catch (error) {
+      console.error('Instrument resolution failed:', error);
+      return res.status(404).json({ 
+        message: `Symbol ${symbol} not found or not supported`
       });
     }
     
-  } catch (error) {
-    logger.error("Error previewing order", { error });
-    res.status(500).json({ 
-      message: "Failed to preview order",
-      error: error instanceof Error ? error.message : "Unknown error"
+    // Prepare order impact request
+    const impactRequest = {
+      userId: snapUser.snaptradeUserId,
+      userSecret: snapUser.userSecret,
+      accountId,
+      symbol,
+      universalSymbol: instrument?.symbol || instrument?.id,
+      instrumentId: instrument?.id,
+      side: side.toUpperCase(),
+      type: orderType.toUpperCase(),
+      quantity,
+      limitPrice,
+      timeInForce: 'DAY',
+    };
+
+    console.log('Impact request prepared:', impactRequest);
+
+    // Use the robust trading API wrapper
+    const impactResult = await tradingCheckOrderImpact(impactRequest);
+    console.log('Impact result received:', !!impactResult);
+
+    // Normalize the response using the helper function
+    const normalized = normalizePreview(impactResult);
+    console.log('Normalized preview:', { 
+      hasTradeId: !!normalized.tradeId, 
+      hasImpact: !!normalized.impact 
+    });
+
+    // Return normalized response
+    return res.json({
+      success: true,
+      preview: normalized.impact,
+      tradeId: normalized.tradeId,
+      symbol,
+      accountId
+    });
+
+  } catch (error: any) {
+    console.error('Trade preview error:', error);
+    return res.status(500).json({ 
+      message: 'Failed to preview trade',
+      error: error.message 
     });
   }
 });
@@ -208,114 +231,99 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
       });
     }
     
-    // Get SnapTrade credentials
-    const snaptradeUser = await storage.getSnapTradeUser(userId);
-    if (!snaptradeUser?.snaptradeUserId || !snaptradeUser?.userSecret) {
+    // Get SnapTrade credentials using the robust store
+    const snapUser = await getSnapUser(userId);
+    if (!snapUser?.userSecret) {
       return res.status(403).json({ 
         message: "No brokerage account connected"
       });
     }
-    
-    // For SnapTrade accounts, we don't need database lookup
-    // The accountId is the SnapTrade external account ID (UUID)
-    
+
+    // Enhanced instrument resolution
+    let instrument;
     try {
-      // Get symbol details using wrapper function
-      const symbolData = await searchSymbols(snaptradeUser.snaptradeUserId, snaptradeUser.userSecret, accountId, symbol);
-      
-      if (!symbolData || symbolData.length === 0) {
-        return res.status(404).json({ 
-          message: `Symbol ${symbol} not found`
-        });
-      }
-      
-      const universalSymbolId = symbolData[0].id;
-      
-      // Map order parameters
-      const action = side === 'buy' ? 'BUY' : 'SELL';
-      const orderType = type === 'market' ? 'Market' : 'Limit';
-      const tif = timeInForce === 'gtc' ? 'GTC' : 
-                  timeInForce === 'ioc' ? 'IOC' :
-                  timeInForce === 'fok' ? 'FOK' : 'Day';
-      
-      // Generate a unique order ID for idempotency
-      const { v4: uuidv4 } = require('uuid');
-      const orderUUID = uuidv4();
-      
-      // Use placeOrder wrapper function
-      const order = await placeOrder(
-        snaptradeUser.snaptradeUserId,
-        snaptradeUser.userSecret,
-        accountId,
-        {
-          action,
-          universalSymbolId: universalSymbolId!,
-          orderType,
-          timeInForce: tif,
-          units: qty,
-          price: limitPrice,
-          idempotencyKey: orderUUID
-        }
-      );
-      
-      // Log trade activity (with safe access to order properties)
-      const orderId = order?.brokerage_order_id || order?.id || 'unknown';
-      await storage.logActivity({
-        userId,
-        action: 'trade_placed',
-        description: `Placed ${side} order for ${qty} shares of ${symbol}`,
-        metadata: {
-          orderId,
-          symbol,
-          side,
-          quantity: qty,
-          orderType: type,
-          limitPrice,
-          accountId
-        }
+      instrument = await resolveInstrumentBySymbol(symbol);
+      console.log('Resolved instrument for placement:', { 
+        symbol, 
+        instrumentId: instrument?.id 
       });
+    } catch (error) {
+      console.error('Instrument resolution failed:', error);
+      return res.status(404).json({ 
+        message: `Symbol ${symbol} not found or not supported`
+      });
+    }
       
-      res.json({
-        success: true,
+    // Generate idempotency key for order placement
+    const idempotencyKey = crypto.randomUUID();
+
+    // Prepare order placement request
+    const orderRequest = {
+      userId: snapUser.snaptradeUserId,
+      userSecret: snapUser.userSecret,
+      accountId,
+      symbol,
+      universalSymbol: instrument?.symbol || instrument?.id,
+      instrumentId: instrument?.id,
+      side: side.toUpperCase(),
+      type: type.toUpperCase(),
+      quantity: qty,
+      limitPrice,
+      timeInForce: timeInForce.toUpperCase(),
+      idempotencyKey,
+    };
+
+    console.log('Order placement request prepared:', orderRequest);
+
+    // Use the robust trading API wrapper
+    const orderResult = await tradingPlaceOrder(orderRequest);
+    console.log('Order placement result received:', !!orderResult);
+
+    // Normalize the response
+    const normalized = normalizePreview(orderResult);
+    console.log('Normalized order result:', { 
+      hasTradeId: !!normalized.tradeId, 
+      hasImpact: !!normalized.impact 
+    });
+
+    // Log trade activity (with safe access to order properties)
+    const orderId = normalized.tradeId || orderResult?.id || 'unknown';
+    await storage.logActivity({
+      userId,
+      action: 'trade_placed',
+      description: `Placed ${side} order for ${qty} shares of ${symbol}`,
+      metadata: {
         orderId,
         symbol,
         side,
         quantity: qty,
         orderType: type,
         limitPrice,
-        status: order?.status || 'pending',
-        message: `Order placed successfully`
-      });
-      
-    } catch (snapError: any) {
-      console.error("SnapTrade place order error - Full details:", {
-        message: snapError.message,
-        response: snapError.response?.data,
-        status: snapError.response?.status,
-        statusText: snapError.response?.statusText
-      });
-      
-      logger.error("SnapTrade place order error", snapError);
-      
-      // Parse error message
-      const errorMessage = snapError.response?.data?.detail?.message || 
-                          snapError.response?.data?.message || 
-                          snapError.message;
-      
-      return res.status(400).json({ 
-        message: "Failed to place order",
-        error: errorMessage,
-        details: snapError.response?.data
-      });
-    }
-    
-  } catch (error) {
-    logger.error("Error placing order", { error });
-    res.status(500).json({ 
-      message: "Failed to place order",
-      error: error instanceof Error ? error.message : "Unknown error"
+        accountId
+      }
+    });
+
+    // Return normalized response
+    return res.json({
+      success: true,
+      orderId,
+      symbol,
+      side,
+      quantity: qty,
+      orderType: type,
+      limitPrice,
+      status: orderResult?.status || 'pending',
+      message: `Order placed successfully`
+    });
+
+  } catch (error: any) {
+    console.error('Trade placement error:', error);
+    return res.status(500).json({ 
+      message: 'Failed to place trade',
+      error: error.message 
     });
   }
+
 });
 
 /**
