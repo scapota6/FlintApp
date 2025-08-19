@@ -107,19 +107,18 @@ app.use((req, res, next) => {
     ignoreMethods: ['GET', 'HEAD', 'OPTIONS'], // ignore OPTIONS (preflight) and GET/HEAD
   });
 
-  // Issue a CSRF token to the client
+  // Issue token endpoint (no CSRF required beforehand)
   app.get('/api/csrf-token', csrfProtection, (req: any, res) => {
-    // Send token in body; cookie is already set by csurf
     res.json({ csrfToken: req.csrfToken() });
   });
 
-  // Apply CSRF to all routes except webhooks
-  // The ignoreMethods option already handles GET/HEAD/OPTIONS
+  // Apply CSRF ONLY to state-changing routes, AFTER the token route
   app.use((req, res, next) => {
-    if (req.path.startsWith('/api/webhooks') || req.path.startsWith('/health')) {
-      return next();
-    }
-    csrfProtection(req, res, next);
+    const needs = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)
+      && !req.path.startsWith('/api/webhooks')
+      && !req.path.startsWith('/health')
+      && req.path !== '/api/csrf-token';
+    return needs ? csrfProtection(req, res, next) : next();
   });
 
   // Friendly CSRF error handler
