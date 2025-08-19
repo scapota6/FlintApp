@@ -39,23 +39,34 @@ async function tradingCheckOrderImpact(input:any){
     timeInForce: input.timeInForce || 'DAY',
   };
 
-  // Try multiple method names for order impact/preview
-  const methods = ['getOrderImpact', 'checkOrderImpact', 'previewOrder', 'calculateImpact'];
-  for (const method of methods) {
-    if (hasFn(api, method)) {
-      console.log(`Using ${method} for order impact`);
-      return await (api as any)[method](payload);
+  const fns = ['checkOrderImpact','previewOrder','impactOrder','previewTrade'];
+  for (const fn of fns) {
+    if (hasFn(api, fn)) {
+      return (api as any)[fn](payload);
     }
   }
-  throw new Error('No order impact method available');
+  throw new Error('No preview/impact function on Trading API');
 }
 
 async function tradingPlaceOrder(input:any){
   const api = mkTradingApi();
-  const payload = {
+  const base = {
     userId: input.userId,
     userSecret: input.userSecret,
     accountId: input.accountId,
+    idempotencyKey: input.idempotencyKey,
+  };
+
+  // Prefer tradeId-based placement:
+  for (const fn of ['placeOrderById','executePreview','executeTrade','confirmOrder']) {
+    if (input.tradeId && hasFn(api, fn)) {
+      return (api as any)[fn]({ ...base, tradeId: input.tradeId });
+    }
+  }
+
+  // Fallback: direct order placement
+  const direct = {
+    ...base,
     symbol: input.symbol,
     universalSymbol: input.universalSymbol,
     instrumentId: input.instrumentId,
@@ -64,18 +75,13 @@ async function tradingPlaceOrder(input:any){
     units: Number(input.quantity),
     limitPrice: input.type === 'LIMIT' ? Number(input.limitPrice) : undefined,
     timeInForce: input.timeInForce || 'DAY',
-    idempotencyKey: input.idempotencyKey,
   };
-
-  // Try multiple method names for order placement
-  const methods = ['placeForceOrder', 'placeOrder', 'submitOrder', 'createOrder'];
-  for (const method of methods) {
-    if (hasFn(api, method)) {
-      console.log(`Using ${method} for order placement`);
-      return await (api as any)[method](payload);
+  for (const fn of ['placeOrder','placeTrade','submitOrder','placeSimpleOrder']) {
+    if (hasFn(api, fn)) {
+      return (api as any)[fn](direct);
     }
   }
-  throw new Error('No order placement method available');
+  throw new Error('No place order method on Trading API');
 }
 
 const router = Router();
@@ -271,6 +277,7 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
       limitPrice,
       timeInForce: timeInForce.toUpperCase(),
       idempotencyKey,
+      tradeId: null, // Will be populated from preview if available
     };
 
     console.log('Order placement request prepared:', orderRequest);
