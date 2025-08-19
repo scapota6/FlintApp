@@ -15,7 +15,7 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Tailwind CSS with custom dark theme, leveraging Radix UI components via shadcn/ui.
 - **Build Tool**: Vite
 - **UI/UX Decisions**: Fixed top navigation, animated link glows, three-column responsive account grid with glow borders and hover effects, full-screen modals with animated underlines, full-width quick action bars, interactive micro-animations (icon pulse, button hover glows, smooth transitions). Uses Inter font family and a consistent purple accent color. Includes accessibility features like keyboard navigation, focus outlines, and ARIA compliance.
-- **Key Features**: Comprehensive banking integration (balances, transactions), full buy/sell workflow with real-time pricing, multi-tab stock detail modal with TradingView charts, unified real-time market data system, Accounts Directory, Portfolio Dashboard (net worth, asset allocation), TradingView Lightweight Charts (multiple timeframes), IndexedDB caching for market data, complete trading MVP (order placement/cancellation via SnapTrade), Watchlist & Alerts with price monitoring and notifications.
+- **Key Features**: Comprehensive banking integration (balances, transactions), full buy/sell workflow with real-time pricing, multi-tab stock detail modal with TradingView charts, unified real-time market data system, Accounts Directory, Portfolio Dashboard (net worth, asset allocation), TradingView Lightweight Charts (multiple timeframes), IndexedDB caching for market data, complete trading MVP (order placement/cancellation via SnapTrade), Watchlist & Alerts with price monitoring and notifications, enhanced instrument resolution with cross-SDK compatibility.
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js

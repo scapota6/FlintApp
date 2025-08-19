@@ -1,4 +1,7 @@
 import { Snaptrade } from 'snaptrade-typescript-sdk';
+import * as SnaptradeModule from 'snaptrade-typescript-sdk';
+
+function hasFn(obj: any, name: string){ return obj && typeof obj[name] === 'function'; }
 
 // Initialize SDK exactly like the official CLI
 const snaptrade = new Snaptrade({
@@ -78,7 +81,6 @@ export async function getPositions(userId: string, userSecret: string, accountId
 }
 
 // ===== ADDITIONAL VERSION-SAFE WRAPPER FUNCTIONS =====
-function hasFn(obj: any, name: string) { return obj && typeof obj[name] === 'function'; }
 
 export async function getAccountBalances(userId: string, userSecret: string, accountId: string) {
   // Try common names across SDK versions
@@ -441,5 +443,44 @@ export async function getOrderStatus(
     
     throw e;
   }
+}
+
+// Return the best instrument record for a symbol (equities/ETF).
+export async function resolveInstrumentBySymbol(symbol: string) {
+  const S = (SnaptradeModule as any);
+  const InstrumentsApi =
+    S.InstrumentsApi || S.SymbolsApi || S.SymbolApi || S.SearchApi || S.ReferenceDataApi;
+  if (!InstrumentsApi) throw new Error('No instrument/symbol API available in this SDK');
+
+  const instrumentsApi = new InstrumentsApi((S as any).configuration || undefined);
+
+  const cleaned = String(symbol).trim().toUpperCase();
+  // Try common method names across SDKs:
+  const fns = ['searchInstruments','searchSymbols','search','findSymbols','getSymbols','lookup'];
+  for (const fn of fns) {
+    if (hasFn(instrumentsApi, fn)) {
+      try {
+        // Try the simplest param first
+        const res = await (instrumentsApi as any)[fn]({ symbol: cleaned, query: cleaned, q: cleaned, search: cleaned } as any)
+          .catch(async () => (instrumentsApi as any)[fn](cleaned));
+        if (Array.isArray(res) && res.length) {
+          // Pick exact ticker match first, otherwise take first result
+          const exact = res.find((r:any)=> (r.symbol||r.ticker||'').toUpperCase() === cleaned);
+          return exact || res[0];
+        }
+        if (res?.results && Array.isArray(res.results) && res.results.length) {
+          const exact = res.results.find((r:any)=> (r.symbol||r.ticker||'').toUpperCase() === cleaned);
+          return exact || res.results[0];
+        }
+      } catch (e) {
+        console.debug('Failed method:', fn, 'for symbol:', symbol);
+        continue;
+      }
+    }
+  }
+  
+  // Fallback: return null if no method worked
+  console.warn('Could not resolve instrument for symbol:', symbol);
+  return null;
 }
 
