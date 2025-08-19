@@ -20,7 +20,7 @@ Preferred communication style: Simple, everyday language.
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js
 - **Database**: PostgreSQL with Drizzle ORM, utilizing Neon Database.
-- **Authentication**: Replit Auth with OpenID Connect and PostgreSQL-backed session management, enhanced with httpOnly/SameSite cookies, CSRF protection, and session revocation.
+- **Authentication**: Replit Auth with OpenID Connect and PostgreSQL-backed session management, enhanced with httpOnly/SameSite cookies, double-submit-cookie CSRF protection (csurf with ignoreMethods for GET/HEAD/OPTIONS), and session revocation.
 - **API Pattern**: RESTful API with JSON responses.
 
 ### Key Components
@@ -29,7 +29,7 @@ Preferred communication style: Simple, everyday language.
 - **Alert Monitoring System**: Background service for price alerts with debouncing, quiet hours, and email/push notifications.
 - **Financial Data Management**: Multi-account connections, real-time balance tracking, portfolio management, trade execution simulation, transfer management, and watchlist.
 - **Subscription System**: Three-tier model (Basic, Pro, Premium) with Stripe integration for payment processing and feature gating.
-- **Security Framework**: AES-256-GCM encryption for sensitive credentials, multi-tier rate limiting, activity logging with sensitive data hashing, secure PostgreSQL-backed sessions, CSRF protection, session revocation on logout, RBAC middleware, encrypted token storage, automatic secret rotation, SOC 2 compliant infrastructure.
+- **Security Framework**: AES-256-GCM encryption for sensitive credentials, multi-tier rate limiting, activity logging with sensitive data hashing, secure PostgreSQL-backed sessions, double-submit-cookie CSRF protection with csurf (x-csrf-token header validation), session revocation on logout, RBAC middleware, encrypted token storage, automatic secret rotation, SOC 2 compliant infrastructure.
 - **Wallet Service Architecture**: Internal fund management with pre-authorization and hold/release, integrated ACH transfers via Teller.
 - **Trading Aggregation Engine**: Complete trading system with intelligent routing, real-time position consolidation, pre-trade validation, enhanced instrument resolution with cross-SDK compatibility, robust trade preview/placement APIs with version-safe wrappers, tradeId-based order placement with fallbacks, comprehensive error handling with detailed debugging, and flexible validation flow supporting both preview-then-place and direct placement workflows.
 - **Modular Architecture**: Clean separation of concerns with dedicated service layers for encryption, wallet management, and trading aggregation.

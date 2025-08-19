@@ -100,10 +100,11 @@ app.use((req, res, next) => {
   const csrfProtection = csrf({
     cookie: {
       key: 'flint_csrf',
-      httpOnly: false,        // double-submit cookie must be readable by JS
+      httpOnly: false,        // must be readable by JS (double-submit pattern)
       sameSite: isProd ? 'none' : 'lax', // 'none' if front/back on different origins
-      secure: isProd,         // true in prod behind HTTPS; false in local dev
+      secure: isProd,         // true when HTTPS
     },
+    ignoreMethods: ['GET', 'HEAD', 'OPTIONS'], // ignore OPTIONS (preflight) and GET/HEAD
   });
 
   // Issue a CSRF token to the client
@@ -112,14 +113,14 @@ app.use((req, res, next) => {
     res.json({ csrfToken: req.csrfToken() });
   });
 
-  // Apply CSRF to state-changing routes only.
-  // Keep GET/HEAD out, and optionally bypass webhooks/health.
-  const needsCsrf = (req: Request) =>
-    ['POST','PUT','PATCH','DELETE'].includes(req.method) &&
-    !req.path.startsWith('/api/webhooks') &&
-    !req.path.startsWith('/health');
-
-  app.use((req, res, next) => needsCsrf(req) ? csrfProtection(req, res, next) : next());
+  // Apply CSRF to all routes except webhooks
+  // The ignoreMethods option already handles GET/HEAD/OPTIONS
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/webhooks') || req.path.startsWith('/health')) {
+      return next();
+    }
+    csrfProtection(req, res, next);
+  });
 
   // Friendly CSRF error handler
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
