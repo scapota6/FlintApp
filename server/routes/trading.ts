@@ -14,6 +14,19 @@ import { z } from "zod";
 
 // Import SnapTrade SDK and utility functions
 import * as Snaptrade from 'snaptrade-typescript-sdk';
+
+// Initialize SnapTrade client
+const snaptradeClient = new Snaptrade.Snaptrade({
+  consumerKey: process.env.SNAPTRADE_CONSUMER_KEY || '',
+  clientId: process.env.SNAPTRADE_CLIENT_ID || '',
+});
+
+// Define schemas for validation
+const CancelOrderSchema = z.object({
+  orderId: z.string(),
+  accountId: z.string()
+});
+
 function hasFn(obj:any,n:string){ return obj && typeof obj[n]==='function'; }
 function mkTradingApi(){
   const S:any = Snaptrade;
@@ -384,7 +397,7 @@ r.get("/orders", isAuthenticated, async (req: any, res) => {
       });
       
       // Format orders for response
-      const formattedOrders = orders.map(order => ({
+      const formattedOrders = orders.map((order: any) => ({
         id: order.brokerage_order_id,
         symbol: order.symbol,
         side: order.action?.toLowerCase(),
@@ -400,11 +413,11 @@ r.get("/orders", isAuthenticated, async (req: any, res) => {
       }));
       
       // Separate open and completed orders
-      const openOrders = formattedOrders.filter(o => 
+      const openOrders = formattedOrders.filter((o: any) => 
         ['new', 'accepted', 'pending', 'partially_filled'].includes(o.status?.toLowerCase() || '')
       );
       
-      const recentOrders = formattedOrders.filter(o => 
+      const recentOrders = formattedOrders.filter((o: any) => 
         ['filled', 'cancelled', 'rejected', 'expired'].includes(o.status?.toLowerCase() || '')
       ).slice(0, 20); // Last 20 completed orders
       

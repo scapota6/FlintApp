@@ -7,19 +7,46 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+let csrfToken: string | null = null;
+
 export async function apiRequest(path: string, options: RequestInit = {}) {
   const base = '';
   const url = path.startsWith('http') ? path : `${base}${path}`;
 
+  // Get CSRF token if we don't have it yet or if it's a GET request (to refresh)
+  if (!csrfToken || options.method === 'GET') {
+    try {
+      const tokenResp = await fetch('/api/auth/user', {
+        credentials: 'include'
+      });
+      csrfToken = tokenResp.headers.get('X-CSRF-Token');
+    } catch (e) {
+      // Ignore CSRF token fetch errors
+    }
+  }
+
+  const headers: any = {
+    'Accept': 'application/json',
+    ...(options.headers || {}),
+  };
+
+  // Add CSRF token for state-changing requests
+  if (csrfToken && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || '')) {
+    headers['X-CSRF-Token'] = csrfToken;
+  }
+
   const resp = await fetch(url, {
     method: options.method || 'GET',
-    headers: {
-      'Accept': 'application/json',
-      ...(options.headers || {}),
-    },
+    headers,
     credentials: 'include', // keep cookies/session
     ...options,
   });
+
+  // Update CSRF token from response if present
+  const newToken = resp.headers.get('X-CSRF-Token');
+  if (newToken) {
+    csrfToken = newToken;
+  }
 
   return resp; // callers can do resp.ok / resp.json()
 }
