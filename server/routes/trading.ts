@@ -151,6 +151,7 @@ r.post('/trade/preview', async (req,res)=>{
       return res.status(502).json({ message:'Preview returned unexpected response', raw });
     }
 
+    res.type('application/json');
     return res.json({ ok:true, tradeId, impact, raw }); // keep raw for debugging in UI if needed
   }catch(e:any){
     console.error('SnapTrade preview error - Full details:', e?.responseBody || e?.message || e);
@@ -191,6 +192,7 @@ r.post('/trade/place', async (req,res)=>{
       idempotencyKey,
     });
 
+    res.type('application/json');
     return res.json({ ok:true, order: placed, idempotencyKey });
   }catch(e:any){
     console.error('SnapTrade place order error - Full details:', e?.responseBody || e?.message || e);
