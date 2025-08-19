@@ -1,0 +1,54 @@
+Replace your preview/place routes with robust versions
+
+Edit src/routes/trading.ts (or wherever you defined them). Replace your handlers:
+
+import { Router } from 'express';
+import crypto from 'crypto';
+import { getSnapUser } from '../store/snapUsers';
+import { resolveInstrumentBySymbol, normalizePreview } from '../lib/snaptrade';
+
+// Put your existing version-safe wrappers here (tradingCheckOrderImpact, tradingPlaceOrder)
+// If you don’t have them yet, paste the simplified ones below:
+
+import * as Snaptrade from 'snaptrade-typescript-sdk';
+function hasFn(obj:any,n:string){ return obj && typeof obj[n]==='function'; }
+function mkTradingApi(){
+  const S:any = Snaptrade;
+  const Ctor = S.TradingApi || S.TradesApi || S.AccountsAndTradesApi;
+  if (!Ctor) throw new Error('Trading API not available in SDK');
+  return new Ctor((S as any).configuration || undefined);
+}
+
+async function tradingCheckOrderImpact(input:any){
+  const api = mkTradingApi();
+  const payload = {
+    userId: input.userId,
+    userSecret: input.userSecret,
+    accountId: input.accountId,
+    // Common fields:
+    symbol: input.symbol,                        // equity symbol
+    universalSymbol: input.universalSymbol,      // if resolver provided it
+    instrumentId: input.instrumentId,            // if resolver provided it
+    action: input.side,                          // BUY/SELL
+    orderType: input.type,                       // MARKET/LIMIT
+    units: Number(input.quantity),
+    limitPrice: input.type === 'LIMIT' ? Number(input.limitPrice) : undefined,
+    timeInForce: input.timeInForce || 'DAY',
+  };
+  const fns = ['checkOrderImpact','previewOrder','impactOrder','previewTrade'];
+  for (const fn of fns) {
+    if (hasFn(api, fn)) {
+      return (api as any)[fn](payload);
+    }
+  }
+  throw new Error('No preview/impact function on Trading API');
+}
+
+async function tradingPlaceOrder(input:any){
+  const api = mkTradingApi();
+  const base = {
+    userId: input.userId,
+    userSecret: input.userSecret,
+    accountId: input.accountId,
+    idempotencyKey: input.idempotencyKey,
+  };

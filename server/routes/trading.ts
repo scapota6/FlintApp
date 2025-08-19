@@ -129,9 +129,10 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
         }
       );
       
-      // Calculate estimated costs
-      const estimatedValue = (limitPrice || impact.price || 0) * quantity;
-      const commission = impact.brokerage_order_impact?.estimated_commissions || 0;
+      // Calculate estimated costs (with safe fallbacks)
+      const estimatedPrice = impact?.price || limitPrice || 0;
+      const estimatedValue = estimatedPrice * quantity;
+      const commission = impact?.brokerage_order_impact?.estimated_commissions || 0;
       const totalCost = side === 'buy' 
         ? estimatedValue + commission
         : estimatedValue - commission;
@@ -142,11 +143,11 @@ router.post("/preview", isAuthenticated, async (req: any, res) => {
         quantity,
         orderType,
         limitPrice,
-        estimatedPrice: impact.price || limitPrice,
+        estimatedPrice,
         estimatedValue,
         commission,
         totalCost,
-        buyingPower: impact.buying_power_effect,
+        buyingPower: impact?.buying_power_effect || null,
         account: {
           id: accountId,
           name: 'Brokerage Account',
@@ -257,13 +258,14 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
         }
       );
       
-      // Log trade activity
+      // Log trade activity (with safe access to order properties)
+      const orderId = order?.brokerage_order_id || order?.id || 'unknown';
       await storage.logActivity({
         userId,
         action: 'trade_placed',
         description: `Placed ${side} order for ${qty} shares of ${symbol}`,
         metadata: {
-          orderId: order.brokerage_order_id,
+          orderId,
           symbol,
           side,
           quantity: qty,
@@ -275,13 +277,13 @@ router.post("/place", isAuthenticated, async (req: any, res) => {
       
       res.json({
         success: true,
-        orderId: order.brokerage_order_id,
+        orderId,
         symbol,
         side,
         quantity: qty,
         orderType: type,
         limitPrice,
-        status: order.status,
+        status: order?.status || 'pending',
         message: `Order placed successfully`
       });
       

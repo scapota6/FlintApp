@@ -1,0 +1,42 @@
+ throw new Error('No place order method on Trading API');
+}
+
+const r = Router();
+const pickUserId = (req:any)=> (req.user?.id || req.headers['x-user-id'] || req.body?.userId || '').toString().trim();
+
+function validateOrder(b:any){
+  const e:string[]=[];
+  if(!b.accountId) e.push('accountId required');
+  if(!b.symbol) e.push('symbol required');
+  if(!b.side || !['BUY','SELL'].includes(String(b.side).toUpperCase())) e.push('side must be BUY or SELL');
+  if(!b.quantity || Number(b.quantity)<=0) e.push('quantity must be > 0');
+  if(!b.type || !['MARKET','LIMIT'].includes(String(b.type).toUpperCase())) e.push('type must be MARKET or LIMIT');
+  if(String(b.type).toUpperCase()==='LIMIT' && (!b.limitPrice || Number(b.limitPrice)<=0)) e.push('limitPrice required for LIMIT');
+  return e;
+}
+
+r.post('/trade/preview', async (req,res)=>{
+  try{
+    const userId = pickUserId(req);
+    if(!userId) return res.status(401).json({message:'No userId'});
+
+    const body = req.body||{};
+    body.side = String(body.side||'').toUpperCase();
+    body.type = String(body.type||'').toUpperCase();
+    const errs = validateOrder(body);
+    if (errs.length) return res.status(400).json({ message:'Invalid order', errors:errs });
+
+    const rec = await getSnapUser(userId);
+    if(!rec?.userSecret) return res.status(428).json({ code:'SNAPTRADE_NOT_REGISTERED', message:'Connect brokerage first' });
+
+    // Resolve instrument for the symbol to prevent 400s from missing instrument fields
+    const inst = await resolveInstrumentBySymbol(body.symbol).catch(()=> null);
+    const payload = {
+      userId: rec.userId, userSecret: rec.userSecret,
+      accountId: body.accountId, symbol: body.symbol,
+      side: body.side, quantity: Number(body.quantity), type: body.type,
+      limitPrice: body.limitPrice ? Number(body.limitPrice) : undefined,
+      timeInForce: body.timeInForce || 'DAY',
+      universalSymbol: inst?.universalSymbol || inst?.universal_symbol || undefined,
+      instrumentId: inst?.id || inst?.instrumentId || undefined,
+    };

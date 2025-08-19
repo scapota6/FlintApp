@@ -26,21 +26,61 @@ router.get("/transactions/:accountId", isAuthenticated, async (req: any, res) =>
   }
 });
 
-// Get all connected bank accounts
+// Get all connected bank accounts AND brokerage accounts
 router.get("/accounts", isAuthenticated, async (req: any, res) => {
   try {
+    const userId = req.user.claims.sub;
     const userEmail = req.user.claims.email;
-    console.log(`Fetching bank accounts for user: ${userEmail}`);
+    console.log(`Fetching accounts for user: ${userEmail}`);
     
-    // Fetch real bank accounts from Teller.io
-    const realBankAccounts = await storage.getBankAccounts(userEmail);
-
-    res.json(realBankAccounts || []);
+    // Get SnapTrade accounts for Trading page
+    const brokerages = [];
+    
+    try {
+      // Import the getSnapUser function to access SnapTrade accounts
+      const { getSnapUser } = await import('../lib/snaptrade-store');
+      const snapUser = await getSnapUser(userId);
+      
+      if (snapUser?.userSecret) {
+        const { accountsApi } = await import('../lib/snaptrade');
+        const accounts = await accountsApi.listUserAccounts({
+          userId: snapUser.userId,
+          userSecret: snapUser.userSecret,
+        });
+        
+        if (accounts.data && Array.isArray(accounts.data)) {
+          for (const account of accounts.data) {
+            const balance = parseFloat(account.balance?.total?.amount || '0') || 0;
+            
+            // Use institution_name if account name is "Default" (for Coinbase)
+            const accountName = account.name === 'Default' 
+              ? `${account.institution_name} ${account.meta?.type || 'Account'}`.trim()
+              : account.name;
+            
+            brokerages.push({
+              id: account.id,
+              accountName: accountName || account.institution_name || 'Unknown Account',
+              provider: 'snaptrade',
+              balance: balance.toFixed(2),
+              externalAccountId: account.id,
+              institutionName: account.institution_name,
+              accountType: account.meta?.type || 'DEFAULT',
+              currency: account.balance?.total?.currency || 'USD'
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching SnapTrade accounts:', error);
+    }
+    
+    // Return in the format expected by Trading page
+    res.json({ brokerages });
   } catch (error: any) {
-    console.error('Error fetching bank accounts:', error);
+    console.error('Error fetching accounts:', error);
     res.status(500).json({ 
       success: false, 
-      message: error.message || 'Failed to fetch bank accounts' 
+      message: error.message || 'Failed to fetch accounts' 
     });
   }
 });

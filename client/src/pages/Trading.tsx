@@ -122,7 +122,7 @@ export default function Trading() {
           
           {/* Search Results Dropdown */}
           {showSearchResults && searchResults.length > 0 && (
-            <div className="absolute z-10 mt-2 w-full max-w-md bg-background border rounded-lg shadow-lg">
+            <div className="absolute z-50 mt-2 w-full max-w-md bg-slate-800 border border-slate-700 rounded-lg shadow-lg">
               {searchResults.map((result) => (
                 <div
                   key={result.symbol}
@@ -168,21 +168,21 @@ export default function Trading() {
         <div className="space-y-6">
           {/* Account Selector */}
           {hasAccounts && (
-            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm relative z-20">
               <CardHeader>
                 <CardTitle className="text-sm text-white">Trading Account</CardTitle>
               </CardHeader>
               <CardContent>
                 <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
                     <SelectValue placeholder="Select account" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-slate-800 border-slate-700 z-50">
                     {accounts?.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        <div>
-                          <div>{account.accountName}</div>
-                          <div className="text-xs text-muted-foreground">
+                      <SelectItem key={account.id} value={account.id} className="text-white hover:bg-slate-700">
+                        <div className="flex flex-col">
+                          <div className="font-medium">{account.accountName}</div>
+                          <div className="text-xs text-slate-400">
                             Balance: ${parseFloat(account.balance).toLocaleString()}
                           </div>
                         </div>
