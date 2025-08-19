@@ -479,8 +479,15 @@ export async function resolveInstrumentBySymbol(symbol: string) {
     }
   }
   
-  // Fallback: return null if no method worked
-  console.warn('Could not resolve instrument for symbol:', symbol);
-  return null;
+  throw new Error(`Instrument for ${cleaned} not found`);
+}
+
+// Normalize preview/impact responses => { tradeId, impact }
+export function normalizePreview(result: any) {
+  if (!result) return { tradeId: null, impact: null };
+  const tradeId =
+    result.tradeId || result.id || result.previewId || result.orderId || result.trade?.id || null;
+  const impact = result.impact || result || null;
+  return { tradeId, impact };
 }
 
