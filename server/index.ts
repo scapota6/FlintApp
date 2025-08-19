@@ -125,8 +125,10 @@ app.use((req, res, next) => {
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     if (err.code === 'EBADCSRFTOKEN') {
       logger.warn('Invalid CSRF token detected', { 
-        path: _req.path,
-        method: _req.method
+        metadata: {
+          path: _req.path,
+          method: _req.method
+        }
       });
       return res.status(403).json({ message: 'Invalid CSRF token' });
     }
