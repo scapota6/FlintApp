@@ -115,18 +115,20 @@ export default function EnhancedTradeModal({
         timeInForce: data.timeInForce.toUpperCase()
       };
 
-      const previewResponse = await fetch('/api/trade/preview', {
+      const previewResponse = await apiRequest('/api/trade/preview', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(previewData)
       });
-
-      const previewResult = await previewResponse.json();
+      
       if (!previewResponse.ok) {
-        throw new Error(previewResult.message || 'Preview failed');
+        const error = await previewResponse.json();
+        throw new Error(error.message || 'Preview failed');
       }
+      
+      const previewResult = await previewResponse.json();
 
       // Place order using tradeId if available
       const orderData = previewResult.tradeId ? 
@@ -144,20 +146,20 @@ export default function EnhancedTradeModal({
           timeInForce: data.timeInForce.toUpperCase()
         };
 
-      const response = await fetch('/api/trade/place', {
+      const placeResponse = await apiRequest('/api/trade/place', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(orderData)
       });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.message || 'Place failed');
+      
+      if (!placeResponse.ok) {
+        const error = await placeResponse.json();
+        throw new Error(error.message || 'Place failed');
       }
-
-      return result;
+      
+      return placeResponse.json();
     },
     onSuccess: () => {
       toast({

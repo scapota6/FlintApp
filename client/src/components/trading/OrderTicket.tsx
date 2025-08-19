@@ -102,20 +102,20 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
         timeInForce: timeInForce.toUpperCase()
       };
 
-      const response = await fetch('/api/trade/preview', {
+      const response = await apiRequest('/api/trade/preview', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(orderData)
       });
-
-      const result = await response.json();
+      
       if (!response.ok) {
-        throw new Error(result.message || 'Preview failed');
+        const error = await response.json();
+        throw new Error(error.message || 'Preview failed');
       }
-
-      return result;
+      
+      return response.json();
     },
     onSuccess: (data) => {
       setImpact(data.impact);
@@ -171,20 +171,20 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
           timeInForce: timeInForce.toUpperCase()
         };
 
-      const response = await fetch('/api/trade/place', {
+      const response = await apiRequest('/api/trade/place', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(orderData)
       });
-
-      const result = await response.json();
+      
       if (!response.ok) {
-        throw new Error(result.message || 'Place failed');
+        const error = await response.json();
+        throw new Error(error.message || 'Place failed');
       }
-
-      return result;
+      
+      return response.json();
     },
     onSuccess: (data) => {
       toast({
@@ -391,30 +391,44 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
             Preview Order
           </Button>
           
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  className={`w-full ${side === 'buy' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
-                  onClick={handlePlaceOrder}
-                  disabled={
-                    !selectedAccountId || 
-                    !quantity || 
-                    (orderType === 'limit' && !limitPrice) ||
-                    placeOrderMutation.isPending
-                  }
-                >
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  {placeOrderMutation.isPending ? 'Placing...' : `Place ${side === 'buy' ? 'Buy' : 'Sell'} Order`}
-                </Button>
-              </TooltipTrigger>
-              {(!selectedAccountId || !quantity) && (
+          {(!selectedAccountId || !quantity) ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    className={`w-full ${side === 'buy' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
+                    onClick={handlePlaceOrder}
+                    disabled={
+                      !selectedAccountId || 
+                      !quantity || 
+                      (orderType === 'limit' && !limitPrice) ||
+                      placeOrderMutation.isPending
+                    }
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    {placeOrderMutation.isPending ? 'Placing...' : `Place ${side === 'buy' ? 'Buy' : 'Sell'} Order`}
+                  </Button>
+                </TooltipTrigger>
                 <TooltipContent>
                   <p>Enter quantity and select account</p>
                 </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <Button
+              className={`w-full ${side === 'buy' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
+              onClick={handlePlaceOrder}
+              disabled={
+                !selectedAccountId || 
+                !quantity || 
+                (orderType === 'limit' && !limitPrice) ||
+                placeOrderMutation.isPending
+              }
+            >
+              <DollarSign className="h-4 w-4 mr-2" />
+              {placeOrderMutation.isPending ? 'Placing...' : `Place ${side === 'buy' ? 'Buy' : 'Sell'} Order`}
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

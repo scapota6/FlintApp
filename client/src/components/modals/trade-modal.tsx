@@ -107,18 +107,20 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
         ...(orderType === "LIMIT" && { limitPrice: parseFloat(limitPrice) })
       };
 
-      const previewResponse = await fetch('/api/trade/preview', {
+      const previewResponse = await apiRequest('/api/trade/preview', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(previewData)
       });
-
-      const previewResult = await previewResponse.json();
+      
       if (!previewResponse.ok) {
-        throw new Error(previewResult.message || 'Preview failed');
+        const error = await previewResponse.json();
+        throw new Error(error.message || 'Preview failed');
       }
+      
+      const previewResult = await previewResponse.json();
 
       // Place order using tradeId if available
       const orderData = previewResult.tradeId ? 
@@ -135,17 +137,22 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
           ...(orderType === "LIMIT" && { limitPrice: parseFloat(limitPrice) })
         };
 
-      const response = await fetch('/api/trade/place', {
+      const placeResponse = await apiRequest('/api/trade/place', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(orderData)
       });
+      
+      if (!placeResponse.ok) {
+        const error = await placeResponse.json();
+        throw new Error(error.message || 'Place failed');
+      }
+      
+      const result = await placeResponse.json();
 
-      const result = await response.json();
-
-      if (result.ok || response.ok) {
+      if (result) {
         setSuccess(`${action} order for ${quantity} shares of ${symbol} placed successfully!`);
         onTradeComplete?.();
         setTimeout(() => {
