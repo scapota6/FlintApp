@@ -393,7 +393,7 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
           
           {(!selectedAccountId || !quantity) ? (
             <TooltipProvider>
-              <Tooltip>
+              <Tooltip content="Enter quantity and select account">
                 <TooltipTrigger asChild>
                   <Button
                     className={`w-full ${side === 'buy' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
@@ -409,9 +409,6 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
                     {placeOrderMutation.isPending ? 'Placing...' : `Place ${side === 'buy' ? 'Buy' : 'Sell'} Order`}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>Enter quantity and select account</p>
-                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           ) : (
