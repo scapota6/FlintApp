@@ -54,7 +54,7 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
 
   const loadAccounts = async () => {
     try {
-      const response = await apiRequest("GET", "/api/snaptrade/accounts");
+      const response = await apiRequest("/api/snaptrade/accounts");
       const data = await response.json();
       
       // Handle the response structure properly
@@ -97,19 +97,55 @@ export function TradeModal({ isOpen, onClose, symbol = "", currentPrice = 0, onT
     setSuccess("");
 
     try {
-      const orderData = {
+      // First get preview with tradeId workflow
+      const previewData = {
         accountId: selectedAccount,
         symbol: symbol.toUpperCase(),
-        action,
+        side: action.toLowerCase(),
         quantity: parseInt(quantity),
-        orderType,
-        ...(orderType === "LIMIT" && { price: parseFloat(limitPrice) })
+        type: orderType,
+        ...(orderType === "LIMIT" && { limitPrice: parseFloat(limitPrice) })
       };
 
-      const response = await apiRequest("POST", "/api/orders", orderData);
+      const previewResponse = await fetch('/api/trade/preview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(previewData)
+      });
+
+      const previewResult = await previewResponse.json();
+      if (!previewResponse.ok) {
+        throw new Error(previewResult.message || 'Preview failed');
+      }
+
+      // Place order using tradeId if available
+      const orderData = previewResult.tradeId ? 
+        { 
+          accountId: selectedAccount, 
+          tradeId: previewResult.tradeId 
+        } : 
+        {
+          accountId: selectedAccount,
+          symbol: symbol.toUpperCase(),
+          side: action.toLowerCase(),
+          quantity: parseInt(quantity),
+          type: orderType,
+          ...(orderType === "LIMIT" && { limitPrice: parseFloat(limitPrice) })
+        };
+
+      const response = await fetch('/api/trade/place', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderData)
+      });
+
       const result = await response.json();
 
-      if (result.success) {
+      if (result.ok || response.ok) {
         setSuccess(`${action} order for ${quantity} shares of ${symbol} placed successfully!`);
         onTradeComplete?.();
         setTimeout(() => {

@@ -104,17 +104,60 @@ export default function EnhancedTradeModal({
 
   const executeTrade = useMutation({
     mutationFn: async (data: TradeFormData) => {
-      const payload = {
+      // First get preview with tradeId workflow
+      const previewData = {
         accountId: data.accountId,
         symbol,
-        action,
-        orderType: data.orderType,
+        side: action,
         quantity: parseFloat(data.quantity),
+        type: data.orderType.toUpperCase(),
         limitPrice: data.orderType === 'limit' ? parseFloat(data.limitPrice || '0') : undefined,
-        timeInForce: data.timeInForce,
+        timeInForce: data.timeInForce.toUpperCase()
       };
 
-      return apiRequest('POST', '/api/orders', payload);
+      const previewResponse = await fetch('/api/trade/preview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(previewData)
+      });
+
+      const previewResult = await previewResponse.json();
+      if (!previewResponse.ok) {
+        throw new Error(previewResult.message || 'Preview failed');
+      }
+
+      // Place order using tradeId if available
+      const orderData = previewResult.tradeId ? 
+        { 
+          accountId: data.accountId, 
+          tradeId: previewResult.tradeId 
+        } : 
+        {
+          accountId: data.accountId,
+          symbol,
+          side: action,
+          quantity: parseFloat(data.quantity),
+          type: data.orderType.toUpperCase(),
+          limitPrice: data.orderType === 'limit' ? parseFloat(data.limitPrice || '0') : undefined,
+          timeInForce: data.timeInForce.toUpperCase()
+        };
+
+      const response = await fetch('/api/trade/place', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderData)
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || 'Place failed');
+      }
+
+      return result;
     },
     onSuccess: () => {
       toast({

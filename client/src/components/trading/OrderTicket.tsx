@@ -65,6 +65,8 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
   const [limitPrice, setLimitPrice] = useState<string>('');
   const [timeInForce, setTimeInForce] = useState<'day' | 'gtc'>('day');
   const [preview, setPreview] = useState<OrderPreview | null>(null);
+  const [tradeId, setTradeId] = useState<string | null>(null);
+  const [impact, setImpact] = useState<any>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   // Use the account ID from props
@@ -83,7 +85,7 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
     }
   }, [orderType, currentPrice, limitPrice]);
 
-  // Preview order mutation
+  // Preview order mutation - updated to use new tradeId workflow
   const previewMutation = useMutation({
     mutationFn: async () => {
       if (!selectedAccountId || !quantity || parseFloat(quantity) <= 0) {
@@ -95,20 +97,47 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
         symbol,
         side,
         quantity: parseFloat(quantity),
-        orderType,
-        limitPrice: orderType === 'limit' ? parseFloat(limitPrice) : undefined
+        type: orderType.toUpperCase(),
+        limitPrice: orderType === 'limit' ? parseFloat(limitPrice) : undefined,
+        timeInForce: timeInForce.toUpperCase()
       };
 
-      return apiRequest('/api/trade/preview', {
+      const response = await fetch('/api/trade/preview', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(orderData)
       });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || 'Preview failed');
+      }
+
+      return result;
     },
     onSuccess: (data) => {
-      setPreview(data);
+      setImpact(data.impact);
+      setTradeId(data.tradeId || null);
+      // Keep existing preview for UI display
+      setPreview({
+        symbol,
+        side,
+        quantity: parseFloat(quantity),
+        orderType,
+        limitPrice: orderType === 'limit' ? parseFloat(limitPrice) : undefined,
+        estimatedPrice: data.impact?.estimatedPrice || currentPrice,
+        estimatedValue: data.impact?.estimatedValue || parseFloat(quantity) * currentPrice,
+        commission: data.impact?.commission || 0,
+        totalCost: data.impact?.totalCost || parseFloat(quantity) * currentPrice,
+        buyingPower: data.impact?.buyingPower,
+        account: {
+          id: selectedAccountId,
+          name: 'Selected Account',
+          provider: 'SnapTrade'
+        }
+      });
     },
     onError: (error: any) => {
       toast({
@@ -119,30 +148,43 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
     }
   });
 
-  // Place order mutation
+  // Place order mutation - updated to use tradeId workflow
   const placeOrderMutation = useMutation({
     mutationFn: async () => {
       if (!selectedAccountId || !quantity || parseFloat(quantity) <= 0) {
         throw new Error('Invalid order parameters');
       }
 
-      const orderData = {
-        accountId: selectedAccountId,
-        symbol,
-        side,
-        type: orderType,
-        qty: parseFloat(quantity),
-        limitPrice: orderType === 'limit' ? parseFloat(limitPrice) : undefined,
-        timeInForce
-      };
+      // Use tradeId if available, otherwise send full order data
+      const orderData = tradeId ? 
+        { 
+          accountId: selectedAccountId, 
+          tradeId 
+        } : 
+        {
+          accountId: selectedAccountId,
+          symbol,
+          side,
+          type: orderType.toUpperCase(),
+          quantity: parseFloat(quantity),
+          limitPrice: orderType === 'limit' ? parseFloat(limitPrice) : undefined,
+          timeInForce: timeInForce.toUpperCase()
+        };
 
-      return apiRequest('/api/trade/place', {
+      const response = await fetch('/api/trade/place', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(orderData)
       });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || 'Place failed');
+      }
+
+      return result;
     },
     onSuccess: (data) => {
       toast({
@@ -154,9 +196,13 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
       setQuantity('1');
       setLimitPrice('');
       setPreview(null);
+      setTradeId(null);
+      setImpact(null);
       
-      // Invalidate orders query
+      // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ['/api/trade/orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/portfolio-holdings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
       
       if (onOrderPlaced) {
         onOrderPlaced();
@@ -178,17 +224,22 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
     return qty * price;
   };
 
-  // Handle preview
+  // Handle preview - updated for tradeId workflow
   const handlePreview = async () => {
     setIsPreviewLoading(true);
-    await previewMutation.mutateAsync();
-    setIsPreviewLoading(false);
+    try {
+      await previewMutation.mutateAsync();
+    } finally {
+      setIsPreviewLoading(false);
+    }
   };
 
-  // Handle place order
+  // Handle place order - updated for tradeId workflow
   const handlePlaceOrder = async () => {
-    if (!preview) {
+    // If no preview/tradeId, get preview first
+    if (!preview && !tradeId) {
       await handlePreview();
+      // The preview will set the tradeId if available
     }
     placeOrderMutation.mutate();
   };
