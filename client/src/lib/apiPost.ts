@@ -1,26 +1,29 @@
-import { ensureCsrf, resetCsrf } from './csrf';
+// shared POST helper
+import { ensureCsrf, resetCsrf } from '@/lib/csrf';
 
-/**
- * Helper function for making CSRF-protected POST requests with auto-retry
- */
-export async function apiPost(path: string, body: any, retryCount = 0): Promise<Response> {
-  const token = await ensureCsrf();
-  const resp = await fetch(path, {
+export async function apiPost(path: string, body: any) {
+  let token = await ensureCsrf();
+  let resp = await fetch(path, {
     method: 'POST',
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      'x-csrf-token': token, // csurf reads from this header by default
+      'x-csrf-token': token,   // csurf default header
     },
     body: JSON.stringify(body),
   });
 
-  if (resp.status === 403 && retryCount === 0) {
-    // CSRF mismatch, refresh token and retry once
+  // If server restarted or cookie rotated, token may be stale—refresh once
+  if (resp.status === 403) {
     resetCsrf();
-    return apiPost(path, body, 1);
+    token = await ensureCsrf();
+    resp = await fetch(path, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': token },
+      body: JSON.stringify(body),
+    });
   }
-  
   return resp;
 }
 
