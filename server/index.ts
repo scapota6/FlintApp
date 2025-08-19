@@ -14,11 +14,12 @@ console.log('[ENV CHECK]', {
 });
 
 import express, { type Request, Response, NextFunction } from "express";
+import cookieParser from "cookie-parser";
+import csrf from "csurf";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initSentry, sentryErrorHandler } from "./lib/sentry";
 import { logger } from "@shared/logger";
-import { attachCSRFToken, validateCSRFToken } from "./middleware/csrf";
 import snaptradeRouter from "./routes/snaptrade";
 import ordersRouter from "./routes/orders";
 import orderPreviewRouter from "./routes/order-preview";
@@ -31,6 +32,7 @@ initSentry();
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -80,11 +82,25 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
 
-  // Add CSRF protection after session middleware is initialized
-  app.use(attachCSRFToken);
-  
-  // Apply CSRF validation to state-changing routes
-  app.use("/api", validateCSRFToken);
+  // Configure CSRF protection with double-submit-cookie pattern
+  const csrfProtection = csrf({
+    cookie: {
+      httpOnly: false, // Must be false for double-submit pattern
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict'
+    }
+  });
+
+  // CSRF token endpoint - provides token for client
+  app.get('/api/csrf-token', csrfProtection, (req, res) => {
+    res.json({ csrfToken: req.csrfToken() });
+  });
+
+  // Apply CSRF protection to state-changing routes
+  app.use('/api/trade', csrfProtection);
+  app.use('/api/transfers', csrfProtection);
+  app.use('/api/deposits', csrfProtection);
+  app.use('/api/watchlist', csrfProtection);
   
   // Mount Orders API router
   app.use("/api", ordersRouter);
