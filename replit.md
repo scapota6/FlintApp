@@ -22,6 +22,7 @@ Preferred communication style: Simple, everyday language.
 - **Database**: PostgreSQL with Drizzle ORM, utilizing Neon Database.
 - **Authentication**: Replit Auth with OpenID Connect and PostgreSQL-backed session management, enhanced with httpOnly/SameSite cookies, double-submit-cookie CSRF protection (csurf with ignoreMethods for GET/HEAD/OPTIONS), and session revocation.
 - **API Pattern**: RESTful API with JSON responses.
+- **Route Configuration**: API routes mounted first before static files, JSON 404 handler with path for unknown API endpoints, comprehensive JSON error handler ensuring all API errors return JSON (never HTML).
 
 ### Key Components
 - **Authentication System**: Replit Auth for user authentication with session-based, PostgreSQL-stored sessions and protected routes.

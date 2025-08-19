@@ -214,11 +214,15 @@ app.use((req, res, next) => {
   // IMPORTANT: All API routes must be mounted BEFORE static files
   // ========================================
   
-  // API error handler (for API routes only)
-  app.use("/api/*", (err: any, _req: Request, res: Response, _next: NextFunction) => {
+  // JSON error handler for API routes (ensures even crashes return JSON)
+  app.use("/api/*", (err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
+    const body = {
+      message: err.message || 'Internal Server Error',
+      code: err.code,
+      stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
+    };
+    res.status(status).type('application/json').send(body);
   });
   
   // 404 handler for API routes (must be before static files)
@@ -237,15 +241,25 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
   
-  // General error handler for non-API routes
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  // Global error handler (ensures API routes always return JSON)
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    if (_req.path.startsWith("/api")) {
-      res.status(status).json({ message });
+    
+    // For API routes, always return JSON
+    if (req.path.startsWith("/api")) {
+      const body = {
+        message: err.message || 'Internal Server Error',
+        code: err.code,
+        stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
+      };
+      res.status(status).type('application/json').send(body);
     } else {
       // For non-API routes, let the default error handler manage it
-      throw err;
+      const message = err.message || "Internal Server Error";
+      if (process.env.NODE_ENV === 'development') {
+        console.error(err);
+      }
+      res.status(status).send(message);
     }
   });
 
