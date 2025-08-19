@@ -1,70 +1,97 @@
 // shared POST helper
 import { ensureCsrf, resetCsrf } from '@/lib/csrf';
+import { requestJSON } from '@/lib/http';
 
 export async function apiPost(path: string, body: any) {
   let token = await ensureCsrf();
-  let resp = await fetch(path, {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-csrf-token': token,   // csurf default header
-    },
-    body: JSON.stringify(body),
-  });
-
-  // If server restarted or cookie rotated, token may be stale—refresh once
-  if (resp.status === 403) {
-    resetCsrf();
-    token = await ensureCsrf();
-    resp = await fetch(path, {
+  
+  try {
+    // Use the defensive requestJSON helper
+    return await requestJSON(path, {
       method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', 'x-csrf-token': token },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': token,   // csurf default header
+      },
       body: JSON.stringify(body),
     });
+  } catch (error: any) {
+    // If server restarted or cookie rotated, token may be stale—refresh once
+    if (error.message?.includes('403') || error.message?.includes('CSRF')) {
+      resetCsrf();
+      token = await ensureCsrf();
+      
+      return await requestJSON(path, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'x-csrf-token': token 
+        },
+        body: JSON.stringify(body),
+      });
+    }
+    throw error;
   }
-  return resp;
 }
 
 /**
  * Helper function for making CSRF-protected PUT requests
  */
 export async function apiPut(path: string, body: any) {
-  const token = await ensureCsrf();
-  const resp = await fetch(path, {
-    method: 'PUT',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-csrf-token': token,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (resp.status === 403) {
-    resetCsrf();
-  }
+  let token = await ensureCsrf();
   
-  return resp;
+  try {
+    return await requestJSON(path, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': token,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (error: any) {
+    if (error.message?.includes('403') || error.message?.includes('CSRF')) {
+      resetCsrf();
+      token = await ensureCsrf();
+      
+      return await requestJSON(path, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': token,
+        },
+        body: JSON.stringify(body),
+      });
+    }
+    throw error;
+  }
 }
 
 /**
  * Helper function for making CSRF-protected DELETE requests
  */
 export async function apiDelete(path: string) {
-  const token = await ensureCsrf();
-  const resp = await fetch(path, {
-    method: 'DELETE',
-    credentials: 'include',
-    headers: {
-      'x-csrf-token': token,
-    },
-  });
-
-  if (resp.status === 403) {
-    resetCsrf();
-  }
+  let token = await ensureCsrf();
   
-  return resp;
+  try {
+    return await requestJSON(path, {
+      method: 'DELETE',
+      headers: {
+        'x-csrf-token': token,
+      },
+    });
+  } catch (error: any) {
+    if (error.message?.includes('403') || error.message?.includes('CSRF')) {
+      resetCsrf();
+      token = await ensureCsrf();
+      
+      return await requestJSON(path, {
+        method: 'DELETE',
+        headers: {
+          'x-csrf-token': token,
+        },
+      });
+    }
+    throw error;
+  }
 }

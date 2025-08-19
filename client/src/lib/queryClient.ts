@@ -8,6 +8,7 @@ async function throwIfResNotOk(res: Response) {
 }
 
 import { ensureCsrf, resetCsrf } from './csrf';
+import { requestJSON } from './http';
 
 export async function apiRequest(path: string, options: RequestInit = {}) {
   const base = '';
@@ -24,19 +25,44 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
     headers['x-csrf-token'] = csrfToken; // csurf reads from this header by default
   }
 
-  const resp = await fetch(url, {
-    method: options.method || 'GET',
-    headers,
-    credentials: 'include', // keep cookies/session
-    ...options,
-  });
+  // For GET requests or when the caller expects a Response object, return the Response
+  if (!options.method || options.method === 'GET') {
+    const resp = await fetch(url, {
+      method: options.method || 'GET',
+      headers,
+      credentials: 'include', // keep cookies/session
+      ...options,
+    });
 
-  // Handle CSRF mismatch - refresh token and caller can retry
-  if (resp.status === 403) {
-    resetCsrf();
+    // Handle CSRF mismatch - refresh token and caller can retry
+    if (resp.status === 403) {
+      resetCsrf();
+    }
+
+    return resp; // callers can do resp.ok / resp.json()
   }
 
-  return resp; // callers can do resp.ok / resp.json()
+  // For state-changing requests, use defensive JSON parsing
+  try {
+    return await requestJSON(url, {
+      ...options,
+      headers,
+    });
+  } catch (error: any) {
+    // Handle CSRF token expiry
+    if (error.message?.includes('403') || error.message?.includes('CSRF')) {
+      resetCsrf();
+      // Get new token and retry once
+      const newToken = await ensureCsrf();
+      headers['x-csrf-token'] = newToken;
+      
+      return await requestJSON(url, {
+        ...options,
+        headers,
+      });
+    }
+    throw error;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

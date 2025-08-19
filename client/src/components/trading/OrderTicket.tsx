@@ -103,14 +103,9 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
         timeInForce: timeInForce.toUpperCase()
       };
 
-      const response = await apiPost('/api/trade/preview', orderData);
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Preview failed');
-      }
-      
-      return response.json();
+      // apiPost now returns parsed JSON directly with defensive parsing
+      const data = await apiPost('/api/trade/preview', orderData);
+      return data;
     },
     onSuccess: (data) => {
       setImpact(data.impact);
@@ -166,14 +161,9 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
           timeInForce: timeInForce.toUpperCase()
         };
 
-      const response = await apiPost('/api/trade/place', orderData);
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Place failed');
-      }
-      
-      return response.json();
+      // apiPost now returns parsed JSON directly with defensive parsing
+      const data = await apiPost('/api/trade/place', orderData);
+      return data;
     },
     onSuccess: (data) => {
       toast({
