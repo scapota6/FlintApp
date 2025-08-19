@@ -7,33 +7,7 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-// Get CSRF token from cookies (double-submit pattern)
-function getCSRFTokenFromCookie(): string | null {
-  const name = 'flint_csrf=';
-  const cookies = document.cookie.split(';');
-  for (let cookie of cookies) {
-    cookie = cookie.trim();
-    if (cookie.indexOf(name) === 0) {
-      return cookie.substring(name.length);
-    }
-  }
-  return null;
-}
-
-// Fetch CSRF token from server endpoint to set cookie
-async function initializeCSRFToken() {
-  try {
-    const response = await fetch('/api/csrf-token', {
-      credentials: 'include'
-    });
-    if (!response.ok) {
-      console.error('Failed to fetch CSRF token:', response.status);
-    }
-    // The token is set in the cookie automatically
-  } catch (e) {
-    console.error('Failed to initialize CSRF token:', e);
-  }
-}
+import { ensureCsrf } from './csrf';
 
 export async function apiRequest(path: string, options: RequestInit = {}) {
   const base = '';
@@ -44,19 +18,10 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
     ...(options.headers || {}),
   };
 
-  // Add CSRF token for state-changing requests (double-submit cookie pattern)
+  // Add CSRF token for state-changing requests
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || '')) {
-    const csrfToken = getCSRFTokenFromCookie();
-    if (csrfToken) {
-      headers['X-CSRF-Token'] = csrfToken;
-    } else {
-      // If no token, fetch it first
-      await initializeCSRFToken();
-      const newToken = getCSRFTokenFromCookie();
-      if (newToken) {
-        headers['X-CSRF-Token'] = newToken;
-      }
-    }
+    const csrfToken = await ensureCsrf();
+    headers['X-CSRF-Token'] = csrfToken;
   }
 
   const resp = await fetch(url, {
@@ -68,9 +33,6 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
 
   return resp; // callers can do resp.ok / resp.json()
 }
-
-// Initialize CSRF token on page load
-initializeCSRFToken();
 
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
