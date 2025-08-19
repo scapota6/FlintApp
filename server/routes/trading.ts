@@ -117,33 +117,31 @@ r.post('/trade/preview', async (req,res)=>{
     // Resolve instrument for the symbol to prevent 400s from missing instrument fields
     const inst = await resolveInstrumentBySymbol(body.symbol).catch(()=> null);
     const payload = {
-      userId: rec.snaptradeUserId,
+      userId: rec.userId,
       userSecret: rec.userSecret,
       accountId: body.accountId,
       symbol: body.symbol,
-      universalSymbol: inst?.symbol || inst?.id,
-      instrumentId: inst?.id,
       side: body.side,
-      type: body.type,
       quantity: Number(body.quantity),
-      limitPrice: body.type === 'LIMIT' ? Number(body.limitPrice) : undefined,
-      timeInForce: 'DAY',
+      type: body.type,
+      limitPrice: body.limitPrice ? Number(body.limitPrice) : undefined,
+      timeInForce: body.timeInForce || 'DAY',
+      universalSymbol: inst?.universalSymbol || inst?.universal_symbol || undefined,
+      instrumentId: inst?.id || inst?.instrumentId || undefined,
     };
 
-    const result = await tradingCheckOrderImpact(payload);
-    const norm = normalizePreview(result);
-    
-    return res.json({
-      success: true,
-      preview: norm.impact,
-      tradeId: norm.tradeId,
-      symbol: body.symbol,
-      accountId: body.accountId
-    });
+    const raw = await tradingCheckOrderImpact(payload);
+    const { tradeId, impact } = normalizePreview(raw);
 
-  }catch(err:any){
-    console.error('Preview error:', err);
-    return res.status(500).json({ message: 'Preview failed', error: err.message });
+    if (!impact && !tradeId) {
+      console.error('Preview returned unexpected shape:', raw);
+      return res.status(502).json({ message:'Preview returned unexpected response', raw });
+    }
+
+    return res.json({ ok:true, tradeId, impact, raw }); // keep raw for debugging in UI if needed
+  }catch(e:any){
+    console.error('SnapTrade preview error - Full details:', e?.responseBody || e?.message || e);
+    return res.status(400).json({ message:'Failed to preview order', error: e?.responseBody || e?.message || e });
   }
 });
 
@@ -153,32 +151,34 @@ r.post('/trade/place', async (req,res)=>{
     if(!userId) return res.status(401).json({message:'No userId'});
 
     const body = req.body||{};
-    body.side = String(body.side||'').toUpperCase();
-    body.type = String(body.type||'').toUpperCase();
-    const errs = validateOrder(body);
-    if (errs.length) return res.status(400).json({ message:'Invalid order', errors:errs });
+    body.side = body.side ? String(body.side).toUpperCase() : undefined;
+    body.type = body.type ? String(body.type).toUpperCase() : undefined;
 
     const rec = await getSnapUser(userId);
     if(!rec?.userSecret) return res.status(428).json({ code:'SNAPTRADE_NOT_REGISTERED', message:'Connect brokerage first' });
+
+    // Validate the order before processing
+    const errs = validateOrder(body);
+    if (errs.length) return res.status(400).json({ message:'Invalid order', errors:errs });
 
     // Resolve instrument for the symbol
     const inst = await resolveInstrumentBySymbol(body.symbol).catch(()=> null);
     const idempotencyKey = crypto.randomUUID();
     
     const payload = {
-      userId: rec.snaptradeUserId,
+      userId: rec.userId,
       userSecret: rec.userSecret,
       accountId: body.accountId,
       symbol: body.symbol,
-      universalSymbol: inst?.symbol || inst?.id,
-      instrumentId: inst?.id,
       side: body.side,
-      type: body.type,
       quantity: Number(body.quantity),
+      type: body.type,
       limitPrice: body.type === 'LIMIT' ? Number(body.limitPrice) : undefined,
       timeInForce: body.timeInForce || 'DAY',
       idempotencyKey,
       tradeId: body.tradeId || null, // From preview if available
+      universalSymbol: inst?.universalSymbol || inst?.universal_symbol || undefined,
+      instrumentId: inst?.id || inst?.instrumentId || undefined,
     };
 
     const result = await tradingPlaceOrder(payload);
