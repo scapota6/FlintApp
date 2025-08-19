@@ -210,26 +210,44 @@ app.use((req, res, next) => {
   const tradingRouter = (await import("./routes/trading")).default;
   app.use("/api/trade", tradingRouter);
 
-  // Debug routers disabled - using unified flow only
-  // app.use("/api/snaptrade-debug", snaptradeDebugRouter);
-  // app.use("/api/snaptrade-debug-secret", snaptradeDebugSecretRouter);
-
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  // ========================================
+  // IMPORTANT: All API routes must be mounted BEFORE static files
+  // ========================================
+  
+  // API error handler (for API routes only)
+  app.use("/api/*", (err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
     res.status(status).json({ message });
-    throw err;
+  });
+  
+  // 404 handler for API routes (must be before static files)
+  app.use("/api/*", (_req: Request, res: Response) => {
+    res.status(404).json({ message: "API endpoint not found" });
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // ========================================
+  // Static files and catch-all route LAST
+  // ========================================
+  
+  // Setup Vite (dev) or serve static files (prod)
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
+  
+  // General error handler for non-API routes
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    if (_req.path.startsWith("/api")) {
+      res.status(status).json({ message });
+    } else {
+      // For non-API routes, let the default error handler manage it
+      throw err;
+    }
+  });
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
