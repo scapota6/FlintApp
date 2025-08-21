@@ -484,7 +484,7 @@ export default function OrderPreviewDialog({
             {step === 'success' && 'Order Confirmation'}
           </DialogTitle>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            {accountName} • Account {accountId.slice(-6)}
+            {accountName} • Account {String(accountId).slice(-6)}
           </p>
         </DialogHeader>
 
