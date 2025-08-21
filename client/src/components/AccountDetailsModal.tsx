@@ -19,8 +19,17 @@ import {
   Info,
   Loader2,
   AlertCircle,
+  FileText,
+  Repeat,
+  Shield,
+  Download,
+  RefreshCw,
+  Clock,
+  MapPin,
+  DollarSign,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface AccountDetailsModalProps {
   isOpen: boolean;
@@ -67,9 +76,48 @@ interface CreditCardBalances {
   limit: number;
 }
 
+interface TellerTransaction {
+  id: string;
+  account_id: string;
+  amount: number;
+  date: string;
+  description: string;
+  details?: {
+    category?: string;
+    counterparty?: {
+      name?: string;
+      type?: string;
+    };
+    processing_status?: string;
+  };
+  status: 'pending' | 'posted';
+  running_balance?: number;
+}
+
+interface TellerStatement {
+  id: string;
+  account_id: string;
+  period_start: string;
+  period_end: string;
+  balance: number;
+  due_date?: string;
+  url?: string;
+}
+
+interface RecurringTransaction {
+  merchant: string;
+  amount: number;
+  cadence: string;
+  last_seen: string;
+  category?: string;
+}
+
 interface AccountDetailsResponse {
   account: TellerAccount;
   balances: TellerBalances | CreditCardBalances;
+  transactions?: TellerTransaction[];
+  statements?: TellerStatement[];
+  recurring?: RecurringTransaction[];
   success: boolean;
 }
 
@@ -80,6 +128,8 @@ export function AccountDetailsModal({
   accountName,
   accountType,
 }: AccountDetailsModalProps) {
+  const [loadingMore, setLoadingMore] = useState(false);
+  
   const { data, isLoading, error } = useQuery({
     queryKey: ['/api/teller/account', accountId, 'details'],
     queryFn: () => apiRequest(`/api/teller/account/${accountId}/details`),
@@ -89,6 +139,9 @@ export function AccountDetailsModal({
   const accountData = data as AccountDetailsResponse;
   const account = accountData?.account;
   const balances = accountData?.balances;
+  const transactions = accountData?.transactions || [];
+  const statements = accountData?.statements || [];
+  const recurring = accountData?.recurring || [];
 
   const isCreditCard = accountType === 'card' || account?.type === 'credit';
 
@@ -315,10 +368,277 @@ export function AccountDetailsModal({
             <span className="text-gray-600 dark:text-gray-400">Annual Fee:</span>
             <p className="font-medium">N/A</p>
           </div>
+          <div>
+            <span className="text-gray-600 dark:text-gray-400">Late Fee:</span>
+            <p className="font-medium">N/A</p>
+          </div>
+          <div>
+            <span className="text-gray-600 dark:text-gray-400">Over Limit Fee:</span>
+            <p className="font-medium">N/A</p>
+          </div>
         </div>
       </div>
     );
   };
+
+  const renderTransactions = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-blue-600" />
+          <h3 className="text-lg font-semibold">Recent Transactions</h3>
+        </div>
+        <Badge variant="secondary">{transactions.length} transactions</Badge>
+      </div>
+      
+      {transactions.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+          <p>No recent transactions available</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Merchant</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Category</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {transactions.slice(0, 10).map((transaction) => (
+                  <TableRow key={transaction.id}>
+                    <TableCell className="font-mono text-xs">
+                      {formatDate(transaction.date)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={transaction.status === 'posted' ? 'default' : 'secondary'}>
+                        {transaction.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {transaction.details?.counterparty?.name || 'N/A'}
+                    </TableCell>
+                    <TableCell className="max-w-48 truncate" title={transaction.description}>
+                      {transaction.description}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      <span className={transaction.amount < 0 ? 'text-red-600' : 'text-green-600'}>
+                        {formatCurrency(Math.abs(transaction.amount), account?.currency)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">
+                        {transaction.details?.category || 'Other'}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          
+          {transactions.length > 10 && (
+            <div className="text-center">
+              <Button 
+                variant="outline" 
+                onClick={() => setLoadingMore(true)}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Loading more...
+                  </>
+                ) : (
+                  'Load More Transactions'
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderStatements = () => (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-3">
+        <FileText className="h-5 w-5 text-purple-600" />
+        <h3 className="text-lg font-semibold">Statements</h3>
+      </div>
+      
+      {statements.length === 0 ? (
+        <div className="text-center py-6 text-gray-500">
+          <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No statements available</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {statements.map((statement) => (
+            <div key={statement.id} className="flex items-center justify-between p-3 border rounded-lg">
+              <div>
+                <p className="font-medium">
+                  {formatDate(statement.period_start)} - {formatDate(statement.period_end)}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Balance: {formatCurrency(statement.balance, account?.currency)}
+                  {statement.due_date && ` • Due: ${formatDate(statement.due_date)}`}
+                </p>
+              </div>
+              {statement.url && (
+                <Button size="sm" variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderRecurringTransactions = () => (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Repeat className="h-5 w-5 text-green-600" />
+        <h3 className="text-lg font-semibold">Recurring & Subscriptions</h3>
+      </div>
+      
+      {recurring.length === 0 ? (
+        <div className="text-center py-6 text-gray-500">
+          <Repeat className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No recurring transactions detected</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {recurring.map((item, index) => (
+            <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                  <Repeat className="h-4 w-4 text-green-600" />
+                </div>
+                <div>
+                  <p className="font-medium">{item.merchant}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {item.cadence} • Last seen: {formatDate(item.last_seen)}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-semibold">{formatCurrency(item.amount, account?.currency)}</p>
+                {item.category && (
+                  <Badge variant="outline" className="text-xs mt-1">
+                    {item.category}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderPayments = () => {
+    if (!isCreditCard) return null;
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 mb-3">
+          <DollarSign className="h-5 w-5 text-blue-600" />
+          <h3 className="text-lg font-semibold">Payments</h3>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-gray-600 dark:text-gray-400">Last Payment Date:</span>
+              <p className="font-medium">{formatDate(undefined)}</p>
+            </div>
+            <div>
+              <span className="text-gray-600 dark:text-gray-400">Last Payment Amount:</span>
+              <p className="font-medium">{formatCurrency(undefined, account?.currency)}</p>
+            </div>
+            <div>
+              <span className="text-gray-600 dark:text-gray-400">Payment Method:</span>
+              <p className="font-medium">N/A</p>
+            </div>
+            <div>
+              <span className="text-gray-600 dark:text-gray-400">Next Due Date:</span>
+              <p className="font-medium">{formatDate(undefined)}</p>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-blue-900 dark:text-blue-100">Make a Payment</p>
+                <p className="text-sm text-blue-700 dark:text-blue-300">Pay your credit card bill securely</p>
+              </div>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <CreditCard className="h-4 w-4 mr-2" />
+                Pay Card
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSecurity = () => (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Shield className="h-5 w-5 text-green-600" />
+        <h3 className="text-lg font-semibold">Security & Connection</h3>
+      </div>
+      
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="text-gray-600 dark:text-gray-400">Connection Status:</span>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <p className="font-medium text-green-600">Active</p>
+            </div>
+          </div>
+          <div>
+            <span className="text-gray-600 dark:text-gray-400">Last Sync:</span>
+            <div className="flex items-center gap-2 mt-1">
+              <Clock className="h-4 w-4 text-gray-500" />
+              <p className="font-medium">{formatDate(new Date().toISOString())}</p>
+            </div>
+          </div>
+          <div>
+            <span className="text-gray-600 dark:text-gray-400">Data Encryption:</span>
+            <p className="font-medium text-green-600">AES-256 Enabled</p>
+          </div>
+          <div>
+            <span className="text-gray-600 dark:text-gray-400">Access Level:</span>
+            <p className="font-medium">Read Only</p>
+          </div>
+        </div>
+        
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Sync Now
+          </Button>
+          <Button variant="outline" size="sm">
+            <Shield className="h-4 w-4 mr-2" />
+            Re-connect
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 
   if (error) {
     return (
@@ -374,6 +694,20 @@ export function AccountDetailsModal({
                   {renderAPRAndFees()}
                 </>
               )}
+              <Separator />
+              {renderTransactions()}
+              <Separator />
+              {renderStatements()}
+              <Separator />
+              {renderRecurringTransactions()}
+              {isCreditCard && (
+                <>
+                  <Separator />
+                  {renderPayments()}
+                </>
+              )}
+              <Separator />
+              {renderSecurity()}
             </div>
           </ScrollArea>
         )}

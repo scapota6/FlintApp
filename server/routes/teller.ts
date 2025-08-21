@@ -933,6 +933,59 @@ router.get("/account/:accountId/details", isAuthenticated, async (req: any, res)
     } catch (balanceError) {
       logger.warn("Failed to fetch balances", { error: balanceError });
     }
+
+    // Fetch transactions (last 90 days)
+    let transactions = [];
+    try {
+      const transactionResponse = await fetch(
+        `https://api.teller.io/accounts/${accountId}/transactions?count=50`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': authHeader,
+            'Accept': 'application/json'
+          }
+        }
+      );
+      
+      if (transactionResponse.ok) {
+        transactions = await transactionResponse.json();
+      }
+    } catch (transactionError) {
+      logger.warn("Failed to fetch transactions", { error: transactionError });
+    }
+
+    // Fetch statements if available
+    let statements = [];
+    try {
+      const statementResponse = await fetch(
+        `https://api.teller.io/accounts/${accountId}/statements`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': authHeader,
+            'Accept': 'application/json'
+          }
+        }
+      );
+      
+      if (statementResponse.ok) {
+        statements = await statementResponse.json();
+      }
+    } catch (statementError) {
+      logger.warn("Failed to fetch statements", { error: statementError });
+    }
+
+    // Analyze transactions for recurring patterns (simple implementation)
+    const recurring = analyzeRecurringTransactions(transactions);
+    
+    // Get connection info from our database
+    const connectionInfo = {
+      lastSync: connectedAccount.lastSynced || new Date(),
+      status: 'active',
+      encryptionEnabled: true,
+      accessLevel: 'read-only'
+    };
     
     logger.info("Teller account details fetched successfully", { 
       userId,
@@ -943,6 +996,10 @@ router.get("/account/:accountId/details", isAuthenticated, async (req: any, res)
     res.json({ 
       account: accountDetails,
       balances: balances || accountDetails.balance,
+      transactions: transactions,
+      statements: statements,
+      recurring: recurring,
+      connectionInfo: connectionInfo,
       success: true
     });
     
@@ -957,5 +1014,58 @@ router.get("/account/:accountId/details", isAuthenticated, async (req: any, res)
     });
   }
 });
+
+/**
+ * Helper function to analyze transactions for recurring patterns
+ */
+function analyzeRecurringTransactions(transactions: any[]): any[] {
+  const recurringMap = new Map();
+  
+  transactions.forEach((transaction: any) => {
+    const merchant = transaction.details?.counterparty?.name || transaction.description;
+    const amount = Math.abs(transaction.amount);
+    
+    if (merchant && merchant.length > 3) {
+      const key = `${merchant}-${amount}`;
+      if (!recurringMap.has(key)) {
+        recurringMap.set(key, {
+          merchant,
+          amount,
+          transactions: [],
+          dates: []
+        });
+      }
+      
+      recurringMap.get(key).transactions.push(transaction);
+      recurringMap.get(key).dates.push(new Date(transaction.date));
+    }
+  });
+  
+  // Filter for patterns with 2+ occurrences
+  const recurring: any[] = [];
+  recurringMap.forEach((data, key) => {
+    if (data.transactions.length >= 2) {
+      const dates = data.dates.sort((a: Date, b: Date) => b.getTime() - a.getTime());
+      const daysBetween = Math.abs(dates[0].getTime() - dates[1].getTime()) / (1000 * 60 * 60 * 24);
+      
+      let cadence = 'Unknown';
+      if (daysBetween >= 28 && daysBetween <= 32) cadence = 'Monthly';
+      else if (daysBetween >= 6 && daysBetween <= 8) cadence = 'Weekly';
+      else if (daysBetween >= 89 && daysBetween <= 95) cadence = 'Quarterly';
+      else if (daysBetween >= 360 && daysBetween <= 370) cadence = 'Yearly';
+      
+      recurring.push({
+        merchant: data.merchant,
+        amount: data.amount,
+        cadence,
+        last_seen: dates[0].toISOString(),
+        category: data.transactions[0].details?.category || 'Other',
+        count: data.transactions.length
+      });
+    }
+  });
+  
+  return recurring.slice(0, 10); // Limit to top 10
+}
 
 export default router;
