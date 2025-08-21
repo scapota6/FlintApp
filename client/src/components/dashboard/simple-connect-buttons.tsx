@@ -9,6 +9,7 @@ import { TellerAPI } from "@/lib/teller-api";
 import { SnapTradeAPI } from "@/lib/snaptrade-api";
 
 import { apiRequest } from "@/lib/queryClient";
+import { ensureCsrf } from "@/lib/csrf";
 
 interface SimpleConnectButtonsProps {
   accounts: any[];
@@ -91,9 +92,21 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
       try {
         // Get Teller application ID
         console.log('🏦 Teller Connect: Calling /api/teller/connect-init');
-        const initResponse = await apiRequest("/api/teller/connect-init", {
-          method: "POST"
+        await ensureCsrf();
+        const initResponse = await fetch("/api/teller/connect-init", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "x-csrf-token": localStorage.getItem('csrfToken') || ''
+          }
         });
+        
+        if (!initResponse.ok) {
+          const errorData = await initResponse.json();
+          throw new Error(errorData.message || 'Failed to initialize Teller Connect');
+        }
+        
         const initData = await initResponse.json();
         console.log('🏦 Teller Connect: Init response:', initData);
         

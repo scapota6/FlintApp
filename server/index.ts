@@ -182,6 +182,10 @@ app.use((req, res, next) => {
   const bankingRouter = (await import("./routes/banking")).default;
   app.use("/api/banking", bankingRouter);
   
+  // Mount Teller API router
+  const tellerRouter = (await import("./routes/teller")).default;
+  app.use("/api/teller", tellerRouter);
+  
   // Mount Transfers API router
   const transfersRouter = (await import("./routes/transfers")).default;
   app.use("/api/transfers", transfersRouter);
