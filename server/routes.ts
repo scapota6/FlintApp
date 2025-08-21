@@ -1766,6 +1766,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const tradingRouter = await import('./routes/trading');
   app.use('/api/trade', tradingRouter.default);
 
+  // Teller Payments routes  
+  const tellerPaymentsRouter = await import('./routes/teller-payments');
+  app.use('/api/teller/payments', tellerPaymentsRouter.default);
+
   const httpServer = createServer(app);
   return httpServer;
 }

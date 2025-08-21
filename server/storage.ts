@@ -467,12 +467,31 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
   }
 
+  // Payment record methods
+  async createPaymentRecord(payment: any): Promise<any> {
+    // In a real implementation, this would store in a payments table
+    return payment;
+  }
+
+  async getPaymentRecord(userId: string, paymentId: string): Promise<any> {
+    // In a real implementation, this would fetch from payments table
+    return null;
+  }
+
+  async updatePaymentStatus(paymentId: string, status: string): Promise<void> {
+    // In a real implementation, this would update payments table
+  }
+
   // Additional connected account methods
-  async getConnectedAccountByExternalId(externalAccountId: string): Promise<ConnectedAccount | undefined> {
+  async getConnectedAccountByExternalId(userId: string, provider: string, externalAccountId: string): Promise<ConnectedAccount | undefined> {
     const [account] = await db
       .select()
       .from(connectedAccounts)
-      .where(eq(connectedAccounts.externalAccountId, externalAccountId));
+      .where(and(
+        eq(connectedAccounts.userId, userId),
+        eq(connectedAccounts.provider, provider),
+        eq(connectedAccounts.externalAccountId, externalAccountId)
+      ));
     return account;
   }
   

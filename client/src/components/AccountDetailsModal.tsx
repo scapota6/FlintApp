@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { PaymentDialog } from "./PaymentDialog";
 import {
   Dialog,
   DialogContent,
@@ -129,6 +130,7 @@ export function AccountDetailsModal({
   accountType,
 }: AccountDetailsModalProps) {
   const [loadingMore, setLoadingMore] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   
   const { data, isLoading, error } = useQuery({
     queryKey: ['/api/teller/account', accountId, 'details'],
@@ -582,7 +584,10 @@ export function AccountDetailsModal({
                 <p className="font-semibold text-blue-900 dark:text-blue-100">Make a Payment</p>
                 <p className="text-sm text-blue-700 dark:text-blue-300">Pay your credit card bill securely</p>
               </div>
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={() => setShowPaymentDialog(true)}
+              >
                 <CreditCard className="h-4 w-4 mr-2" />
                 Pay Card
               </Button>
@@ -716,6 +721,20 @@ export function AccountDetailsModal({
           <Button onClick={onClose}>Close</Button>
         </div>
       </DialogContent>
+      
+      {/* Payment Dialog */}
+      {showPaymentDialog && data?.account && (
+        <PaymentDialog
+          isOpen={showPaymentDialog}
+          onClose={() => setShowPaymentDialog(false)}
+          creditCardAccount={{
+            id: data.account.id,
+            name: data.account.name || accountName,
+            institution: data.account.institution?.name,
+            externalAccountId: accountId,
+          }}
+        />
+      )}
     </Dialog>
   );
 }
