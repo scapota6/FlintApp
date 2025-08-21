@@ -28,6 +28,7 @@ import Portfolio from "@/pages/Portfolio";
 import Settings from "@/pages/Settings";
 import Security from "@/pages/Security";
 import Monitoring from "@/pages/Monitoring";
+import TellerCallback from "@/pages/TellerCallback";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -70,6 +71,7 @@ function Router() {
                 <Route path="/settings" component={Settings} />
                 <Route path="/security" component={Security} />
                 <Route path="/monitoring" component={Monitoring} />
+                <Route path="/teller/callback" component={TellerCallback} />
               </>
             )}
             <Route component={NotFound} />

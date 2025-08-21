@@ -45,22 +45,24 @@ router.post("/connect-init", isAuthenticated, async (req: any, res) => {
 router.post("/exchange-token", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.claims.sub;
-    const { enrollmentId } = req.body;
+    const { token, enrollmentId } = req.body; // Accept both token and enrollmentId
     
-    if (!enrollmentId) {
+    const tellerToken = token || enrollmentId;
+    
+    if (!tellerToken) {
       return res.status(400).json({ 
-        message: "Enrollment ID is required" 
+        message: "Token or enrollment ID is required" 
       });
     }
     
-    logger.info("Exchanging Teller enrollment ID", { userId, enrollmentId });
+    logger.info("Exchanging Teller token", { userId, tokenReceived: !!tellerToken });
     
     // Fetch account details from Teller
     const tellerResponse = await fetch(
       `https://api.teller.io/accounts`,
       {
         headers: {
-          'Authorization': `Basic ${Buffer.from(enrollmentId + ":").toString("base64")}`,
+          'Authorization': `Basic ${Buffer.from(tellerToken + ":").toString("base64")}`,
         },
       }
     );
@@ -85,7 +87,7 @@ router.post("/exchange-token", isAuthenticated, async (req: any, res) => {
         externalAccountId: account.id,
         connectionId: account.enrollment_id,
         institutionId: account.institution?.id,
-        accessToken: enrollmentId, // Store enrollment ID as token
+        accessToken: tellerToken, // Store enrollment ID as token
         createdAt: new Date(),
         updatedAt: new Date(),
       });

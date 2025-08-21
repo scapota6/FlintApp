@@ -119,9 +119,12 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
         console.log('🏦 Teller Connect: Opening popup with applicationId:', applicationId);
         
         return new Promise((resolve, reject) => {
-          // Open Teller Connect in popup
+          // Build callback URL
+          const callbackUrl = `${window.location.origin}/teller/callback`;
+          
+          // Open Teller Connect in popup with callback
           const popup = window.open(
-            `https://teller.io/connect/${applicationId}`,
+            `https://teller.io/connect/${applicationId}?redirect_uri=${encodeURIComponent(callbackUrl)}`,
             'teller',
             'width=500,height=600,scrollbars=yes,resizable=yes'
           );
