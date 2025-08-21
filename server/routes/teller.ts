@@ -260,7 +260,7 @@ router.get("/transactions/:accountId", isAuthenticated, async (req: any, res) =>
     const { accountId } = req.params;
     
     // Get account with access token
-    const account = await storage.getConnectedAccountByExternalId(accountId);
+    const account = await storage.getConnectedAccountByExternalId(userId, 'teller', accountId);
     if (!account || account.userId !== userId) {
       return res.status(404).json({ message: "Account not found" });
     }
@@ -309,7 +309,7 @@ router.post("/transfer", isAuthenticated, async (req: any, res) => {
     }
     
     // Get source account
-    const fromAccount = await storage.getConnectedAccountByExternalId(fromAccountId);
+    const fromAccount = await storage.getConnectedAccountByExternalId(userId, 'teller', fromAccountId);
     if (!fromAccount || fromAccount.userId !== userId) {
       return res.status(404).json({ message: "Source account not found" });
     }
@@ -366,8 +366,8 @@ router.post("/pay-card", isAuthenticated, async (req: any, res) => {
     }
     
     // Get both accounts
-    const cardAccount = await storage.getConnectedAccountByExternalId(cardAccountId);
-    const bankAccount = await storage.getConnectedAccountByExternalId(fromAccountId);
+    const cardAccount = await storage.getConnectedAccountByExternalId(userId, 'teller', cardAccountId);
+    const bankAccount = await storage.getConnectedAccountByExternalId(userId, 'teller', fromAccountId);
     
     if (!cardAccount || cardAccount.userId !== userId) {
       return res.status(404).json({ message: "Card account not found" });
@@ -520,7 +520,7 @@ router.get("/account/:accountId/details", isAuthenticated, async (req: any, res)
     const { accountId } = req.params;
     
     // Get account with access token
-    const account = await storage.getConnectedAccountByExternalId(accountId);
+    const account = await storage.getConnectedAccountByExternalId(userId, 'teller', accountId);
     if (!account || account.userId !== userId) {
       return res.status(404).json({ message: "Account not found" });
     }
@@ -749,7 +749,7 @@ router.post("/payments", isAuthenticated, async (req: any, res) => {
     }
     
     // Get account with access token
-    const account = await storage.getConnectedAccountByExternalId(accountId);
+    const account = await storage.getConnectedAccountByExternalId(userId, 'teller', accountId);
     if (!account || account.userId !== userId) {
       return res.status(404).json({ message: "Account not found" });
     }
@@ -887,8 +887,8 @@ router.get("/account/:accountId/details", isAuthenticated, async (req: any, res)
       });
     }
     
-    // Create auth header with access token
-    const authHeader = `Bearer ${connectedAccount.accessToken}`;
+    // Create auth header with access token (Teller uses Basic auth, not Bearer)
+    const authHeader = `Basic ${Buffer.from(connectedAccount.accessToken + ":").toString("base64")}`;
     
     // Fetch detailed account info from Teller
     const accountResponse = await fetch(
