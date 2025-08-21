@@ -91,17 +91,29 @@ router.post("/save-account", isAuthenticated, async (req: any, res) => {
     const accounts = await tellerResponse.json();
     logger.info(`Teller accounts fetched: ${accounts.length} accounts`);
     
-    // Store each account in database
+    // Store each account in database with better naming
     for (const account of accounts) {
+      const institutionName = institution || account.institution?.name || 'Unknown Bank';
+      const lastFour = account.last_four || account.mask || '';
+      const accountType = account.type === 'credit' ? 'card' : 'bank';
+      
+      // Create descriptive account name: "Institution - Account Type (****1234)"
+      let accountName = account.name || '';
+      if (lastFour) {
+        accountName = `${institutionName} - ${accountName} (****${lastFour})`;
+      } else {
+        accountName = `${institutionName} - ${accountName}`;
+      }
+      
       await storage.createConnectedAccount({
         userId,
         provider: 'teller',
-        accountType: account.type === 'credit' ? 'card' : 'bank',
-        accountName: account.name,
-        accountNumber: account.last_four || '',
+        accountType,
+        accountName,
+        accountNumber: lastFour,
         balance: String(account.balance?.available || 0),
         currency: account.currency || 'USD',
-        institutionName: institution || account.institution?.name || 'Unknown Bank',
+        institutionName,
         externalAccountId: account.id,
         connectionId: enrollmentId || account.enrollment_id,
         institutionId: account.institution?.id,
