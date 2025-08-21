@@ -1,0 +1,47 @@
+provided
+financial-api.ts:144 logLogin failed: undefined
+overrideMethod @ hook.js:608
+logLogin @ financial-api.ts:144
+await in logLogin
+(anonymous) @ dashboard.tsx:34
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=1e4d41ff:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=1e4d41ff:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=1e4d41ff:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=1e4d41ff:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=1e4d41ff:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=1e4d41ff:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=1e4d41ff:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=1e4d41ff:19416
+commitRoot @ chunk-RPCDYKBN.js?v=1e4d41ff:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=1e4d41ff:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=1e4d41ff:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=1e4d41ff:18627
+setTimeout
+defaultScheduler @ @tanstack_react-query.js?v=1e4d41ff:560
+flush @ @tanstack_react-query.js?v=1e4d41ff:584
+batch @ @tanstack_react-query.js?v=1e4d41ff:602
+dispatch_fn @ @tanstack_react-query.js?v=1e4d41ff:1035
+setData @ @tanstack_react-query.js?v=1e4d41ff:713
+fetch @ @tanstack_react-query.js?v=1e4d41ff:927
+await in fetch
+executeFetch_fn @ @tanstack_react-query.js?v=1e4d41ff:2275
+onSubscribe @ @tanstack_react-query.js?v=1e4d41ff:1978
+subscribe @ @tanstack_react-query.js?v=1e4d41ff:24
+(anonymous) @ @tanstack_react-query.js?v=1e4d41ff:3142
+subscribeToStore @ chunk-RPCDYKBN.js?v=1e4d41ff:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=1e4d41ff:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=1e4d41ff:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=1e4d41ff:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=1e4d41ff:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=1e4d41ff:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=1e4d41ff:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=1e4d41ff:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=1e4d41ff:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=1e4d41ff:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=1e4d41ff:19432
+commitRoot @ chunk-RPCDYKBN.js?v=1e4d41ff:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=1e4d41ff:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=1e4d41ff:18718
+workLoop @ chunk-RPCDYKBN.js?v=1e4d41ff:197
+flushWork @ chunk-RPCDYKBN.js?v=1e4d41ff:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=1e4d41ff:384Understand this warning

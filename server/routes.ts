@@ -8,7 +8,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { getSnapUser } from "./store/snapUsers";
 import { rateLimits } from "./middleware/rateLimiter";
-import { authApi, accountsApi } from './lib/snaptrade';
+import { authApi, accountsApi, snaptradeClient, portfolioApi } from './lib/snaptrade';
 import { deleteSnapUser, saveSnapUser } from './store/snapUsers';
 import { WalletService } from "./services/WalletService";
 import { TradingAggregator } from "./services/TradingAggregator";
