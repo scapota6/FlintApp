@@ -94,6 +94,11 @@ export interface IStorage {
   // Activity logging
   createActivity(activity: InsertActivityLog): Promise<ActivityLog>;
   
+  // Teller webhook methods
+  markEnrollmentDisconnected(enrollmentId: string, reason: string): Promise<void>;
+  upsertTransaction(transaction: any): Promise<void>;
+  updateAccountVerificationStatus(accountId: string, status: string): Promise<void>;
+  
   // User updates
   updateUser(userId: string, updates: Partial<User>): Promise<User>;
 }
@@ -473,6 +478,36 @@ export class DatabaseStorage implements IStorage {
   // Activity logging - simplified to alias logActivity
   async createActivity(activity: InsertActivityLog): Promise<ActivityLog> {
     return this.logActivity(activity);
+  }
+  
+  // Teller webhook methods
+  async markEnrollmentDisconnected(enrollmentId: string, reason: string): Promise<void> {
+    // Update all accounts with this enrollment ID to disconnected status
+    await db
+      .update(connectedAccounts)
+      .set({ 
+        status: 'disconnected',
+        metadata: { disconnectReason: reason },
+        updatedAt: new Date()
+      })
+      .where(eq(connectedAccounts.connectionId, enrollmentId));
+  }
+  
+  async upsertTransaction(transaction: any): Promise<void> {
+    // Store transaction data - would need a transactions table
+    // For now, just log it
+    logger.info("Transaction received via webhook", { transaction });
+  }
+  
+  async updateAccountVerificationStatus(accountId: string, status: string): Promise<void> {
+    // Update account verification status
+    await db
+      .update(connectedAccounts)
+      .set({ 
+        metadata: { verificationStatus: status },
+        updatedAt: new Date()
+      })
+      .where(eq(connectedAccounts.externalAccountId, accountId));
   }
 
   async updateUser(userId: string, updates: Partial<User>): Promise<User> {

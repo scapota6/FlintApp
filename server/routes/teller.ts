@@ -82,13 +82,13 @@ router.post("/exchange-token", isAuthenticated, async (req: any, res) => {
       const errorText = await tellerResponse.text();
       logger.error("Teller API error", { 
         status: tellerResponse.status,
-        error: errorText 
+        error: new Error(errorText)
       });
       throw new Error(`Teller API error: ${tellerResponse.status} - ${errorText}`);
     }
     
     const accounts = await tellerResponse.json();
-    logger.info("Teller accounts fetched", { count: accounts.length });
+    logger.info(`Teller accounts fetched: ${accounts.length} accounts`);
     
     // Store each account in database
     for (const account of accounts) {
@@ -230,7 +230,7 @@ router.post("/transfer", isAuthenticated, async (req: any, res) => {
     // Log the transfer
     await storage.createActivity({
       userId,
-      type: 'transfer',
+      action: 'transfer',
       description: `Transfer initiated: $${amount} from ${fromAccount.accountName}`,
       metadata: transfer,
       createdAt: new Date()
@@ -292,7 +292,7 @@ router.post("/pay-card", isAuthenticated, async (req: any, res) => {
     // Log the payment
     await storage.createActivity({
       userId,
-      type: 'payment',
+      action: 'payment',
       description: `Credit card payment: $${amount} to ${cardAccount.accountName}`,
       metadata: payment,
       createdAt: new Date()
@@ -330,7 +330,7 @@ router.get("/balances", isAuthenticated, async (req: any, res) => {
       
       try {
         const response = await fetch(
-          `https://api.teller.io/accounts/${account.externalAccountId}`,
+          `https://api.teller.io/accounts/${account.externalAccountId}/balances`,
           {
             headers: {
               'Authorization': authHeader,
@@ -344,14 +344,15 @@ router.get("/balances", isAuthenticated, async (req: any, res) => {
           balances.push({
             accountId: account.externalAccountId,
             accountName: account.accountName,
-            balance: data.balance,
+            available: data.available,
+            current: data.current,
             type: account.accountType
           });
         }
       } catch (err) {
         logger.error("Failed to fetch balance for account", { 
           accountId: account.externalAccountId,
-          error: err 
+          error: err as Error
         });
       }
     }
@@ -362,6 +363,336 @@ router.get("/balances", isAuthenticated, async (req: any, res) => {
     logger.error("Failed to fetch balances", { error: error.message });
     res.status(500).json({ 
       message: "Failed to fetch balances",
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/teller/identity
+ * Get beneficial owner identity information for connected accounts
+ */
+router.get("/identity", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    
+    // Get all connected Teller accounts
+    const accounts = await storage.getConnectedAccountsByProvider(userId, 'teller');
+    
+    if (accounts.length === 0) {
+      return res.json({ identity: [] });
+    }
+    
+    // Use the first account's token to get identity info
+    const authHeader = `Basic ${Buffer.from(accounts[0].accessToken + ":").toString("base64")}`;
+    
+    const response = await fetch(
+      'https://api.teller.io/identity',
+      {
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch identity: ${response.status}`);
+    }
+    
+    const identityData = await response.json();
+    res.json({ identity: identityData });
+    
+  } catch (error: any) {
+    logger.error("Failed to fetch identity", { error: error.message });
+    res.status(500).json({ 
+      message: "Failed to fetch identity information",
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/teller/account/:accountId/details
+ * Get detailed account information including routing/account numbers
+ */
+router.get("/account/:accountId/details", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { accountId } = req.params;
+    
+    // Get account with access token
+    const account = await storage.getConnectedAccountByExternalId(accountId);
+    if (!account || account.userId !== userId) {
+      return res.status(404).json({ message: "Account not found" });
+    }
+    
+    const authHeader = `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`;
+    
+    const response = await fetch(
+      `https://api.teller.io/accounts/${accountId}/details`,
+      {
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch details: ${response.status}`);
+    }
+    
+    const details = await response.json();
+    res.json({ details });
+    
+  } catch (error: any) {
+    logger.error("Failed to fetch account details", { error: error.message });
+    res.status(500).json({ 
+      message: "Failed to fetch account details",
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/teller/institutions
+ * List all supported financial institutions
+ */
+router.get("/institutions", async (req, res) => {
+  try {
+    const response = await fetch('https://api.teller.io/institutions', {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch institutions: ${response.status}`);
+    }
+    
+    const institutions = await response.json();
+    res.json({ institutions });
+    
+  } catch (error: any) {
+    logger.error("Failed to fetch institutions", { error: error.message });
+    res.status(500).json({ 
+      message: "Failed to fetch institutions",
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * POST /api/teller/webhook
+ * Handle Teller webhook events
+ */
+router.post("/webhook", async (req, res) => {
+  try {
+    const signature = req.headers['teller-signature'] as string;
+    
+    if (!signature) {
+      return res.status(401).json({ message: "Missing signature" });
+    }
+    
+    // Parse signature header: t=timestamp,v1=signature
+    const signatureMatch = signature.match(/t=(\d+),v1=([a-f0-9]+)/);
+    if (!signatureMatch) {
+      return res.status(401).json({ message: "Invalid signature format" });
+    }
+    
+    const [, timestamp, receivedSignature] = signatureMatch;
+    
+    // Verify timestamp (reject if older than 3 minutes)
+    const currentTime = Math.floor(Date.now() / 1000);
+    const signatureTime = parseInt(timestamp, 10);
+    if (currentTime - signatureTime > 180) {
+      return res.status(401).json({ message: "Signature expired" });
+    }
+    
+    // TODO: Verify signature with webhook secret once configured
+    // For now, just process the webhook
+    
+    const { id, type, payload, timestamp: eventTime } = req.body;
+    
+    logger.info(`Received Teller webhook: ${type}`);
+    
+    switch (type) {
+      case 'enrollment.disconnected':
+        // Handle disconnected enrollment
+        const { enrollment_id, reason } = payload;
+        logger.warn(`Enrollment disconnected: ${enrollment_id} - ${reason}`);
+        
+        // Mark accounts as disconnected in database
+        await storage.markEnrollmentDisconnected(enrollment_id, reason);
+        break;
+        
+      case 'transactions.processed':
+        // Handle processed transactions
+        const { transactions } = payload;
+        logger.info(`Transactions processed: ${transactions.length} transactions`);
+        
+        // Store or update transactions in database
+        for (const transaction of transactions) {
+          await storage.upsertTransaction(transaction);
+        }
+        break;
+        
+      case 'account.number_verification.processed':
+        // Handle account verification
+        const { account_id, status } = payload;
+        logger.info(`Account verification processed: ${account_id} - ${status}`);
+        
+        // Update account verification status
+        await storage.updateAccountVerificationStatus(account_id, status);
+        break;
+        
+      case 'webhook.test':
+        // Test webhook
+        logger.info("Test webhook received");
+        break;
+        
+      default:
+        logger.warn(`Unknown webhook type: ${type}`);
+    }
+    
+    // Always respond with 200 to acknowledge receipt
+    res.json({ received: true });
+    
+  } catch (error: any) {
+    logger.error("Webhook processing error", { error: error.message });
+    // Still respond with 200 to prevent retries
+    res.json({ received: true, error: error.message });
+  }
+});
+
+/**
+ * POST /api/teller/payments
+ * Initiate ACH payment from account
+ */
+router.post("/payments", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { 
+      accountId, 
+      amount, 
+      recipientName, 
+      recipientRoutingNumber, 
+      recipientAccountNumber,
+      description 
+    } = req.body;
+    
+    if (!accountId || !amount || !recipientName || !recipientRoutingNumber || !recipientAccountNumber) {
+      return res.status(400).json({ 
+        message: "Missing required payment information" 
+      });
+    }
+    
+    // Get account with access token
+    const account = await storage.getConnectedAccountByExternalId(accountId);
+    if (!account || account.userId !== userId) {
+      return res.status(404).json({ message: "Account not found" });
+    }
+    
+    const authHeader = `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`;
+    
+    // Create ACH payment via Teller
+    const response = await fetch(
+      `https://api.teller.io/accounts/${accountId}/payments`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          amount,
+          recipient: {
+            name: recipientName,
+            routing_number: recipientRoutingNumber,
+            account_number: recipientAccountNumber
+          },
+          description
+        })
+      }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`Payment failed: ${response.status} - ${errorData}`);
+    }
+    
+    const payment = await response.json();
+    
+    // Log the payment
+    await storage.createActivity({
+      userId,
+      action: 'ach_payment',
+      description: `ACH payment: $${amount} to ${recipientName}`,
+      metadata: payment,
+      createdAt: new Date()
+    });
+    
+    res.json({ 
+      success: true,
+      payment,
+      message: "ACH payment initiated successfully"
+    });
+    
+  } catch (error: any) {
+    logger.error("ACH payment failed", { error: error.message });
+    res.status(500).json({ 
+      message: "Failed to initiate ACH payment",
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/teller/enrollment/:enrollmentId/status
+ * Check enrollment connection status
+ */
+router.get("/enrollment/:enrollmentId/status", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { enrollmentId } = req.params;
+    
+    // Get account by enrollment ID
+    const accounts = await storage.getConnectedAccountsByProvider(userId, 'teller');
+    const account = accounts.find(acc => acc.connectionId === enrollmentId);
+    
+    if (!account) {
+      return res.status(404).json({ message: "Enrollment not found" });
+    }
+    
+    const authHeader = `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`;
+    
+    // Try to fetch account to check if connection is still valid
+    const response = await fetch(
+      `https://api.teller.io/accounts/${account.externalAccountId}`,
+      {
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    const status = response.ok ? 'connected' : 'disconnected';
+    const statusCode = response.status;
+    
+    res.json({ 
+      enrollmentId,
+      status,
+      statusCode,
+      accountId: account.externalAccountId
+    });
+    
+  } catch (error: any) {
+    logger.error("Failed to check enrollment status", { error: error.message });
+    res.status(500).json({ 
+      message: "Failed to check enrollment status",
       error: error.message 
     });
   }
