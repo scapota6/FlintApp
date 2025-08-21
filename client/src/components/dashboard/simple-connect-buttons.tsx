@@ -84,14 +84,14 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
   const hasBankAccount = accounts.some(acc => acc.accountType === 'bank');
   const hasBrokerageAccount = accounts.some(acc => acc.accountType === 'brokerage' || acc.accountType === 'crypto');
 
-  // Teller Connect mutation - simplified and debugged
+  // Teller Connect mutation - Using JavaScript SDK as recommended
   const tellerConnectMutation = useMutation({
     mutationFn: async () => {
-      console.log('🏦 Teller Connect: Starting bank connection process');
+      console.log('🏦 Teller Connect: Starting bank connection with SDK');
       
       try {
         // Get Teller application ID
-        console.log('🏦 Teller Connect: Calling /api/teller/connect-init');
+        console.log('🏦 Teller Connect: Getting application ID');
         await ensureCsrf();
         const initResponse = await fetch("/api/teller/connect-init", {
           method: "POST",
@@ -110,44 +110,91 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
         const initData = await initResponse.json();
         console.log('🏦 Teller Connect: Init response:', initData);
         
-        const { applicationId, environment, redirectUri } = initData;
+        const { applicationId, environment } = initData;
         
         if (!applicationId) {
           throw new Error('No application ID received from server');
         }
         
-        console.log('🏦 Teller Connect: Opening popup with applicationId:', applicationId);
-        
-        // Use the redirect URI from the server
-        const callbackUrl = redirectUri || `${window.location.origin}/teller/callback`;
-        
-        // Open Teller Connect with proper redirect URI
-        const tellerUrl = `https://teller.io/connect/${applicationId}?redirect_uri=${encodeURIComponent(callbackUrl)}`;
-        console.log('🏦 Opening Teller Connect:', tellerUrl);
-        
-        // Open in new tab instead of redirecting current page
-        const tellerWindow = window.open(tellerUrl, '_blank', 'width=500,height=700');
-        
-        // Check if popup was blocked
-        if (!tellerWindow || tellerWindow.closed || typeof tellerWindow.closed === 'undefined') {
-          // If popup blocked, redirect current page as fallback
-          window.location.href = tellerUrl;
+        // Check if TellerConnect SDK is available
+        if (typeof (window as any).TellerConnect === 'undefined') {
+          throw new Error('Teller Connect SDK not loaded. Please refresh the page.');
         }
         
-        return { success: true };
+        console.log('🏦 Setting up Teller Connect SDK with applicationId:', applicationId);
+        
+        return new Promise((resolve, reject) => {
+          // Initialize Teller Connect with SDK
+          const tellerConnect = (window as any).TellerConnect.setup({
+            applicationId: applicationId,
+            environment: environment || 'sandbox',
+            products: ['verify', 'balance', 'transactions', 'identity'],
+            selectAccount: 'multiple', // Allow multiple account selection
+            onInit: () => {
+              console.log('🏦 Teller Connect SDK initialized');
+            },
+            onSuccess: async (enrollment: any) => {
+              console.log('🏦 Teller Connect: Success with enrollment:', enrollment);
+              
+              // Save the account using the access token
+              try {
+                const saveResponse = await fetch('/api/teller/save-account', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-csrf-token': localStorage.getItem('csrfToken') || '',
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    accessToken: enrollment.accessToken,
+                    enrollmentId: enrollment.enrollment?.id,
+                    institution: enrollment.enrollment?.institution?.name
+                  })
+                });
+                
+                if (!saveResponse.ok) {
+                  const errorData = await saveResponse.json();
+                  throw new Error(errorData.message || 'Failed to save account');
+                }
+                
+                const saveData = await saveResponse.json();
+                console.log('🏦 Account saved:', saveData);
+                
+                // Refresh data
+                queryClient.invalidateQueries({ queryKey: ['/api/banks'] });
+                queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+                
+                resolve({ success: true });
+              } catch (error) {
+                console.error('🏦 Error saving account:', error);
+                reject(error);
+              }
+            },
+            onExit: () => {
+              console.log('🏦 Teller Connect: User exited');
+              reject(new Error('Connection cancelled by user'));
+            },
+            onFailure: (failure: any) => {
+              console.error('🏦 Teller Connect: Failure:', failure);
+              reject(new Error(failure.message || 'Connection failed'));
+            }
+          });
+          
+          // Open Teller Connect modal
+          tellerConnect.open();
+        });
         
       } catch (error) {
-        console.error('🏦 Teller Connect: Error in mutation function:', error);
+        console.error('🏦 Teller Connect: Error:', error);
         throw error;
       }
     },
     onSuccess: () => {
-      console.log('🏦 Teller Connect: Success callback triggered');
+      console.log('🏦 Teller Connect: Bank account connected successfully');
       toast({
         title: "Bank Account Connected",
         description: "Your bank account has been successfully connected.",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
     },
     onError: (error: any) => {
       console.error('🏦 Teller Connect Error:', error);

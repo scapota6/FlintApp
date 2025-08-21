@@ -49,6 +49,89 @@ router.post("/connect-init", isAuthenticated, async (req: any, res) => {
 });
 
 /**
+ * POST /api/teller/save-account
+ * Save account from Teller SDK onSuccess callback
+ */
+router.post("/save-account", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { accessToken, enrollmentId, institution } = req.body;
+    
+    if (!accessToken) {
+      return res.status(400).json({ 
+        message: "Access token is required" 
+      });
+    }
+    
+    logger.info("Saving Teller account from SDK", { userId, institution, enrollmentId });
+    
+    // Use access token as Basic Auth (per Teller docs)
+    const authHeader = `Basic ${Buffer.from(accessToken + ":").toString("base64")}`;
+    
+    // Fetch account details from Teller
+    const tellerResponse = await fetch(
+      'https://api.teller.io/accounts',
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    if (!tellerResponse.ok) {
+      const errorText = await tellerResponse.text();
+      logger.error(`Teller API error: ${tellerResponse.status}`, { 
+        error: new Error(errorText)
+      });
+      throw new Error(`Teller API error: ${tellerResponse.status} - ${errorText}`);
+    }
+    
+    const accounts = await tellerResponse.json();
+    logger.info(`Teller accounts fetched: ${accounts.length} accounts`);
+    
+    // Store each account in database
+    for (const account of accounts) {
+      await storage.createConnectedAccount({
+        userId,
+        provider: 'teller',
+        accountType: account.type === 'credit' ? 'card' : 'bank',
+        accountName: account.name,
+        accountNumber: account.last_four || '',
+        balance: String(account.balance?.available || 0),
+        currency: account.currency || 'USD',
+        institutionName: institution || account.institution?.name || 'Unknown Bank',
+        externalAccountId: account.id,
+        connectionId: enrollmentId || account.enrollment_id,
+        institutionId: account.institution?.id,
+        accessToken: accessToken,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+    
+    logger.info("Teller accounts saved successfully", { 
+      userId,
+      accountCount: accounts.length
+    });
+    
+    res.json({ 
+      success: true,
+      accounts: accounts.length,
+      message: "Bank accounts connected successfully"
+    });
+    
+  } catch (error: any) {
+    logger.error("Teller save account error", { error: error.message });
+    res.status(500).json({ 
+      message: "Failed to save bank accounts",
+      error: error.message
+    });
+  }
+});
+
+/**
  * POST /api/teller/exchange-token
  * Exchange Teller enrollment ID for access token and store account info
  */
