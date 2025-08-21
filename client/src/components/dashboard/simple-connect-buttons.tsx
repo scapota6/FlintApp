@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TellerAPI } from "@/lib/teller-api";
 import { SnapTradeAPI } from "@/lib/snaptrade-api";
 
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ensureCsrf } from "@/lib/csrf";
 
 interface SimpleConnectButtonsProps {
@@ -110,7 +110,7 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
         const initData = await initResponse.json();
         console.log('🏦 Teller Connect: Init response:', initData);
         
-        const { applicationId, environment } = initData;
+        const { applicationId, environment, redirectUri } = initData;
         
         if (!applicationId) {
           throw new Error('No application ID received from server');
@@ -119,8 +119,8 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
         console.log('🏦 Teller Connect: Opening popup with applicationId:', applicationId);
         
         return new Promise((resolve, reject) => {
-          // Build callback URL
-          const callbackUrl = `${window.location.origin}/teller/callback`;
+          // Use the redirect URI from the server
+          const callbackUrl = redirectUri || `${window.location.origin}/teller/callback`;
           
           // Open Teller Connect in popup with callback
           const popup = window.open(
@@ -134,30 +134,22 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
             return;
           }
           
-          // Listen for successful connection
+          // Listen for successful connection from callback page
           const messageHandler = (event: MessageEvent) => {
             console.log('🏦 Teller Connect: Received message:', event);
             
-            if (event.origin === 'https://teller.io' && event.data.type === 'teller-connect-success') {
-              const token = event.data.accessToken;
-              console.log('🏦 Teller Connect: Success, exchanging token');
+            // Listen for message from our callback page
+            if (event.origin === window.location.origin && event.data.tellerConnected) {
+              console.log('🏦 Teller Connect: Success message received from callback');
+              window.removeEventListener('message', messageHandler);
+              popup?.close();
               
-              // Exchange token with backend
-              apiRequest("/api/teller/exchange-token", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token })
-              })
-                .then(() => {
-                  console.log('🏦 Teller Connect: Token exchange successful');
-                  window.removeEventListener('message', messageHandler);
-                  popup?.close();
-                  resolve({ success: true });
-                })
-                .catch((error) => {
-                  console.error('🏦 Teller Connect: Token exchange failed:', error);
-                  reject(error);
-                });
+              // Refresh dashboard data
+              queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+              queryClient.invalidateQueries({ queryKey: ['/api/banks'] });
+              queryClient.invalidateQueries({ queryKey: ['/api/connections'] });
+              
+              resolve({ success: true });
             }
           };
           

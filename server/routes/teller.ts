@@ -24,9 +24,13 @@ router.post("/connect-init", isAuthenticated, async (req: any, res) => {
     
     logger.info("Initializing Teller Connect", { userId });
     
+    // Build the callback URL for Teller redirect
+    const redirectUri = `${req.protocol}://${req.get('host')}/teller/callback`;
+    
     res.json({
       applicationId,
-      environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'
+      environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
+      redirectUri
     });
     
   } catch (error: any) {
@@ -55,7 +59,7 @@ router.post("/exchange-token", isAuthenticated, async (req: any, res) => {
       });
     }
     
-    logger.info("Exchanging Teller token", { userId, tokenReceived: !!tellerToken });
+    logger.info("Exchanging Teller token", { userId });
     
     // Fetch account details from Teller
     const tellerResponse = await fetch(
@@ -83,7 +87,7 @@ router.post("/exchange-token", isAuthenticated, async (req: any, res) => {
         accountNumber: account.last_four || '',
         balance: String(account.balance?.available || 0),
         currency: account.currency || 'USD',
-        institution: account.institution?.name || 'Unknown Bank',
+        institutionName: account.institution?.name || 'Unknown Bank',
         externalAccountId: account.id,
         connectionId: account.enrollment_id,
         institutionId: account.institution?.id,
@@ -94,8 +98,7 @@ router.post("/exchange-token", isAuthenticated, async (req: any, res) => {
     }
     
     logger.info("Teller accounts connected", { 
-      userId, 
-      count: accounts.length 
+      userId
     });
     
     res.json({ 

@@ -55,13 +55,11 @@ export default function TellerCallback() {
         await ensureCsrf();
         
         // Exchange enrollment ID for account data
-        const response = await apiRequest("/api/teller/exchange-token", {
+        const data = await apiRequest("/api/teller/exchange-token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ enrollmentId })
         });
-
-        const data = await response.json();
         
         if (data.success) {
           toast({
