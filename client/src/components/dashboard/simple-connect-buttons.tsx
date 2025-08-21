@@ -123,10 +123,12 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
           const callbackUrl = redirectUri || `${window.location.origin}/teller/callback`;
           
           // Open Teller Connect in popup with callback
+          const left = (window.screen.width - 500) / 2;
+          const top = (window.screen.height - 700) / 2;
           const popup = window.open(
             `https://teller.io/connect/${applicationId}?redirect_uri=${encodeURIComponent(callbackUrl)}`,
-            'teller',
-            'width=500,height=600,scrollbars=yes,resizable=yes'
+            'tellerConnect',
+            `width=500,height=700,top=${top},left=${left},toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes,popup=yes`
           );
           
           if (!popup) {
@@ -226,8 +228,36 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
       const url: string | undefined = data?.connect?.url;
       if (!url) throw new Error("No SnapTrade Connect URL returned");
       
-      console.log('📈 SnapTrade Connect: Redirecting to URL:', url);
-      window.location.href = url;
+      console.log('📈 SnapTrade Connect: Opening popup with URL:', url);
+      
+      // Open SnapTrade Connect in popup window
+      const left = (window.screen.width - 500) / 2;
+      const top = (window.screen.height - 700) / 2;
+      const popup = window.open(
+        url,
+        'snaptradeConnect',
+        `width=500,height=700,top=${top},left=${left},toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes,popup=yes`
+      );
+      
+      if (!popup) {
+        throw new Error('Popup blocked. Please allow popups for this site.');
+      }
+      
+      // Check if popup is closed
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkClosed);
+          console.log('📈 SnapTrade Connect: Popup closed by user');
+          // Refresh dashboard data
+          queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/connections'] });
+        }
+      }, 1000);
+      
+      // Clear interval after 5 minutes
+      setTimeout(() => clearInterval(checkClosed), 300000);
+      
       return true;
     },
     onSuccess: () => {
