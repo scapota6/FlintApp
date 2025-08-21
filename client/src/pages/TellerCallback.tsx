@@ -58,7 +58,10 @@ export default function TellerCallback() {
         const data = await apiRequest("/api/teller/exchange-token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enrollmentId })
+          body: JSON.stringify({ 
+            enrollmentId,
+            tellerToken: enrollmentId // Teller uses enrollment_id as the token
+          })
         });
         
         if (data.success) {

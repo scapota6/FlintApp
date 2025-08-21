@@ -125,8 +125,14 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
         const tellerUrl = `https://teller.io/connect/${applicationId}?redirect_uri=${encodeURIComponent(callbackUrl)}`;
         console.log('🏦 Opening Teller Connect:', tellerUrl);
         
-        // Redirect to Teller Connect
-        window.location.href = tellerUrl;
+        // Open in new tab instead of redirecting current page
+        const tellerWindow = window.open(tellerUrl, '_blank', 'width=500,height=700');
+        
+        // Check if popup was blocked
+        if (!tellerWindow || tellerWindow.closed || typeof tellerWindow.closed === 'undefined') {
+          // If popup blocked, redirect current page as fallback
+          window.location.href = tellerUrl;
+        }
         
         return { success: true };
         

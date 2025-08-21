@@ -80,8 +80,7 @@ router.post("/exchange-token", isAuthenticated, async (req: any, res) => {
     
     if (!tellerResponse.ok) {
       const errorText = await tellerResponse.text();
-      logger.error("Teller API error", { 
-        status: tellerResponse.status,
+      logger.error(`Teller API error: ${tellerResponse.status}`, { 
         error: new Error(errorText)
       });
       throw new Error(`Teller API error: ${tellerResponse.status} - ${errorText}`);
@@ -350,8 +349,7 @@ router.get("/balances", isAuthenticated, async (req: any, res) => {
           });
         }
       } catch (err) {
-        logger.error("Failed to fetch balance for account", { 
-          accountId: account.externalAccountId,
+        logger.error(`Failed to fetch balance for account: ${account.externalAccountId}`, { 
           error: err as Error
         });
       }
