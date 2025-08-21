@@ -89,9 +89,9 @@ app.use((req, res, next) => {
   const disconnectRouter = (await import("./routes/connections/disconnect")).default;
   app.use("/api/connections/disconnect", disconnectRouter);
   
-  // Mount account details route
-  const accountDetailsRouter = (await import("./routes/account-details")).default;
-  app.use("/api", accountDetailsRouter);
+  // Mount account details route (temporarily disabled for debugging)
+  // const accountDetailsRouter = (await import("./routes/account-details")).default;
+  // app.use("/api", accountDetailsRouter);
 
   const server = await registerRoutes(app);
 
