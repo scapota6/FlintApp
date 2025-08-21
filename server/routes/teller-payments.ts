@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { isAuthenticated } from "../replitAuth";
+import { tellerForUser, toLower } from "../teller/client";
 import { storage } from "../storage";
 import { logger } from "@shared/logger";
 
@@ -12,10 +13,10 @@ const router = Router();
 router.get("/capability", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.claims.sub;
-    const { fromAccountId, toAccountId } = req.query;
+    const { fromAccountId, toAccountId } = req.query as any;
     
     if (!fromAccountId || !toAccountId) {
-      return res.status(400).json({ 
+      return res.json({ 
         canPay: false, 
         reason: "Both fromAccountId and toAccountId are required" 
       });
@@ -27,52 +28,44 @@ router.get("/capability", isAuthenticated, async (req: any, res) => {
       toAccountId 
     });
     
-    // Get both accounts to check their types and capabilities
-    const fromAccount = await storage.getConnectedAccountByExternalId(userId, 'teller', fromAccountId);
-    const toAccount = await storage.getConnectedAccountByExternalId(userId, 'teller', toAccountId);
+    const teller = await tellerForUser(userId);
     
-    if (!fromAccount || !toAccount) {
+    try {
+      const from = await teller.accounts.get(fromAccountId);
+      const to = await teller.accounts.get(toAccountId);
+      
+      // Check account subtypes
+      if (!['checking', 'savings'].includes(toLower(from.subtype))) {
+        return res.json({ 
+          canPay: false, 
+          reason: 'Funding account must be checking or savings' 
+        });
+      }
+      
+      if (toLower(to.subtype) !== 'credit_card' && toLower(to.type) !== 'credit') {
+        return res.json({ 
+          canPay: false, 
+          reason: 'Destination must be a credit card account' 
+        });
+      }
+      
+      // If we get here, accounts are valid types for payment
+      return res.json({ canPay: true });
+      
+    } catch (e: any) {
       return res.json({ 
         canPay: false, 
-        reason: "One or both accounts not found" 
+        reason: e.message || 'Capability unknown' 
       });
     }
-    
-    // Check account types - from must be checking/savings, to must be credit card
-    const validFromTypes = ['checking', 'savings'];
-    const validToTypes = ['card', 'credit', 'credit_card'];
-    
-    if (!validFromTypes.includes(fromAccount.accountType)) {
-      return res.json({ 
-        canPay: false, 
-        reason: "Source account must be a checking or savings account" 
-      });
-    }
-    
-    if (!validToTypes.includes(toAccount.accountType)) {
-      return res.json({ 
-        canPay: false, 
-        reason: "Destination must be a credit card account" 
-      });
-    }
-    
-    // Check if the from account has payment capability
-    // For now, we'll assume all checking/savings accounts support payments
-    // In production, you'd check the institution's capabilities via Teller API
-    
-    res.json({ 
-      canPay: true,
-      reason: "Payment capability verified" 
-    });
     
   } catch (error: any) {
     logger.error("Payment capability check error", { 
       error: error.message 
     });
-    res.status(500).json({ 
+    return res.json({ 
       canPay: false,
-      reason: "Failed to check payment capability",
-      error: error.message 
+      reason: error.message || 'Failed to check payment capability'
     });
   }
 });
@@ -98,51 +91,11 @@ router.post("/prepare", isAuthenticated, async (req: any, res) => {
       toAccountId 
     });
     
-    // Get the credit card account to fetch balances
-    const toAccount = await storage.getConnectedAccountByExternalId(userId, 'teller', toAccountId);
+    const teller = await tellerForUser(userId);
     
-    if (!toAccount || !toAccount.accessToken) {
-      return res.status(404).json({ 
-        message: "Credit card account not found or not accessible" 
-      });
-    }
-    
-    const authHeader = `Bearer ${toAccount.accessToken}`;
-    
-    // Fetch credit card account details including balances
-    const accountResponse = await fetch(
-      `https://api.teller.io/accounts/${toAccountId}`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': authHeader,
-          'Accept': 'application/json'
-        }
-      }
-    );
-    
-    if (!accountResponse.ok) {
-      throw new Error(`Failed to fetch account details: ${accountResponse.status}`);
-    }
-    
-    const accountData = await accountResponse.json();
-    
-    // Fetch balances
-    const balanceResponse = await fetch(
-      `https://api.teller.io/accounts/${toAccountId}/balances`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': authHeader,
-          'Accept': 'application/json'
-        }
-      }
-    );
-    
-    let balances: any = {};
-    if (balanceResponse.ok) {
-      balances = await balanceResponse.json();
-    }
+    // Get the credit card account details and balances
+    const toAccount = await teller.accounts.get(toAccountId);
+    const balances = await teller.balances.get(toAccountId);
     
     // Calculate minimum due (typically 2-3% of statement balance or $25, whichever is greater)
     const statementBalance = Math.abs(balances.current || 0);
@@ -150,9 +103,6 @@ router.post("/prepare", isAuthenticated, async (req: any, res) => {
     
     // Generate a payee ID for internal tracking
     const payeeId = `payee_${toAccountId}_${Date.now()}`;
-    
-    // Store payee info in database if needed
-    // await storage.createPayee({ userId, payeeId, accountId: toAccountId, ... });
     
     // Calculate due date (typically 21-25 days from statement close)
     const dueDate = new Date();
@@ -163,8 +113,8 @@ router.post("/prepare", isAuthenticated, async (req: any, res) => {
       minimumDue: minimumDue.toFixed(2),
       statementBalance: statementBalance.toFixed(2),
       dueDate: dueDate.toISOString(),
-      accountName: accountData.name || 'Credit Card',
-      institution: accountData.institution?.name || 'Bank'
+      accountName: toAccount.name || 'Credit Card',
+      institution: toAccount.institution?.name || 'Bank'
     });
     
   } catch (error: any) {
@@ -201,78 +151,51 @@ router.post("/create", isAuthenticated, async (req: any, res) => {
       memo 
     });
     
-    // Get the source account for making the payment
-    const fromAccount = await storage.getConnectedAccountByExternalId(userId, 'teller', fromAccountId);
-    
-    if (!fromAccount || !fromAccount.accessToken) {
-      return res.status(404).json({ 
-        message: "Source account not found or not accessible" 
-      });
-    }
-    
-    const authHeader = `Bearer ${fromAccount.accessToken}`;
+    const teller = await tellerForUser(userId);
     
     // Create payment via Teller Payments API
-    // Note: Teller's payment API is in beta and may require additional setup
+    // Note: Teller's payment API is in beta and uses Zelle as the current scheme
     const paymentPayload = {
       amount: parseFloat(amount),
       currency: 'USD',
       recipient_account_id: toAccountId,
       memo: memo || `Credit card payment - ${new Date().toLocaleDateString()}`,
-      type: 'ach' // or 'zelle' depending on institution support
+      type: 'zelle' // Teller Payments uses Zelle scheme
     };
     
-    const paymentResponse = await fetch(
-      `https://api.teller.io/accounts/${fromAccountId}/payments`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(paymentPayload)
-      }
-    );
-    
-    if (!paymentResponse.ok) {
-      const errorData = await paymentResponse.text();
-      logger.error("Payment creation failed", { 
-        status: paymentResponse.status,
-        error: errorData 
+    try {
+      const paymentData = await teller.payments.create(fromAccountId, paymentPayload);
+      
+      // Store payment record in database
+      await storage.createPaymentRecord({
+        userId,
+        paymentId: paymentData.id,
+        fromAccountId,
+        toAccountId,
+        amount: parseFloat(amount),
+        status: paymentData.status || 'pending',
+        createdAt: new Date()
       });
       
+      res.json({
+        paymentId: paymentData.id,
+        status: paymentData.status || 'pending',
+        amount: amount,
+        estimatedCompletion: paymentData.estimated_completion || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+      });
+      
+    } catch (paymentError: any) {
       // Check if MFA is required
-      if (paymentResponse.status === 403 && errorData.includes('mfa')) {
+      if (paymentError.message?.includes('403') || paymentError.message?.includes('mfa')) {
         return res.status(403).json({ 
           message: "Additional authentication required",
           requiresMFA: true,
-          mfaToken: JSON.parse(errorData).mfa_token || null
+          error: "Please complete MFA in your bank app"
         });
       }
       
-      throw new Error(`Payment creation failed: ${paymentResponse.status}`);
+      throw paymentError;
     }
-    
-    const paymentData = await paymentResponse.json();
-    
-    // Store payment record in database
-    await storage.createPaymentRecord({
-      userId,
-      paymentId: paymentData.id,
-      fromAccountId,
-      toAccountId,
-      amount: parseFloat(amount),
-      status: paymentData.status || 'pending',
-      createdAt: new Date()
-    });
-    
-    res.json({
-      paymentId: paymentData.id,
-      status: paymentData.status || 'pending',
-      amount: amount,
-      estimatedCompletion: paymentData.estimated_completion || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
-    });
     
   } catch (error: any) {
     logger.error("Payment creation error", { 
@@ -303,40 +226,28 @@ router.get("/:paymentId", isAuthenticated, async (req: any, res) => {
     const paymentRecord = await storage.getPaymentRecord(userId, paymentId);
     
     if (!paymentRecord) {
-      return res.status(404).json({ 
-        message: "Payment not found" 
-      });
-    }
-    
-    // Get account to fetch payment status from Teller
-    const account = await storage.getConnectedAccountByExternalId(
-      userId, 
-      'teller', 
-      paymentRecord.fromAccountId
-    );
-    
-    if (!account || !account.accessToken) {
-      return res.status(404).json({ 
-        message: "Account not found" 
-      });
-    }
-    
-    const authHeader = `Bearer ${account.accessToken}`;
-    
-    // Fetch payment status from Teller
-    const statusResponse = await fetch(
-      `https://api.teller.io/payments/${paymentId}`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': authHeader,
-          'Accept': 'application/json'
-        }
+      // Try to fetch directly from Teller
+      try {
+        const teller = await tellerForUser(userId);
+        const statusData = await teller.payments.get(paymentId);
+        
+        return res.json({
+          paymentId,
+          status: statusData.status,
+          amount: statusData.amount,
+          createdAt: statusData.created_at,
+          updatedAt: statusData.updated_at || new Date()
+        });
+      } catch (e) {
+        return res.status(404).json({ 
+          message: "Payment not found" 
+        });
       }
-    );
+    }
     
-    if (statusResponse.ok) {
-      const statusData = await statusResponse.json();
+    try {
+      const teller = await tellerForUser(userId);
+      const statusData = await teller.payments.get(paymentId);
       
       // Update status in database
       await storage.updatePaymentStatus(paymentId, statusData.status);
@@ -350,8 +261,8 @@ router.get("/:paymentId", isAuthenticated, async (req: any, res) => {
         createdAt: paymentRecord.createdAt,
         updatedAt: statusData.updated_at || new Date()
       });
-    } else {
-      // Return cached status from database
+    } catch (fetchError) {
+      // Return cached status from database if Teller fetch fails
       res.json({
         paymentId,
         status: paymentRecord.status,
