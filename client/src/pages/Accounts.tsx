@@ -14,9 +14,11 @@ import {
   TrendingUp,
   Eye,
   AlertCircle,
-  Unlink
+  Unlink,
+  Info
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { AccountDetailsModal } from "@/components/AccountDetailsModal";
 
 interface BrokerageAccount {
   id: number;
@@ -34,11 +36,17 @@ interface BankAccount {
   currency: string;
   balance: number;
   lastSync: string;
+  externalAccountId: string;
 }
 
 export default function Accounts() {
   const [refreshing, setRefreshing] = useState(false);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [selectedAccountDetails, setSelectedAccountDetails] = useState<{
+    accountId: string;
+    accountName: string;
+    accountType: 'bank' | 'card';
+  } | null>(null);
 
   // Fetch brokerage accounts from SnapTrade
   const { data: brokerageData, isLoading: brokeragesLoading, refetch: refetchBrokerages } = useQuery({
@@ -320,6 +328,18 @@ export default function Accounts() {
                           </div>
                         </div>
                         <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setSelectedAccountDetails({
+                              accountId: account.externalAccountId,
+                              accountName: account.name,
+                              accountType: account.type as 'bank' | 'card'
+                            })}
+                          >
+                            <Info className="h-4 w-4 mr-2" />
+                            Details
+                          </Button>
                           <Link href={`/accounts/bank/${account.id}`}>
                             <Button size="sm" variant="outline">
                               <Eye className="h-4 w-4 mr-2" />
@@ -359,6 +379,17 @@ export default function Accounts() {
           </Tabs>
         )}
       </div>
+
+      {/* Account Details Modal */}
+      {selectedAccountDetails && (
+        <AccountDetailsModal
+          isOpen={!!selectedAccountDetails}
+          onClose={() => setSelectedAccountDetails(null)}
+          accountId={selectedAccountDetails.accountId}
+          accountName={selectedAccountDetails.accountName}
+          accountType={selectedAccountDetails.accountType}
+        />
+      )}
     </div>
   );
 }

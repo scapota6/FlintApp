@@ -858,4 +858,104 @@ router.get("/enrollment/:enrollmentId/status", isAuthenticated, async (req: any,
   }
 });
 
+/**
+ * GET /api/teller/account/:accountId/details
+ * Fetch detailed account information from Teller API
+ */
+router.get("/account/:accountId/details", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { accountId } = req.params;
+    
+    logger.info("Fetching Teller account details", { 
+      userId, 
+      accountId 
+    });
+    
+    // Get the connected account to retrieve access token
+    const connectedAccount = await storage.getConnectedAccountByExternalId(userId, 'teller', accountId);
+    
+    if (!connectedAccount) {
+      return res.status(404).json({ 
+        message: "Account not found or not accessible"
+      });
+    }
+    
+    if (!connectedAccount.accessToken) {
+      return res.status(400).json({ 
+        message: "No access token found for this account"
+      });
+    }
+    
+    // Create auth header with access token
+    const authHeader = `Bearer ${connectedAccount.accessToken}`;
+    
+    // Fetch detailed account info from Teller
+    const accountResponse = await fetch(
+      `https://api.teller.io/accounts/${accountId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    if (!accountResponse.ok) {
+      const errorText = await accountResponse.text();
+      logger.error(`Teller account details API error: ${accountResponse.status}`, { 
+        error: new Error(errorText),
+        accountId
+      });
+      throw new Error(`Failed to fetch account details: ${accountResponse.status}`);
+    }
+    
+    const accountDetails = await accountResponse.json();
+    
+    // Fetch balances separately if available
+    let balances = null;
+    try {
+      const balanceResponse = await fetch(
+        `https://api.teller.io/accounts/${accountId}/balances`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': authHeader,
+            'Accept': 'application/json'
+          }
+        }
+      );
+      
+      if (balanceResponse.ok) {
+        balances = await balanceResponse.json();
+      }
+    } catch (balanceError) {
+      logger.warn("Failed to fetch balances", { error: balanceError });
+    }
+    
+    logger.info("Teller account details fetched successfully", { 
+      userId,
+      accountId,
+      hasBalances: !!balances
+    });
+    
+    res.json({ 
+      account: accountDetails,
+      balances: balances || accountDetails.balance,
+      success: true
+    });
+    
+  } catch (error: any) {
+    logger.error("Teller account details error", { 
+      error: error.message,
+      accountId: req.params.accountId
+    });
+    res.status(500).json({ 
+      message: "Failed to fetch account details",
+      error: error.message
+    });
+  }
+});
+
 export default router;

@@ -228,6 +228,19 @@ export class DatabaseStorage implements IStorage {
     return account;
   }
 
+  async getConnectedAccountByExternalId(userId: string, provider: string, externalAccountId: string): Promise<ConnectedAccount | undefined> {
+    const [account] = await db
+      .select()
+      .from(connectedAccounts)
+      .where(and(
+        eq(connectedAccounts.userId, userId),
+        eq(connectedAccounts.provider, provider),
+        eq(connectedAccounts.externalAccountId, externalAccountId),
+        eq(connectedAccounts.isActive, true)
+      ));
+    return account;
+  }
+
   async deleteConnectedAccount(userId: string, provider: string, accountId: string): Promise<number> {
     const result = await db
       .delete(connectedAccounts)
