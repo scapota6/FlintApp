@@ -33,9 +33,10 @@ router.post("/connect-init", isAuthenticated, async (req: any, res) => {
       redirectUri 
     });
     
+    // Force sandbox mode for testing
     res.json({
       applicationId,
-      environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
+      environment: 'sandbox', // Always use sandbox until production is set up
       redirectUri
     });
     
