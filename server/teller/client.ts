@@ -124,6 +124,26 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
         }
         
         return allAccounts;
+      },
+      
+      async balances(accountId: string): Promise<any> {
+        const token = tokenMap.get(accountId);
+        if (!token) {
+          throw new Error(`No access token found for account ${accountId}`);
+        }
+        
+        const response = await fetch(`https://api.teller.io/accounts/${accountId}/balances`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch balances: ${response.status}`);
+        }
+        
+        return response.json();
       }
     },
     

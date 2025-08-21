@@ -22,11 +22,7 @@ router.get("/capability", isAuthenticated, async (req: any, res) => {
       });
     }
     
-    logger.info("Checking payment capability", { 
-      userId, 
-      fromAccountId, 
-      toAccountId 
-    });
+    logger.info("Checking payment capability", { userId });
     
     const teller = await tellerForUser(userId);
     
@@ -85,45 +81,42 @@ router.post("/prepare", isAuthenticated, async (req: any, res) => {
       });
     }
     
-    logger.info("Preparing payment", { 
-      userId, 
-      fromAccountId, 
-      toAccountId 
-    });
+    logger.info("Preparing payment", { userId });
     
     const teller = await tellerForUser(userId);
     
-    // Get the credit card account details and balances
-    const toAccount = await teller.accounts.get(toAccountId);
-    const balances = await teller.balances.get(toAccountId);
+    // Get the credit card account - may include statement/min due fields
+    const card = await teller.accounts.get(toAccountId);
     
-    // Calculate minimum due (typically 2-3% of statement balance or $25, whichever is greater)
-    const statementBalance = Math.abs(balances.current || 0);
-    const minimumDue = Math.max(statementBalance * 0.02, 25);
+    // Try to get balances, but don't fail if unavailable
+    const balances = await teller.balances.get(toAccountId).catch(() => ({} as any));
     
-    // Generate a payee ID for internal tracking
-    const payeeId = `payee_${toAccountId}_${Date.now()}`;
+    // If your integration requires a payee object (Zelle contact) create/lookup here:
+    // const payee = await teller.payees.ensure({ accountId: fromAccountId, ...issuerContact });
+    const payeeId = null; // optional depending on SDK style
     
-    // Calculate due date (typically 21-25 days from statement close)
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 21);
+    // Extract payment details from card or balances objects
+    // Use nullish coalescing to safely access nested fields
+    const minimumDue = (card as any)?.minimum_payment_due ?? balances?.minimum_payment_due ?? null;
+    const statementBalance = balances?.statement ?? balances?.current ?? null;
+    const dueDate = (card as any)?.payment_due_date ?? null;
     
-    res.json({
-      payeeId,
-      minimumDue: minimumDue.toFixed(2),
-      statementBalance: statementBalance.toFixed(2),
-      dueDate: dueDate.toISOString(),
-      accountName: toAccount.name || 'Credit Card',
-      institution: toAccount.institution?.name || 'Bank'
+    res.json({ 
+      payeeId, 
+      minimumDue, 
+      statementBalance, 
+      dueDate,
+      accountName: card.name || 'Credit Card',
+      institution: card.institution?.name || 'Bank'
     });
     
   } catch (error: any) {
     logger.error("Payment preparation error", { 
       error: error.message 
     });
-    res.status(500).json({ 
+    res.status(400).json({ 
       message: "Failed to prepare payment",
-      error: error.message 
+      error: error.message || error 
     });
   }
 });
@@ -143,13 +136,7 @@ router.post("/create", isAuthenticated, async (req: any, res) => {
       });
     }
     
-    logger.info("Creating payment", { 
-      userId, 
-      fromAccountId, 
-      toAccountId,
-      amount,
-      memo 
-    });
+    logger.info("Creating payment", { userId });
     
     const teller = await tellerForUser(userId);
     
@@ -217,10 +204,7 @@ router.get("/:paymentId", isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
     const { paymentId } = req.params;
     
-    logger.info("Fetching payment status", { 
-      userId, 
-      paymentId 
-    });
+    logger.info("Fetching payment status", { userId });
     
     // Get payment record from database
     const paymentRecord = await storage.getPaymentRecord(userId, paymentId);
