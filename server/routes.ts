@@ -1770,6 +1770,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const tellerPaymentsRouter = await import('./routes/teller-payments');
   app.use('/api/teller/payments', tellerPaymentsRouter.default);
 
+  // Account details route that maps internal IDs to external IDs
+  app.get('/api/accounts/:provider/:accountId/details', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { provider, accountId } = req.params;
+      
+      if (provider === 'teller') {
+        // Get the connected account to find the external ID
+        const account = await storage.getConnectedAccount(parseInt(accountId));
+        if (!account || account.userId !== userId || account.provider !== 'teller') {
+          return res.status(404).json({ message: "Account not found" });
+        }
+        
+        // Call the Teller API using the external account ID
+        const authHeader = `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`;
+        
+        // Fetch account details from Teller
+        const accountResponse = await fetch(
+          `https://api.teller.io/accounts/${account.externalAccountId}/details`,
+          {
+            headers: {
+              'Authorization': authHeader,
+              'Accept': 'application/json'
+            }
+          }
+        );
+        
+        if (!accountResponse.ok) {
+          throw new Error(`Failed to fetch account details: ${accountResponse.status}`);
+        }
+        
+        const accountDetails = await accountResponse.json();
+        
+        // Fetch balances
+        const balancesResponse = await fetch(
+          `https://api.teller.io/accounts/${account.externalAccountId}/balances`,
+          {
+            headers: {
+              'Authorization': authHeader,
+              'Accept': 'application/json'
+            }
+          }
+        );
+        
+        const balances = balancesResponse.ok ? await balancesResponse.json() : null;
+        
+        res.json({
+          success: true,
+          account: accountDetails,
+          balances,
+        });
+        
+      } else if (provider === 'snaptrade') {
+        // Handle SnapTrade account details here if needed
+        res.status(501).json({ message: "SnapTrade account details not implemented yet" });
+      } else {
+        res.status(400).json({ message: "Invalid provider" });
+      }
+      
+    } catch (error: any) {
+      logger.error("Failed to fetch account details", { error: error.message, provider: req.params.provider, accountId: req.params.accountId });
+      res.status(500).json({ 
+        message: "Failed to fetch account details",
+        error: error.message 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
