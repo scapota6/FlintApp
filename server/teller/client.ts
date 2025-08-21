@@ -48,26 +48,22 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
   const tokenMap = new Map<string, string>();
   accounts.forEach(acc => {
     const token = acc.accessToken;
-    if (token) {
+    if (token && typeof token === 'string') {
       tokenMap.set(acc.externalAccountId, token);
     }
   });
   
-  return {
+  const client: TellerClient = {
     accounts: {
       async get(accountId: string): Promise<TellerAccount> {
         const token = tokenMap.get(accountId);
         if (!token) {
-          // Try to find token from connected accounts
-          const account = accounts.find(a => a.externalAccountId === accountId);
-          if (!account?.accessToken) {
-            throw new Error(`No access token found for account ${accountId}`);
-          }
+          throw new Error(`No access token found for account ${accountId}`);
         }
         
         const response = await fetch(`https://api.teller.io/accounts/${accountId}`, {
           headers: {
-            'Authorization': `Bearer ${token || tokenMap.get(accountId)}`,
+            'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
           }
         });
@@ -166,7 +162,17 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
         
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Payment creation failed: ${response.status} - ${errorText}`);
+          const error: any = new Error(`Payment creation failed: ${response.status} - ${errorText}`);
+          
+          // Check if MFA/Connect token is required
+          try {
+            const errorData = JSON.parse(errorText);
+            if (errorData.mfa_token || errorData.connect_token) {
+              error.requiresConnectToken = errorData.mfa_token || errorData.connect_token;
+            }
+          } catch {}
+          
+          throw error;
         }
         
         return response.json();
@@ -217,6 +223,8 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
       }
     }
   };
+  
+  return client;
 }
 
 // Helper function to normalize account types

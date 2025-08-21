@@ -32,6 +32,7 @@ Preferred communication style: Simple, everyday language.
 - **Subscription System**: Three-tier model (Basic, Pro, Premium) with Stripe integration for payment processing and feature gating.
 - **Security Framework**: AES-256-GCM encryption for sensitive credentials, multi-tier rate limiting, activity logging with sensitive data hashing, secure PostgreSQL-backed sessions, double-submit-cookie CSRF protection with csurf (x-csrf-token header validation), session revocation on logout, RBAC middleware, encrypted token storage, automatic secret rotation, SOC 2 compliant infrastructure.
 - **Wallet Service Architecture**: Internal fund management with pre-authorization and hold/release, integrated ACH transfers via Teller.
+- **Teller Payments Integration**: Credit card payment system using Zelle-based transfers with tellerForUser client wrapper for per-user authentication, MFA handling with 409 status codes, and real-time payment status tracking.
 - **Trading Aggregation Engine**: Complete trading system with intelligent routing, real-time position consolidation, pre-trade validation, enhanced instrument resolution with cross-SDK compatibility, robust trade preview/placement APIs with version-safe wrappers, tradeId-based order placement with fallbacks, comprehensive error handling with detailed debugging, and flexible validation flow supporting both preview-then-place and direct placement workflows.
 - **Modular Architecture**: Clean separation of concerns with dedicated service layers for encryption, wallet management, and trading aggregation.
 - **Compliance Framework**: Legal disclaimers system (not a financial advisor, custodian, or broker-dealer) with user acknowledgment tracking, RBAC groundwork, and security dashboard.
@@ -40,7 +41,7 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Core Integrations
-- **Teller.io**: Bank account connections and ACH transfers.
+- **Teller.io**: Bank account connections, ACH transfers, and Zelle-based credit card payments.
 - **SnapTrade**: Brokerage account connections, real-time quotes, and trading functionalities (buy/sell orders, account activities, positions).
 - **Stripe**: Subscription management and payment processing.
 - **Finnhub**: General financial data.
