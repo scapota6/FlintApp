@@ -124,14 +124,17 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
         console.log('🏦 Setting up Teller Connect SDK with applicationId:', applicationId);
         
         return new Promise((resolve, reject) => {
-          // Initialize Teller Connect with SDK - Force sandbox mode
+          console.log('🏦 Initializing Teller with sandbox mode and applicationId:', applicationId);
+          
+          // Initialize Teller Connect with SDK - Explicitly force sandbox mode
           const tellerConnect = (window as any).TellerConnect.setup({
             applicationId: applicationId,
-            environment: 'sandbox', // Force sandbox mode for testing
+            environment: 'sandbox', // Explicitly force sandbox mode
             products: ['verify', 'balance', 'transactions', 'identity'],
             selectAccount: 'multiple', // Allow multiple account selection
+            skipPicker: false, // Show institution picker
             onInit: () => {
-              console.log('🏦 Teller Connect SDK initialized');
+              console.log('🏦 Teller Connect SDK initialized in SANDBOX mode');
             },
             onSuccess: async (enrollment: any) => {
               console.log('🏦 Teller Connect: Success with enrollment:', enrollment);
