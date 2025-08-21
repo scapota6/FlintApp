@@ -141,11 +141,18 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
               
               // Save the account using the access token
               try {
+                // Get fresh CSRF token
+                const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' });
+                const csrfData = await csrfResponse.json();
+                const csrfToken = csrfData.csrfToken;
+                
+                console.log('🏦 Using CSRF token for save request');
+                
                 const saveResponse = await fetch('/api/teller/save-account', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
-                    'x-csrf-token': localStorage.getItem('csrfToken') || '',
+                    'x-csrf-token': csrfToken,
                   },
                   credentials: 'include',
                   body: JSON.stringify({

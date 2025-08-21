@@ -29,8 +29,7 @@ router.post("/connect-init", isAuthenticated, async (req: any, res) => {
     const redirectUri = `${protocol}://${req.get('host')}/teller/callback`;
     
     logger.info("Teller Connect initialized", { 
-      applicationId,
-      redirectUri 
+      userId
     });
     
     // Force sandbox mode for testing
@@ -64,7 +63,7 @@ router.post("/save-account", isAuthenticated, async (req: any, res) => {
       });
     }
     
-    logger.info("Saving Teller account from SDK", { userId, institution, enrollmentId });
+    logger.info("Saving Teller account from SDK", { userId });
     
     // Use access token as Basic Auth (per Teller docs)
     const authHeader = `Basic ${Buffer.from(accessToken + ":").toString("base64")}`;
@@ -113,8 +112,7 @@ router.post("/save-account", isAuthenticated, async (req: any, res) => {
     }
     
     logger.info("Teller accounts saved successfully", { 
-      userId,
-      accountCount: accounts.length
+      userId
     });
     
     res.json({ 
@@ -559,7 +557,7 @@ router.get("/test-connection", isAuthenticated, async (req: any, res) => {
       });
     }
     
-    logger.info("Testing Teller connection", { userId, enrollmentId });
+    logger.info("Testing Teller connection", { userId });
     
     // Use enrollment ID as Basic Auth username (per Teller docs)
     const authHeader = `Basic ${Buffer.from(enrollmentId + ":").toString("base64")}`;
