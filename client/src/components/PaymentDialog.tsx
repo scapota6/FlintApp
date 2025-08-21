@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
+import { ensureCsrf } from "@/lib/csrf";
 import { 
   CreditCard, 
   Building2, 
@@ -79,8 +80,12 @@ export function PaymentDialog({
   const preparePaymentMutation = useMutation({
     mutationFn: async () => {
       setPaymentStatus("preparing");
+      const csrfToken = await ensureCsrf();
       return apiRequest('/api/teller/payments/prepare', {
         method: 'POST',
+        headers: {
+          'x-csrf-token': csrfToken,
+        },
         body: JSON.stringify({
           fromAccountId: selectedBankAccount,
           toAccountId: creditCardAccount.externalAccountId,
@@ -112,8 +117,12 @@ export function PaymentDialog({
         amount = parseFloat(customAmount);
       }
 
+      const csrfToken = await ensureCsrf();
       return apiRequest('/api/teller/payments/create', {
         method: 'POST',
+        headers: {
+          'x-csrf-token': csrfToken,
+        },
         body: JSON.stringify({
           fromAccountId: selectedBankAccount,
           toAccountId: creditCardAccount.externalAccountId,
@@ -128,11 +137,25 @@ export function PaymentDialog({
       // Start polling for status
       pollPaymentStatus(data.paymentId);
     },
-    onError: (error: any) => {
-      setPaymentStatus("failed");
-      if (error.message?.includes("MFA")) {
-        // Handle MFA requirement
-        alert("Additional authentication required. Please complete MFA in your bank app.");
+    onError: async (error: any) => {
+      // Check for MFA requirement (409 status)
+      if (error.message?.includes("409") || error.step === 'mfa') {
+        // Extract connectToken from error response
+        const connectToken = error.connectToken || error.data?.connectToken;
+        if (connectToken) {
+          // Open Teller Connect for MFA
+          setPaymentStatus("idle");
+          const message = "Additional authentication required. Please complete MFA with your bank.";
+          
+          // In production, you would open Teller Connect here
+          // For now, show a user-friendly message
+          alert(message + "\n\nPlease complete authentication in your bank app, then try again.");
+          
+          // TODO: Implement Teller Connect integration for MFA
+          // window.open(`https://connect.teller.io/?token=${connectToken}`, '_blank');
+        }
+      } else {
+        setPaymentStatus("failed");
       }
     },
   });
@@ -153,12 +176,14 @@ export function PaymentDialog({
         
         if (status.status === "completed" || status.status === "success") {
           setPaymentStatus("completed");
+          // Optionally refresh the card balances
+          onClose(); // Close dialog on success
         } else if (status.status === "failed" || status.status === "cancelled") {
           setPaymentStatus("failed");
         } else {
-          // Continue polling
+          // Continue polling every 2-3 seconds as per requirements
           attempts++;
-          setTimeout(checkStatus, 2000); // Check every 2 seconds
+          setTimeout(checkStatus, 2500); // Check every 2.5 seconds
         }
       } catch (error) {
         setPaymentStatus("failed");
@@ -169,19 +194,48 @@ export function PaymentDialog({
   };
 
   const handleSubmitPayment = async () => {
-    if (!selectedBankAccount || !capability?.canPay) return;
+    if (!selectedBankAccount) {
+      alert("Please select a funding account");
+      return;
+    }
+    
+    // Check capability first
+    if (capability && !capability.canPay) {
+      alert(capability.reason || "This payment combination is not supported. Please pay through your card issuer's website.");
+      return;
+    }
+    
+    // Validate amount for custom payments
+    if (paymentAmount === "custom") {
+      const amount = parseFloat(customAmount);
+      if (isNaN(amount) || amount <= 0) {
+        alert("Please enter a valid payment amount");
+        return;
+      }
+      
+      // Cap to statement balance if available
+      const statementBalance = parseFloat(preparePaymentMutation.data?.statementBalance || "0");
+      if (statementBalance > 0 && amount > statementBalance) {
+        alert(`Payment amount cannot exceed statement balance of ${formatCurrency(statementBalance)}`);
+        return;
+      }
+    }
     
     setIsProcessing(true);
     
-    // First prepare payment to get metadata
-    if (!preparePaymentMutation.data) {
-      await preparePaymentMutation.mutateAsync();
+    try {
+      // First prepare payment to get metadata
+      if (!preparePaymentMutation.data) {
+        await preparePaymentMutation.mutateAsync();
+      }
+      
+      // Then create the payment
+      await createPaymentMutation.mutateAsync();
+    } catch (error) {
+      console.error("Payment error:", error);
+    } finally {
+      setIsProcessing(false);
     }
-    
-    // Then create the payment
-    await createPaymentMutation.mutateAsync();
-    
-    setIsProcessing(false);
   };
 
   const filteredBankAccounts = bankAccounts?.bankAccounts?.filter(

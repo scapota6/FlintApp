@@ -288,22 +288,57 @@ export function AccountDetailsModal({
         )}
 
         {isCreditCard && 'current' in balances && (
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-gray-600 dark:text-gray-400">Current Balance:</span>
-              <p className="font-semibold text-lg">{formatCurrency(balances.current, account?.currency)}</p>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600 dark:text-gray-400">Current Balance:</span>
+                <p className="font-semibold text-lg">{formatCurrency(Math.abs(balances.current), account?.currency)}</p>
+              </div>
+              <div>
+                <span className="text-gray-600 dark:text-gray-400">Available Credit:</span>
+                <p className="font-semibold text-lg text-green-600">{formatCurrency(balances.available, account?.currency)}</p>
+              </div>
+              <div>
+                <span className="text-gray-600 dark:text-gray-400">Credit Limit:</span>
+                <p className="font-medium">{formatCurrency(balances.limit, account?.currency)}</p>
+              </div>
+              <div>
+                <span className="text-gray-600 dark:text-gray-400">Statement Balance:</span>
+                <p className="font-medium">{formatCurrency((balances as any).statement || Math.abs(balances.current), account?.currency)}</p>
+              </div>
             </div>
-            <div>
-              <span className="text-gray-600 dark:text-gray-400">Available Credit:</span>
-              <p className="font-semibold text-lg text-green-600">{formatCurrency(balances.available, account?.currency)}</p>
-            </div>
-            <div>
-              <span className="text-gray-600 dark:text-gray-400">Credit Limit:</span>
-              <p className="font-medium">{formatCurrency(balances.limit, account?.currency)}</p>
-            </div>
-            <div>
-              <span className="text-gray-600 dark:text-gray-400">Statement Balance:</span>
-              <p className="font-medium">{formatCurrency(balances.current, account?.currency)}</p>
+            
+            {/* Payment Information */}
+            <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Payment Information
+                </h4>
+                <Button 
+                  onClick={() => setShowPaymentDialog(true)}
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Pay Card
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Minimum Payment Due:</span>
+                  <p className="font-semibold text-red-600">
+                    {formatCurrency((account as any)?.minimum_payment_due || (balances as any)?.minimum_payment_due || 25, account?.currency)}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Payment Due Date:</span>
+                  <p className="font-semibold flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {formatDate((account as any)?.payment_due_date || (balances as any)?.due_date)}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}
