@@ -24,8 +24,14 @@ router.post("/connect-init", isAuthenticated, async (req: any, res) => {
     
     logger.info("Initializing Teller Connect", { userId });
     
-    // Build the callback URL for Teller redirect
-    const redirectUri = `${req.protocol}://${req.get('host')}/teller/callback`;
+    // Build the callback URL for Teller redirect - ensure it's using https in production
+    const protocol = req.get('host')?.includes('replit.dev') ? 'https' : req.protocol;
+    const redirectUri = `${protocol}://${req.get('host')}/teller/callback`;
+    
+    logger.info("Teller Connect initialized", { 
+      applicationId,
+      redirectUri 
+    });
     
     res.json({
       applicationId,
@@ -49,9 +55,9 @@ router.post("/connect-init", isAuthenticated, async (req: any, res) => {
 router.post("/exchange-token", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.claims.sub;
-    const { token, enrollmentId } = req.body; // Accept both token and enrollmentId
+    const { token, enrollmentId, tellerToken: bodyToken } = req.body; // Accept multiple formats
     
-    const tellerToken = token || enrollmentId;
+    const tellerToken = token || enrollmentId || bodyToken;
     
     if (!tellerToken) {
       return res.status(400).json({ 
@@ -448,6 +454,68 @@ router.get("/account/:accountId/details", isAuthenticated, async (req: any, res)
     logger.error("Failed to fetch account details", { error: error.message });
     res.status(500).json({ 
       message: "Failed to fetch account details",
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/teller/test-connection
+ * Test Teller connection with a sample enrollment ID
+ */
+router.get("/test-connection", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { enrollmentId } = req.query;
+    
+    if (!enrollmentId) {
+      return res.json({
+        message: "Provide enrollment_id as query parameter to test",
+        example: "/api/teller/test-connection?enrollmentId=YOUR_ENROLLMENT_ID"
+      });
+    }
+    
+    logger.info("Testing Teller connection", { userId, enrollmentId });
+    
+    // Use enrollment ID as Basic Auth username (per Teller docs)
+    const authHeader = `Basic ${Buffer.from(enrollmentId + ":").toString("base64")}`;
+    
+    // Try to fetch accounts
+    const tellerResponse = await fetch(
+      'https://api.teller.io/accounts',
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    if (!tellerResponse.ok) {
+      const errorText = await tellerResponse.text();
+      return res.json({
+        success: false,
+        status: tellerResponse.status,
+        error: errorText,
+        message: "Failed to fetch accounts - check enrollment ID"
+      });
+    }
+    
+    const accounts = await tellerResponse.json();
+    
+    res.json({
+      success: true,
+      accounts: accounts.length,
+      data: accounts,
+      message: "Connection successful! This enrollment ID works."
+    });
+    
+  } catch (error: any) {
+    logger.error("Test connection failed", { error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: "Test failed",
       error: error.message 
     });
   }
