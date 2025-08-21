@@ -87,6 +87,13 @@ export interface IStorage {
   getBankAccounts(userEmail: string): Promise<any[]>;
   getBankTransactions(userEmail: string, accountId: string): Promise<any[]>;
   
+  // Additional connected account methods
+  getConnectedAccountByExternalId(externalAccountId: string): Promise<ConnectedAccount | undefined>;
+  getConnectedAccountsByProvider(userId: string, provider: string): Promise<ConnectedAccount[]>;
+  
+  // Activity logging
+  createActivity(activity: InsertActivityLog): Promise<ActivityLog>;
+  
   // User updates
   updateUser(userId: string, updates: Partial<User>): Promise<User>;
 }
@@ -440,6 +447,32 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date() 
       })
       .where(eq(users.id, userId));
+  }
+
+  // Additional connected account methods
+  async getConnectedAccountByExternalId(externalAccountId: string): Promise<ConnectedAccount | undefined> {
+    const [account] = await db
+      .select()
+      .from(connectedAccounts)
+      .where(eq(connectedAccounts.externalAccountId, externalAccountId));
+    return account;
+  }
+  
+  async getConnectedAccountsByProvider(userId: string, provider: string): Promise<ConnectedAccount[]> {
+    return db
+      .select()
+      .from(connectedAccounts)
+      .where(
+        and(
+          eq(connectedAccounts.userId, userId),
+          eq(connectedAccounts.provider, provider)
+        )
+      );
+  }
+  
+  // Activity logging - simplified to alias logActivity
+  async createActivity(activity: InsertActivityLog): Promise<ActivityLog> {
+    return this.logActivity(activity);
   }
 
   async updateUser(userId: string, updates: Partial<User>): Promise<User> {
