@@ -1,18 +1,3 @@
-// Bootstrap environment loading first
-import 'dotenv/config';
-
-// sanitize whitespace/newlines in env
-for (const k of ['SNAPTRADE_CLIENT_ID','SNAPTRADE_CONSUMER_KEY','SNAPTRADE_ENV','SNAPTRADE_REDIRECT_URI']) {
-  if (process.env[k]) process.env[k] = process.env[k]!.trim().replace(/\r|\n/g,'');
-}
-
-console.log('[ENV CHECK]', {
-  CLIENT_ID: process.env.SNAPTRADE_CLIENT_ID,
-  CONSUMER_KEY_LEN: process.env.SNAPTRADE_CONSUMER_KEY?.length,
-  ENV: process.env.SNAPTRADE_ENV,
-  REDIRECT: process.env.SNAPTRADE_REDIRECT_URI,
-});
-
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import csrf from "csurf";

@@ -21,5 +21,5 @@ if (!/^https:\/\/.+\.kirk\.replit\.dev/.test(process.env.SNAPTRADE_REDIRECT_URI 
 
 (async () => {
   // now import your real server AFTER env is present
-  await import('./server/index.js'); // importing the actual server entry point
+  await import('./server/index'); // importing the actual server entry point
 })();
