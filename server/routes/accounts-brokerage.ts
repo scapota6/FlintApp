@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authApi, accountsApi } from '../lib/snaptrade';
 import { storage } from '../storage';
+import { getSnapUser } from '../store/snapUsers';
 
 const router = Router();
 
@@ -11,12 +12,12 @@ router.get('/accounts/brokerage', async (req, res) => {
   }
 
   try {
-    const user = req.user!;
-    console.log('Fetching brokerage accounts for user:', user.email);
+    const user = req.user as any;
+    console.log('Fetching brokerage accounts for user:', user.claims?.email);
 
     // Get user's SnapTrade credentials
-    const userSecret = await storage.getUserSecret(user.id, 'snaptrade');
-    if (!userSecret) {
+    const snapUser = await getSnapUser(user.claims?.sub);
+    if (!snapUser) {
       return res.json({ 
         brokerageAccounts: [],
         message: 'No brokerage accounts connected' 
@@ -24,13 +25,13 @@ router.get('/accounts/brokerage', async (req, res) => {
     }
 
     // Fetch accounts from SnapTrade
-    const accountsResponse = await snaptrade.accountInformation.listUserAccounts({
-      userId: user.email,
-      userSecret,
+    const accountsResponse = await accountsApi.listUserAccounts({
+      userId: snapUser.userId,
+      userSecret: snapUser.userSecret,
     });
 
     // Transform and enrich account data
-    const brokerageAccounts = accountsResponse.data.map(account => ({
+    const brokerageAccounts = accountsResponse.data.map((account: any) => ({
       id: account.id,
       accountNumber: account.account_number || 'N/A',
       accountType: account.account_type || 'brokerage',
