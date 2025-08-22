@@ -103,8 +103,6 @@ export default function AccountCard({ account }: AccountCardProps) {
               <p className={`text-2xl font-bold ${account.type === 'credit' ? '!text-red-500' : '!text-green-500'}`} style={{color: account.type === 'credit' ? '#ef4444' : '#10b981'}}>
                 {formatCurrency(account.balance)}
               </p>
-              {/* Debug info */}
-              <p className="text-xs text-gray-500">Debug: type = "{account.type}"</p>
             </div>
 
             {/* Additional Account Info */}

@@ -100,7 +100,7 @@ router.get("/accounts/:accountId/details", isAuthenticated, async (req: any, res
             
             // Credit Availability - Use all possible field names
             availableCredit: account.balance?.available || account.details?.available_credit || null,
-            creditLimit: account.balance?.limit || account.details?.credit_limit || account.details?.limit || null,
+            creditLimit: (account.balance as any)?.limit || account.details?.credit_limit || account.details?.limit || null,
             currentBalance: account.balance?.current ? Math.abs(account.balance.current) : null,
             
             // APR & Fees (use null for missing data)
@@ -114,7 +114,7 @@ router.get("/accounts/:accountId/details", isAuthenticated, async (req: any, res
             
             // Payment capabilities
             paymentCapabilities: {
-              paymentsSupported: account.capabilities?.payments_enabled !== false
+              paymentsSupported: (account as any).capabilities?.payments_enabled !== false
             }
           };
         }
