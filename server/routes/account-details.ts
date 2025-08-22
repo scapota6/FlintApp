@@ -80,6 +80,22 @@ router.get("/accounts/:accountId/details", isAuthenticated, async (req: any, res
           transactionCount: transactions?.length || 0
         });
         
+        // For credit cards, extract payment-specific information
+        let creditCardInfo = null;
+        if (account.type === 'credit') {
+          creditCardInfo = {
+            creditLimit: account.balance?.limit || account.details?.credit_limit,
+            availableCredit: account.balance?.available,
+            currentBalance: Math.abs(account.balance?.current || 0), // Current balance (always positive for what you owe)
+            statementBalance: account.details?.statement_balance || account.balance?.current,
+            minimumDue: account.details?.minimum_payment_due || account.details?.minimum_due,
+            paymentDueDate: account.details?.payment_due_date || account.details?.due_date,
+            paymentCapabilities: {
+              paymentsSupported: account.capabilities?.payments_enabled || true
+            }
+          };
+        }
+
         res.json({
           provider: 'teller',
           account: {
@@ -99,6 +115,7 @@ router.get("/accounts/:accountId/details", isAuthenticated, async (req: any, res
             },
             details: account.details || {}
           },
+          creditCardInfo,
           transactions: transactions || []
         });
       } catch (error: any) {

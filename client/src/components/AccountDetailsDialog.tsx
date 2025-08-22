@@ -330,15 +330,39 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm mr-3">💳</div>
                   Credit Card Details
                 </h3>
+                
+                {/* Payment Information - Most Important */}
+                {(data.creditCardInfo.minimumDue || data.creditCardInfo.paymentDueDate) && (
+                  <div className="mb-6 p-4 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                    <h4 className="font-bold text-red-800 dark:text-red-400 mb-3 flex items-center">
+                      <div className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center mr-2 text-sm">!</div>
+                      Payment Information
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
+                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Amount Due</div>
+                        <div className="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">
+                          {data.creditCardInfo.minimumDue ? fmtMoney(data.creditCardInfo.minimumDue) : 'N/A'}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
+                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Due Date</div>
+                        <div className="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">
+                          {data.creditCardInfo.paymentDueDate || 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Other Credit Card Details */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <Info label="Credit Limit" value={fmtMoney(data.creditCardInfo.creditLimit)} />
                   <Info label="Available Credit" value={fmtMoney(data.creditCardInfo.availableCredit)} />
                   <Info label="Current Balance" value={fmtMoney(data.creditCardInfo.currentBalance)} />
                 </div>
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                   <Info label="Statement Balance" value={fmtMoney(data.creditCardInfo.statementBalance)} />
-                  <Info label="Minimum Due" value={fmtMoney(data.creditCardInfo.minimumDue)} />
-                  <Info label="Payment Due Date" value={data.creditCardInfo.paymentDueDate || 'N/A'} />
                 </div>
                 
                 {/* Pay Card Button */}
