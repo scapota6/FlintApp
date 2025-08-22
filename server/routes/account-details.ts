@@ -18,6 +18,11 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
     
     console.log('[Account Details] Fetching for account:', accountId, 'user:', userId);
     
+    if (!userId) {
+      console.log('[Account Details] No user ID found in request');
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
     // Try to parse as number for database ID
     const dbId = parseInt(accountId);
     let provider: string | null = null;

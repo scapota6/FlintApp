@@ -23,10 +23,12 @@ import OrderPreviewDialog from './OrderPreviewDialog';
 import OrderStatusDialog from './OrderStatusDialog';
 
 type Props = {
-  accountId: string;
+  accountId: string; // External account ID for Teller, local ID for SnapTrade
   open: boolean;
   onClose: () => void;
   currentUserId: string; // e.g., "45137738"
+  provider?: string; // 'teller' or 'snaptrade'
+  localAccountId?: string; // Local database ID
 };
 
 // PayCardSection component for capability-based credit card payments

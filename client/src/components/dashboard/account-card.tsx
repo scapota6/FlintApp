@@ -153,10 +153,12 @@ export default function AccountCard({ account }: AccountCardProps) {
 
       {/* Enhanced Account Details Dialog */}
       <AccountDetailsDialog
-        accountId={String(account.id)}
+        accountId={account.provider === 'teller' && account.externalAccountId ? account.externalAccountId : String(account.id)}
         open={showDetails}
         onClose={() => setShowDetails(false)}
         currentUserId={String(user?.id || '')}
+        provider={account.provider}
+        localAccountId={String(account.id)}
       />
     </>
   );
