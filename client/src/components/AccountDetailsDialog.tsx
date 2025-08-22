@@ -218,15 +218,15 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 Account Information
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <Info label="Account ID" value={data.accountInformation.id} />
-                <Info label="Brokerage" value={data.accountInformation.brokerage} />
-                <Info label="Account Type" value={data.accountInformation.type} />
-                <Info label="Currency" value={data.accountInformation.currency} />
+                <Info label="Account ID" value={data.accountInformation?.id || data.account?.id || 'N/A'} />
+                <Info label="Brokerage" value={data.accountInformation?.brokerage || data.account?.institution?.name || 'N/A'} />
+                <Info label="Account Type" value={data.accountInformation?.type || data.account?.type || 'N/A'} />
+                <Info label="Currency" value={data.accountInformation?.currency || data.account?.currency || 'USD'} />
               </div>
               <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Info label="Cash" value={fmtMoney(data.accountInformation.balancesOverview.cash)} />
-                <Info label="Equity" value={fmtMoney(data.accountInformation.balancesOverview.equity)} />
-                <Info label="Buying Power" value={fmtMoney(data.accountInformation.balancesOverview.buyingPower)} />
+                <Info label="Cash" value={fmtMoney(data.accountInformation?.balancesOverview?.cash || data.account?.balance?.available)} />
+                <Info label="Equity" value={fmtMoney(data.accountInformation?.balancesOverview?.equity || data.account?.balance?.current)} />
+                <Info label="Buying Power" value={fmtMoney(data.accountInformation?.balancesOverview?.buyingPower || data.account?.balance?.ledger)} />
               </div>
             </section>
 
@@ -237,12 +237,12 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 Balances and Holdings
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                <Info label="Cash Available" value={fmtMoney(data.balancesAndHoldings.balances.cashAvailableToTrade)} />
-                <Info label="Total Equity" value={fmtMoney(data.balancesAndHoldings.balances.totalEquityValue)} />
-                <Info label="Buying Power / Margin" value={fmtMoney(data.balancesAndHoldings.balances.buyingPowerOrMargin)} />
+                <Info label="Cash Available" value={fmtMoney(data.balancesAndHoldings?.balances?.cashAvailableToTrade || data.account?.balance?.available)} />
+                <Info label="Total Equity" value={fmtMoney(data.balancesAndHoldings?.balances?.totalEquityValue || data.account?.balance?.current)} />
+                <Info label="Buying Power / Margin" value={fmtMoney(data.balancesAndHoldings?.balances?.buyingPowerOrMargin || data.account?.balance?.ledger)} />
               </div>
 
-              {data.balancesAndHoldings.holdings && data.balancesAndHoldings.holdings.length > 0 && (
+              {(data.balancesAndHoldings?.holdings && data.balancesAndHoldings.holdings.length > 0) && (
                 <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
                   <table className="w-full text-sm">
                     <thead className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30">
@@ -283,7 +283,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card title="Active Positions">
-                  <List items={data.positionsAndOrders.activePositions} empty="No active positions" render={(p: any) => (
+                  <List items={data.positionsAndOrders?.activePositions || []} empty="No active positions" render={(p: any) => (
                     <div className="flex justify-between">
                       <span>{p.symbol || p.ticker || p.instrument?.symbol || '—'}</span>
                       <span className="text-right">{fmtNum(p.quantity ?? p.qty)}</span>
@@ -291,7 +291,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                   )}/>
                 </Card>
                 <Card title="Pending Orders">
-                  <List items={data.positionsAndOrders.pendingOrders} empty="No pending orders" render={(o: any) => (
+                  <List items={data.positionsAndOrders?.pendingOrders || []} empty="No pending orders" render={(o: any) => (
                     <div className="grid grid-cols-4 gap-2">
                       <span>{o.symbol || o.ticker || '—'}</span>
                       <span className="text-right">{(o.side || o.action || '').toUpperCase()}</span>
@@ -304,7 +304,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
               
               <div className="mt-4">
                 <Card title="Order History">
-                  <List items={data.positionsAndOrders.orderHistory} empty="No order history" render={(o: any) => (
+                  <List items={data.positionsAndOrders?.orderHistory || []} empty="No order history" render={(o: any) => (
                     <div className="grid grid-cols-5 gap-2">
                       <span>{o.symbol || o.ticker || '—'}</span>
                       <span className="text-right">{(o.side || o.action || '').toUpperCase()}</span>
@@ -355,7 +355,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 Activity and Transactions
               </h3>
               <Card title="Recent Activity">
-                <List items={data.activityAndTransactions} empty="No recent activity" render={(a: any) => (
+                <List items={data.activityAndTransactions || data.transactions || []} empty="No recent activity" render={(a: any) => (
                   <div className="grid grid-cols-5 gap-2 text-gray-900 dark:text-gray-100">
                     <span className="font-medium text-gray-800 dark:text-gray-200">{a.type}</span>
                     <span className="font-medium text-gray-800 dark:text-gray-200">{a.symbol || '—'}</span>
@@ -375,11 +375,11 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 <div className="flex items-center gap-6 text-xs text-gray-600 dark:text-gray-400">
                   <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
                     <Clock className="h-4 w-4 text-purple-500" />
-                    <span className="font-medium">Updated: {new Date(data.metadata.fetched_at).toLocaleString()}</span>
+                    <span className="font-medium">Updated: {fmtTime(data.metadata?.fetched_at || new Date().toISOString())}</span>
                   </div>
                   <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
                     <Calendar className="h-4 w-4 text-blue-500" />
-                    <span className="font-medium">Created: {new Date(data.metadata.account_created).toLocaleDateString()}</span>
+                    <span className="font-medium">Created: {fmtTime(data.metadata?.account_created || 'N/A')}</span>
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 italic">
