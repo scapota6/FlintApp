@@ -83,6 +83,12 @@ router.get("/accounts/:accountId/details", isAuthenticated, async (req: any, res
         // For credit cards, extract comprehensive payment and credit information
         let creditCardInfo = null;
         if (account.type === 'credit') {
+          console.log('[Credit Card Debug] Raw account data:', JSON.stringify({
+            balance: account.balance,
+            details: account.details,
+            type: account.type
+          }, null, 2));
+          
           creditCardInfo = {
             // Payment & Due Date Information (use null for missing data, frontend will show "—")
             paymentDueDate: account.details?.payment_due_date || account.details?.due_date || null,
@@ -93,9 +99,9 @@ router.get("/accounts/:accountId/details", isAuthenticated, async (req: any, res
               amount: account.details?.last_payment_amount || null
             },
             
-            // Credit Availability
-            availableCredit: account.balance?.available || null,
-            creditLimit: account.balance?.limit || account.details?.credit_limit || null,
+            // Credit Availability - Use all possible field names
+            availableCredit: account.balance?.available || account.details?.available_credit || null,
+            creditLimit: account.balance?.limit || account.details?.credit_limit || account.details?.limit || null,
             currentBalance: account.balance?.current ? Math.abs(account.balance.current) : null,
             
             // APR & Fees (use null for missing data)

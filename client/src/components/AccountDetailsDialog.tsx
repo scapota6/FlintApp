@@ -41,11 +41,18 @@ const PayCardSection: React.FC<{
   
   // Fetch user's checking/savings accounts for payment source selection
   const { data: bankAccounts } = useQuery({
-    queryKey: ['/api/dashboard'],
-    enabled: true
+    queryKey: ['/api/accounts/banks'],
+    enabled: true,
+    queryFn: async () => {
+      const response = await fetch('/api/accounts/banks', {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch accounts');
+      return response.json();
+    }
   });
   
-  const checkingAccounts = bankAccounts?.bankAccounts?.filter(
+  const checkingAccounts = bankAccounts?.accounts?.filter(
     (acc: any) => acc.type === 'checking' || acc.type === 'savings'
   ) || [];
 
@@ -107,7 +114,7 @@ const PayCardSection: React.FC<{
               <option value="">Select an account...</option>
               {checkingAccounts.map((account: any) => (
                 <option key={account.id} value={account.externalId}>
-                  {account.name} (...{account.lastFour || 'XXXX'}) - {fmtMoney(account.balance)}
+                  {account.name} ({account.institutionName}) (...{account.lastFour || 'XXXX'}) - {fmtMoney(account.balance)}
                 </option>
               ))}
             </select>

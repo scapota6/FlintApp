@@ -248,10 +248,19 @@ router.get("/banks", isAuthenticated, async (req: any, res) => {
             if (response.ok) {
               const tellerAccount = await response.json();
               
-              // Update balance in database
+              // Update balance in database - handle credit cards differently
+              let balanceToStore;
+              if (tellerAccount.type === 'credit') {
+                // For credit cards, show the debt (positive amount owed)
+                balanceToStore = tellerAccount.balance?.current ? Math.abs(tellerAccount.balance.current) : 0;
+              } else {
+                // For bank accounts, show available balance
+                balanceToStore = tellerAccount.balance?.available || 0;
+              }
+              
               await storage.updateAccountBalance(
                 account.id,
-                String(tellerAccount.balance?.available || 0)
+                String(balanceToStore)
               );
             }
           } catch (error) {
@@ -270,7 +279,10 @@ router.get("/banks", isAuthenticated, async (req: any, res) => {
         name: account.accountName,
         type: account.accountType === 'bank' ? 
           (account.accountName.toLowerCase().includes('saving') ? 'savings' : 'checking') : 
-          'card',
+          'credit',
+        externalId: account.externalAccountId,
+        institutionName: account.institutionName,
+        lastFour: account.accountNumber ? account.accountNumber.slice(-4) : null,
         currency: account.currency || 'USD',
         balance: parseFloat(account.balance),
         lastSync: account.lastSynced
