@@ -28,9 +28,8 @@ const app = express();
   app.use(cookieParser());
 
   // CORS: allow front-end origin and cookies
-  const FRONT_ORIGIN = process.env.FRONT_ORIGIN || '*';
   app.use(cors({
-    origin: (origin, cb) => cb(null, true),
+    origin: true,
     credentials: true,
   }));
 
