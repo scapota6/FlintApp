@@ -1638,7 +1638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (capabilitiesResponse.ok) {
                 const capabilities = await capabilitiesResponse.json();
                 paymentCapabilities = {
-                  paymentsSupported: capabilities.payments || false,
+                  paymentsSupported: capabilities.payments || capabilities.zelle || false,
                   zelleSupported: capabilities.zelle || false,
                   supportedMethods: capabilities.payment_methods || []
                 };
