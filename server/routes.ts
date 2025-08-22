@@ -1530,6 +1530,217 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to disconnect account' });
     }
   });
+
+  // Account details endpoint that maps local account IDs to external account IDs
+  app.get('/api/accounts/:accountId/details', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { accountId } = req.params;
+      
+      console.log(`[Account Details] User: ${userId}, Account ID: ${accountId}`);
+      
+      // First, try to get the account by local ID
+      const account = await storage.getConnectedAccount(parseInt(accountId));
+      if (!account || account.userId !== userId) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+      
+      console.log(`[Account Details] Found account: ${account.provider}, External ID: ${account.externalAccountId}`);
+      
+      if (account.provider === 'teller') {
+        // Call Teller Accounts API to get the Account core object
+        const authHeader = `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`;
+        
+        try {
+          // Fetch account details from Teller using external account ID
+          const accountResponse = await fetch(
+            `https://api.teller.io/accounts/${account.externalAccountId}`,
+            {
+              headers: {
+                'Authorization': authHeader,
+                'Accept': 'application/json'
+              }
+            }
+          );
+          
+          if (!accountResponse.ok) {
+            throw new Error(`Teller API error: ${accountResponse.status}`);
+          }
+          
+          const tellerAccount = await accountResponse.json();
+          
+          // Fetch transactions for completeness
+          const transactionsResponse = await fetch(
+            `https://api.teller.io/accounts/${account.externalAccountId}/transactions?count=10`,
+            {
+              headers: {
+                'Authorization': authHeader,
+                'Accept': 'application/json'
+              }
+            }
+          );
+          
+          const transactions = transactionsResponse.ok ? await transactionsResponse.json() : [];
+          
+          // Return the Teller Account core object with all required fields
+          res.json({
+            provider: 'teller',
+            account: {
+              id: tellerAccount.id,
+              name: tellerAccount.name,
+              type: tellerAccount.type, // depository or credit
+              subtype: tellerAccount.subtype, // checking, savings, credit_card, etc.
+              institution: tellerAccount.institution, // Institution name and details
+              currency: tellerAccount.currency || 'USD',
+              last4: tellerAccount.last_four,
+              mask: tellerAccount.mask,
+              balances: tellerAccount.balances,
+              status: tellerAccount.status,
+              // Links to related resources
+              links: {
+                balances: `/accounts/${tellerAccount.id}/balances`,
+                transactions: `/accounts/${tellerAccount.id}/transactions`,
+                details: `/accounts/${tellerAccount.id}/details`
+              }
+            },
+            transactions: transactions
+          });
+          
+        } catch (error: any) {
+          logger.error('Failed to fetch Teller account details', { 
+            error: error.message, 
+            accountId: account.externalAccountId,
+            userId 
+          });
+          res.status(500).json({ 
+            message: "Failed to fetch account details from Teller",
+            error: error.message 
+          });
+        }
+        
+      } else if (account.provider === 'snaptrade') {
+        // Handle SnapTrade accounts
+        try {
+          const snapUser = await getSnapUser(userId);
+          if (!snapUser?.userSecret) {
+            return res.status(404).json({ message: "SnapTrade credentials not found" });
+          }
+          
+          const { accountsApi, snaptradeClient } = await import('./lib/snaptrade');
+          
+          // Get account information
+          const accountList = await accountsApi.listUserAccounts({
+            userId: snapUser.userId,
+            userSecret: snapUser.userSecret
+          });
+          
+          const snapAccount = accountList.data?.find(acc => acc.id === account.externalAccountId);
+          if (!snapAccount) {
+            return res.status(404).json({ message: "SnapTrade account not found" });
+          }
+          
+          // Get account positions/holdings
+          const positionsResponse = await snaptradeClient.accountInformation.getUserAccountPositions({
+            userId: snapUser.userId,
+            userSecret: snapUser.userSecret,
+            accountId: account.externalAccountId!
+          });
+          
+          // Get recent activities/transactions
+          const activitiesResponse = await snaptradeClient.transactionsAndReporting.getActivities({
+            userId: snapUser.userId,
+            userSecret: snapUser.userSecret,
+            accounts: account.externalAccountId!
+          });
+          
+          // snapAccount is already defined above
+          
+          res.json({
+            provider: 'snaptrade',
+            accountInformation: {
+              id: snapAccount.id,
+              name: snapAccount.name,
+              number: snapAccount.number,
+              brokerage: snapAccount.institution_name,
+              type: snapAccount.meta?.type || 'investment',
+              status: snapAccount.meta?.status || 'active',
+              currency: snapAccount.balance?.total?.currency || 'USD',
+              balancesOverview: {
+                cash: snapAccount.balance?.cash?.amount || 0,
+                equity: snapAccount.balance?.total?.amount || 0,
+                buyingPower: snapAccount.buying_power?.amount || 0
+              }
+            },
+            balancesAndHoldings: {
+              balances: {
+                cashAvailableToTrade: snapAccount.balance?.cash?.amount || 0,
+                totalEquityValue: snapAccount.balance?.total?.amount || 0,
+                buyingPowerOrMargin: snapAccount.buying_power?.amount || 0
+              },
+              holdings: positionsResponse.data?.map((position: any) => ({
+                symbol: position.symbol?.symbol || 'UNKNOWN',
+                name: position.symbol?.name || position.symbol?.description || '',
+                quantity: position.units || 0,
+                costBasis: position.average_purchase_price || 0,
+                marketValue: (position.units || 0) * (position.price || 0),
+                currentPrice: position.price || 0,
+                unrealized: position.open_pnl || 0
+              })) || []
+            },
+            positionsAndOrders: {
+              activePositions: positionsResponse.data || [],
+              pendingOrders: [],
+              orderHistory: []
+            },
+            tradingActions: {
+              canPlaceOrders: true,
+              canCancelOrders: true,
+              canGetConfirmations: true
+            },
+            activityAndTransactions: activitiesResponse.data?.map((activity: any) => ({
+              type: activity.type || 'trade',
+              symbol: activity.symbol || '',
+              amount: activity.amount || 0,
+              quantity: activity.units || 0,
+              timestamp: activity.trade_date || activity.settlement_date,
+              description: activity.description || `${activity.type} ${activity.symbol}`
+            })) || [],
+            metadata: {
+              fetched_at: new Date().toISOString(),
+              last_sync: snapAccount.sync_status,
+              cash_restrictions: snapAccount.cash_restrictions || [],
+              account_created: snapAccount.created_date
+            }
+          });
+          
+        } catch (error: any) {
+          logger.error('Failed to fetch SnapTrade account details', { 
+            error: error.message, 
+            accountId: account.externalAccountId,
+            userId 
+          });
+          res.status(500).json({ 
+            message: "Failed to fetch account details from SnapTrade",
+            error: error.message 
+          });
+        }
+        
+      } else {
+        res.status(400).json({ message: "Unknown account provider" });
+      }
+      
+    } catch (error: any) {
+      logger.error("Failed to fetch account details", { 
+        error: error.message, 
+        accountId: req.params.accountId,
+        userId: req.user?.claims?.sub 
+      });
+      res.status(500).json({ 
+        message: "Failed to fetch account details",
+        error: error.message 
+      });
+    }
+  });
   
   // Dev-only SnapTrade user repair endpoint
   app.post('/api/debug/snaptrade/repair-user', async (req, res) => {
