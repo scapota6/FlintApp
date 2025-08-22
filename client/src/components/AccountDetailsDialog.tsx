@@ -29,6 +29,131 @@ type Props = {
   currentUserId: string; // e.g., "45137738"
 };
 
+// PayCardSection component for capability-based credit card payments
+const PayCardSection: React.FC<{
+  creditCardInfo: any;
+  accountId: string;
+  onPaymentRequested: (amount: number, type: string) => void;
+}> = ({ creditCardInfo, accountId, onPaymentRequested }) => {
+  const [selectedFromAccount, setSelectedFromAccount] = React.useState<string>('');
+  const [paymentCapability, setPaymentCapability] = React.useState<{canPay: boolean, reason?: string} | null>(null);
+  
+  // Fetch user's checking/savings accounts for payment source selection
+  const { data: bankAccounts } = useQuery({
+    queryKey: ['/api/dashboard'],
+    enabled: true
+  });
+  
+  const checkingAccounts = bankAccounts?.bankAccounts?.filter(
+    (acc: any) => acc.type === 'checking' || acc.type === 'savings'
+  ) || [];
+
+  // Check payment capability when from account is selected
+  const checkCapabilityMutation = useMutation({
+    mutationFn: async (fromAccountId: string) => {
+      const response = await apiRequest(`/api/payment-capability`, {
+        method: 'POST',
+        body: JSON.stringify({
+          fromAccountId,
+          toAccountId: accountId
+        })
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      setPaymentCapability(data);
+    }
+  });
+
+  React.useEffect(() => {
+    if (selectedFromAccount) {
+      checkCapabilityMutation.mutate(selectedFromAccount);
+    }
+  }, [selectedFromAccount]);
+
+  return (
+    <section>
+      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm mr-3">💳</div>
+        Pay Your Card
+      </h3>
+      
+      {checkingAccounts.length === 0 ? (
+        <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+          <p className="text-orange-800 dark:text-orange-400 text-sm">
+            No checking or savings accounts found. Connect a bank account to enable credit card payments.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Account Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Pay from account:
+            </label>
+            <select
+              value={selectedFromAccount}
+              onChange={(e) => setSelectedFromAccount(e.target.value)}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
+              <option value="">Select an account...</option>
+              {checkingAccounts.map((account: any) => (
+                <option key={account.id} value={account.externalId}>
+                  {account.name} ({account.institutionName}) - {fmtMoney(account.balance)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Payment Options */}
+          {paymentCapability && (
+            <div>
+              {paymentCapability.canPay ? (
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <h4 className="font-semibold text-green-800 dark:text-green-400 mb-3">Payment Options Available</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {creditCardInfo.minimumDue && (
+                      <button
+                        onClick={() => onPaymentRequested(creditCardInfo.minimumDue, 'minimum')}
+                        className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                      >
+                        Pay Minimum Due ({fmtMoney(creditCardInfo.minimumDue)})
+                      </button>
+                    )}
+                    {creditCardInfo.statementBalance && (
+                      <button
+                        onClick={() => onPaymentRequested(creditCardInfo.statementBalance, 'statement')}
+                        className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
+                      >
+                        Pay Statement Balance ({fmtMoney(creditCardInfo.statementBalance)})
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onPaymentRequested(0, 'custom')}
+                      className="px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
+                    >
+                      Custom Amount
+                    </button>
+                  </div>
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                    Payments are processed securely via Zelle/bill-pay
+                  </p>
+                </div>
+              ) : (
+                <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <p className="text-orange-800 dark:text-orange-400 text-sm">
+                    {paymentCapability.reason || 'Payment not supported between these accounts'}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+};
+
 interface AccountDetails {
   accountInformation: {
     id: string;
@@ -323,92 +448,157 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
               )}
             </section>
 
-            {/* 3. Credit Card Information (if applicable) */}
-            {data.creditCardInfo && (
-              <section>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm mr-3">💳</div>
-                  Credit Card Details
-                </h3>
-                
-                {/* Payment Information - Most Important */}
-                {(data.creditCardInfo.minimumDue || data.creditCardInfo.paymentDueDate) && (
-                  <div className="mb-6 p-4 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                    <h4 className="font-bold text-red-800 dark:text-red-400 mb-3 flex items-center">
-                      <div className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center mr-2 text-sm">!</div>
-                      Payment Information
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Credit Card Information - Specialized Layout for Teller accounts only */}
+            {data.creditCardInfo && data.provider === 'teller' && (
+              <>
+                {/* a) Payments & Due Dates */}
+                <section>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm mr-3">💳</div>
+                    Payments & Due Dates
+                  </h3>
+                  
+                  {/* Payment Due Date - Most Prominent */}
+                  <div className="mb-6 p-6 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                    <div className="text-center">
+                      <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide mb-2">Payment Due Date</div>
+                      <div className="text-4xl font-bold text-red-700 dark:text-red-300 mb-4">
+                        {data.creditCardInfo.paymentDueDate || 'N/A'}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
-                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Amount Due</div>
-                        <div className="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">
+                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Minimum Due</div>
+                        <div className="text-xl font-bold text-red-700 dark:text-red-300 mt-1">
                           {data.creditCardInfo.minimumDue ? fmtMoney(data.creditCardInfo.minimumDue) : 'N/A'}
                         </div>
                       </div>
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
-                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Due Date</div>
-                        <div className="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">
-                          {data.creditCardInfo.paymentDueDate || 'N/A'}
+                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Statement Balance</div>
+                        <div className="text-xl font-bold text-red-700 dark:text-red-300 mt-1">
+                          {data.creditCardInfo.statementBalance ? fmtMoney(data.creditCardInfo.statementBalance) : 'N/A'}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
+                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Last Payment</div>
+                        <div className="text-sm font-bold text-red-700 dark:text-red-300 mt-1">
+                          {data.creditCardInfo.lastPayment?.amount ? fmtMoney(data.creditCardInfo.lastPayment.amount) : 'N/A'}
+                        </div>
+                        <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                          {data.creditCardInfo.lastPayment?.date || 'No recent payment'}
                         </div>
                       </div>
                     </div>
                   </div>
-                )}
-                
-                {/* Other Credit Card Details */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <Info label="Credit Limit" value={fmtMoney(data.creditCardInfo.creditLimit)} />
-                  <Info label="Available Credit" value={fmtMoney(data.creditCardInfo.availableCredit)} />
-                  <Info label="Current Balance" value={fmtMoney(data.creditCardInfo.currentBalance)} />
-                </div>
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Info label="Statement Balance" value={fmtMoney(data.creditCardInfo.statementBalance)} />
-                </div>
-                
-                {/* Pay Card Button */}
-                {data.creditCardInfo.paymentCapabilities?.paymentsSupported ? (
-                  <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <h4 className="font-semibold text-green-800 dark:text-green-400 mb-3">Pay Your Card</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {data.creditCardInfo.minimumDue && (
-                        <button
-                          onClick={() => handlePayment(data.creditCardInfo.minimumDue, 'minimum')}
-                          className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
-                        >
-                          Pay Minimum Due ({fmtMoney(data.creditCardInfo.minimumDue)})
-                        </button>
+                </section>
+
+                {/* b) Credit Availability */}
+                <section>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm mr-3">📊</div>
+                    Credit Availability
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Info label="Available Credit" value={fmtMoney(data.creditCardInfo.availableCredit)} />
+                    <Info label="Credit Limit" value={fmtMoney(data.creditCardInfo.creditLimit)} />
+                    <Info label="Current Balance" value={fmtMoney(data.creditCardInfo.currentBalance)} />
+                  </div>
+                </section>
+
+                {/* c) APR & Fees */}
+                {(data.creditCardInfo.apr || data.creditCardInfo.annualFee || data.creditCardInfo.lateFee) && (
+                  <section>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white font-bold text-sm mr-3">%</div>
+                      APR & Fees
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {data.creditCardInfo.apr && (
+                        <Info label="APR" value={`${data.creditCardInfo.apr}%`} />
                       )}
-                      {data.creditCardInfo.statementBalance && (
-                        <button
-                          onClick={() => handlePayment(data.creditCardInfo.statementBalance, 'statement')}
-                          className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
-                        >
-                          Pay Statement Balance ({fmtMoney(data.creditCardInfo.statementBalance)})
-                        </button>
+                      {data.creditCardInfo.cashAdvanceApr && (
+                        <Info label="Cash Advance APR" value={`${data.creditCardInfo.cashAdvanceApr}%`} />
                       )}
-                      <button
-                        onClick={() => setShowPaymentDialog(true)}
-                        className="px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
-                      >
-                        Custom Amount
-                      </button>
+                      {data.creditCardInfo.annualFee && (
+                        <Info label="Annual Fee" value={fmtMoney(data.creditCardInfo.annualFee)} />
+                      )}
+                      {data.creditCardInfo.lateFee && (
+                        <Info label="Late Fee" value={fmtMoney(data.creditCardInfo.lateFee)} />
+                      )}
                     </div>
-                    <p className="text-xs text-green-600 dark:text-green-400 mt-2">
-                      Payments are processed securely via Zelle
-                    </p>
-                  </div>
-                ) : (
-                  <div className="mt-6 p-4 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                    <p className="text-orange-800 dark:text-orange-400 text-sm">
-                      Your issuer doesn't support in-app payments via Zelle—use the bank or card app to pay.
-                    </p>
-                  </div>
+                  </section>
                 )}
-              </section>
+
+                {/* d) Recent Transactions */}
+                {data.transactions && data.transactions.length > 0 && (
+                  <section>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm mr-3">🏪</div>
+                      Recent Transactions
+                    </h3>
+                    <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30">
+                          <tr>
+                            <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Date</th>
+                            <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Description</th>
+                            <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Amount</th>
+                            <th className="text-center p-3 font-semibold text-gray-900 dark:text-white">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.transactions.slice(0, 10).map((txn: any, index: number) => (
+                            <tr key={txn.id || index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors duration-150">
+                              <td className="p-3 text-gray-900 dark:text-white font-medium">
+                                {txn.date ? new Date(txn.date).toLocaleDateString() : 'N/A'}
+                              </td>
+                              <td className="p-3 text-gray-900 dark:text-white">
+                                <div className="font-medium">{txn.description || txn.merchant || 'Unknown'}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{txn.category || ''}</div>
+                              </td>
+                              <td className="p-3 text-right">
+                                <span className={`font-bold ${
+                                  (txn.amount || 0) < 0 
+                                    ? 'text-red-600 dark:text-red-400' 
+                                    : 'text-green-600 dark:text-green-400'
+                                }`}>
+                                  {fmtMoney(Math.abs(txn.amount || 0))}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  txn.status === 'posted' 
+                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                }`}>
+                                  {txn.status || 'pending'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                )}
+              </>
             )}
 
-            {/* 4. Statements */}
-            {data.provider === 'teller' && data.statements && data.statements.length > 0 && (
+
+            {/* e) Statements - Built into the credit card layout above */}
+
+            {/* Pay Card Section - Capability-based payment options */}
+            {data.provider === 'teller' && data.creditCardInfo && (
+              <PayCardSection 
+                creditCardInfo={data.creditCardInfo} 
+                accountId={accountId}
+                onPaymentRequested={handlePayment}
+              />
+            )}
+
+            {/* Regular Statements - Only for non-credit cards */}
+            {data.provider === 'teller' && !data.creditCardInfo && data.statements && data.statements.length > 0 && (
               <section>
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm mr-3">📄</div>

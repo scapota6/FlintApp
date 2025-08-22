@@ -80,18 +80,33 @@ router.get("/accounts/:accountId/details", isAuthenticated, async (req: any, res
           transactionCount: transactions?.length || 0
         });
         
-        // For credit cards, extract payment-specific information
+        // For credit cards, extract comprehensive payment and credit information
         let creditCardInfo = null;
         if (account.type === 'credit') {
           creditCardInfo = {
-            creditLimit: account.balance?.limit || account.details?.credit_limit,
-            availableCredit: account.balance?.available,
-            currentBalance: Math.abs(account.balance?.current || 0), // Current balance (always positive for what you owe)
-            statementBalance: account.details?.statement_balance || account.balance?.current,
-            minimumDue: account.details?.minimum_payment_due || account.details?.minimum_due,
+            // Payment & Due Date Information
             paymentDueDate: account.details?.payment_due_date || account.details?.due_date,
+            minimumDue: account.details?.minimum_payment_due || account.details?.minimum_due,
+            statementBalance: account.details?.statement_balance || Math.abs(account.balance?.current || 0),
+            lastPayment: {
+              date: account.details?.last_payment_date,
+              amount: account.details?.last_payment_amount
+            },
+            
+            // Credit Availability
+            availableCredit: account.balance?.available,
+            creditLimit: account.balance?.limit || account.details?.credit_limit,
+            currentBalance: Math.abs(account.balance?.current || 0),
+            
+            // APR & Fees
+            apr: account.details?.apr || account.details?.interest_rate,
+            cashAdvanceApr: account.details?.cash_advance_apr,
+            annualFee: account.details?.annual_fee,
+            lateFee: account.details?.late_fee,
+            
+            // Payment capabilities
             paymentCapabilities: {
-              paymentsSupported: account.capabilities?.payments_enabled || true
+              paymentsSupported: account.capabilities?.payments_enabled !== false
             }
           };
         }

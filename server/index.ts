@@ -81,6 +81,10 @@ const app = express();
   // Mount account details route
   const accountDetailsRouter = (await import("./routes/account-details")).default;
   app.use("/api", accountDetailsRouter);
+  
+  // Mount payment capability route
+  const paymentCapabilityRouter = (await import("./routes/payment-capability")).default;
+  app.use("/api", paymentCapabilityRouter);
 
   // CSRF via double-submit cookie
   const isProd = process.env.NODE_ENV === 'production';
