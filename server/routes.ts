@@ -1608,6 +1608,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const transactions = transactionsResponse.ok ? await transactionsResponse.json() : [];
           
+          // Fetch statements from Teller Statements resource
+          const statementsResponse = await fetch(
+            `https://api.teller.io/accounts/${account.externalAccountId}/statements`,
+            {
+              headers: {
+                'Authorization': authHeader,
+                'Accept': 'application/json'
+              }
+            }
+          );
+          
+          const statements = statementsResponse.ok ? await statementsResponse.json() : [];
+          
+          // Check payment capabilities for credit cards
+          let paymentCapabilities = null;
+          if (tellerAccount.subtype === 'credit_card') {
+            try {
+              const capabilitiesResponse = await fetch(
+                `https://api.teller.io/accounts/${account.externalAccountId}/capabilities`,
+                {
+                  headers: {
+                    'Authorization': authHeader,
+                    'Accept': 'application/json'
+                  }
+                }
+              );
+              
+              if (capabilitiesResponse.ok) {
+                const capabilities = await capabilitiesResponse.json();
+                paymentCapabilities = {
+                  paymentsSupported: capabilities.payments || false,
+                  zelleSupported: capabilities.zelle || false,
+                  supportedMethods: capabilities.payment_methods || []
+                };
+              }
+            } catch (error) {
+              // Payment capabilities check failed, continue without payments
+              paymentCapabilities = { paymentsSupported: false };
+            }
+          }
+          
           // Process credit card specific information if this is a credit card
           let creditCardInfo = null;
           if (tellerAccount.subtype === 'credit_card' && balances) {
@@ -1617,7 +1658,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               paymentDueDate: balances.due_date || null,
               creditLimit: balances.credit_limit || null,
               availableCredit: balances.available || null,
-              currentBalance: balances.current || null
+              currentBalance: balances.current || null,
+              // Add payment capabilities
+              paymentCapabilities: paymentCapabilities
             };
           }
           
@@ -1676,11 +1719,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             })),
             // Credit card specific info (if applicable)
             creditCardInfo,
+            // Statements with download URLs
+            statements: statements.map((stmt: any) => ({
+              id: stmt.id,
+              period: stmt.period || `${stmt.start_date} - ${stmt.end_date}`,
+              startDate: stmt.start_date,
+              endDate: stmt.end_date,
+              downloadUrl: stmt.url || null,
+              status: stmt.status || 'available'
+            })),
             metadata: {
               fetched_at: new Date().toISOString(),
               account_type: tellerAccount.type,
               account_subtype: tellerAccount.subtype,
-              is_credit_card: tellerAccount.subtype === 'credit_card'
+              is_credit_card: tellerAccount.subtype === 'credit_card',
+              has_statements: statements.length > 0,
+              payments_supported: paymentCapabilities?.paymentsSupported || false
             }
           });
           
@@ -1816,6 +1870,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         message: "Failed to fetch account details",
         error: error.message 
+      });
+    }
+  });
+
+  // Credit card payment route using Teller Payments API
+  app.post('/api/accounts/:localAccountId/pay', isAuthenticated, async (req: any, res) => {
+    const { amount, paymentType } = req.body; // paymentType: 'minimum', 'statement', 'custom'
+    
+    try {
+      // Get the account from our database
+      const account = await storage.getAccountByLocalId(parseInt(req.params.localAccountId));
+      if (!account) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+
+      if (account.provider !== 'teller') {
+        return res.status(400).json({ message: "Payments only supported for Teller accounts" });
+      }
+
+      const authHeader = `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`;
+      
+      // First, check if payments are supported
+      const capabilitiesResponse = await fetch(
+        `https://api.teller.io/accounts/${account.externalAccountId}/capabilities`,
+        {
+          headers: {
+            'Authorization': authHeader,
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      if (!capabilitiesResponse.ok) {
+        return res.status(400).json({ 
+          message: "Unable to check payment capabilities",
+          fallback: "Your issuer doesn't support in-app payments via Zelle—use the bank or card app to pay."
+        });
+      }
+
+      const capabilities = await capabilitiesResponse.json();
+      if (!capabilities.payments && !capabilities.zelle) {
+        return res.status(400).json({ 
+          message: "Payments not supported for this account",
+          fallback: "Your issuer doesn't support in-app payments via Zelle—use the bank or card app to pay."
+        });
+      }
+
+      // Create form data for the payment request (Teller uses form-encoded requests)
+      const paymentData = new URLSearchParams({
+        amount: amount.toString(),
+        currency: 'USD',
+        description: `Credit card payment - ${paymentType}`,
+        method: 'zelle'
+      });
+
+      // Initiate payment
+      const paymentResponse = await fetch(
+        `https://api.teller.io/accounts/${account.externalAccountId}/payments`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+          },
+          body: paymentData
+        }
+      );
+
+      if (!paymentResponse.ok) {
+        const errorData = await paymentResponse.json().catch(() => ({}));
+        return res.status(paymentResponse.status).json({ 
+          message: "Payment failed to initiate",
+          error: errorData.message || 'Unknown payment error',
+          fallback: "Your issuer doesn't support in-app payments via Zelle—use the bank or card app to pay."
+        });
+      }
+
+      const payment = await paymentResponse.json();
+      
+      res.json({
+        success: true,
+        payment: {
+          id: payment.id,
+          amount: payment.amount,
+          status: payment.status,
+          method: payment.method,
+          description: payment.description,
+          created_at: payment.created_at
+        }
+      });
+
+    } catch (error: any) {
+      logger.error('Failed to process payment', { 
+        error: error.message, 
+        accountId: req.params.localAccountId 
+      });
+      res.status(500).json({ 
+        message: "Payment processing failed",
+        fallback: "Your issuer doesn't support in-app payments via Zelle—use the bank or card app to pay."
       });
     }
   });

@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/utils';
 import { 
   TrendingUp, 
@@ -154,6 +160,52 @@ function fmtTime(v: any) {
 export default function AccountDetailsDialog({ accountId, open, onClose, currentUserId }: Props) {
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [orderStatusDialogOpen, setOrderStatusDialogOpen] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [customPaymentAmount, setCustomPaymentAmount] = useState('');
+  const { toast } = useToast();
+
+  // Payment mutation
+  const paymentMutation = useMutation({
+    mutationFn: async ({ amount, paymentType }: { amount: number; paymentType: string }) => {
+      return await apiRequest(`/api/accounts/${accountId}/pay`, {
+        method: 'POST',
+        body: JSON.stringify({ amount, paymentType })
+      });
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Payment Initiated",
+        description: `Your ${data.payment.method} payment of ${formatCurrency(data.payment.amount)} has been initiated successfully.`,
+      });
+    },
+    onError: (error: any) => {
+      const fallback = error?.fallback || "Payment failed. Please try again.";
+      toast({
+        title: "Payment Failed",
+        description: fallback,
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handlePayment = (amount: number, paymentType: string) => {
+    paymentMutation.mutate({ amount, paymentType });
+  };
+
+  const handleCustomPayment = () => {
+    const amount = parseFloat(customPaymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid payment amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+    handlePayment(amount, 'custom');
+    setShowPaymentDialog(false);
+    setCustomPaymentAmount('');
+  };
   const { data, isLoading, isError } = useQuery({
     queryKey: ['account-details', accountId],
     enabled: open,
@@ -288,10 +340,111 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                   <Info label="Minimum Due" value={fmtMoney(data.creditCardInfo.minimumDue)} />
                   <Info label="Payment Due Date" value={data.creditCardInfo.paymentDueDate || 'N/A'} />
                 </div>
+                
+                {/* Pay Card Button */}
+                {data.creditCardInfo.paymentCapabilities?.paymentsSupported ? (
+                  <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <h4 className="font-semibold text-green-800 dark:text-green-400 mb-3">Pay Your Card</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {data.creditCardInfo.minimumDue && (
+                        <button
+                          onClick={() => handlePayment(data.creditCardInfo.minimumDue, 'minimum')}
+                          className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                        >
+                          Pay Minimum Due ({fmtMoney(data.creditCardInfo.minimumDue)})
+                        </button>
+                      )}
+                      {data.creditCardInfo.statementBalance && (
+                        <button
+                          onClick={() => handlePayment(data.creditCardInfo.statementBalance, 'statement')}
+                          className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
+                        >
+                          Pay Statement Balance ({fmtMoney(data.creditCardInfo.statementBalance)})
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setShowPaymentDialog(true)}
+                        className="px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
+                      >
+                        Custom Amount
+                      </button>
+                    </div>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                      Payments are processed securely via Zelle
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-6 p-4 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                    <p className="text-orange-800 dark:text-orange-400 text-sm">
+                      Your issuer doesn't support in-app payments via Zelle—use the bank or card app to pay.
+                    </p>
+                  </div>
+                )}
               </section>
             )}
 
-            {/* 4. Enhanced Transactions */}
+            {/* 4. Statements */}
+            {data.provider === 'teller' && data.statements && data.statements.length > 0 && (
+              <section>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm mr-3">📄</div>
+                  Statements
+                </h3>
+                <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30">
+                      <tr>
+                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Period</th>
+                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Start Date</th>
+                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">End Date</th>
+                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Status</th>
+                        <th className="text-center p-3 font-semibold text-gray-900 dark:text-white">Download</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.statements.map((stmt: any, index: number) => (
+                        <tr key={stmt.id || index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors duration-150">
+                          <td className="p-3 text-gray-900 dark:text-white font-medium">
+                            {stmt.period}
+                          </td>
+                          <td className="p-3 text-gray-900 dark:text-white">
+                            {stmt.startDate ? new Date(stmt.startDate).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="p-3 text-gray-900 dark:text-white">
+                            {stmt.endDate ? new Date(stmt.endDate).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              stmt.status === 'available' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+                            }`}>
+                              {stmt.status || 'Available'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center">
+                            {stmt.downloadUrl ? (
+                              <a
+                                href={stmt.downloadUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs"
+                              >
+                                Download PDF
+                              </a>
+                            ) : (
+                              <span className="text-gray-400 text-xs">Not Available</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            {/* 5. Enhanced Transactions */}
             <section>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm mr-3">📊</div>
@@ -495,6 +648,43 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
         accountId={accountId}
         accountName={data?.accountInformation?.name || 'Unknown Account'}
       />
+      
+      {/* Custom Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Custom Payment Amount</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Payment Amount</label>
+              <Input
+                type="number"
+                placeholder="Enter amount"
+                value={customPaymentAmount}
+                onChange={(e) => setCustomPaymentAmount(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleCustomPayment}
+                disabled={paymentMutation.isPending}
+                className="flex-1"
+              >
+                {paymentMutation.isPending ? 'Processing...' : 'Pay Now'}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowPaymentDialog(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
