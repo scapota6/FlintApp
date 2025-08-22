@@ -37,6 +37,7 @@ const PayCardSection: React.FC<{
 }> = ({ creditCardInfo, accountId, onPaymentRequested }) => {
   const [selectedFromAccount, setSelectedFromAccount] = React.useState<string>('');
   const [paymentCapability, setPaymentCapability] = React.useState<{canPay: boolean, reason?: string} | null>(null);
+  const [showPaymentForm, setShowPaymentForm] = React.useState(false);
   
   // Fetch user's checking/savings accounts for payment source selection
   const { data: bankAccounts } = useQuery({
@@ -68,8 +69,14 @@ const PayCardSection: React.FC<{
   React.useEffect(() => {
     if (selectedFromAccount) {
       checkCapabilityMutation.mutate(selectedFromAccount);
+    } else {
+      setPaymentCapability(null);
+      setShowPaymentForm(false);
     }
   }, [selectedFromAccount]);
+
+  // Show Pay Card button only if payment capability check shows canPay = true
+  const shouldShowPayButton = paymentCapability?.canPay && checkingAccounts.length > 0;
 
   return (
     <section>
@@ -78,10 +85,11 @@ const PayCardSection: React.FC<{
         Pay Your Card
       </h3>
       
+      {/* Check funding accounts availability first */}
       {checkingAccounts.length === 0 ? (
-        <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-          <p className="text-orange-800 dark:text-orange-400 text-sm">
-            No checking or savings accounts found. Connect a bank account to enable credit card payments.
+        <div className="p-4 bg-gray-50 dark:bg-gray-900/20 rounded-lg border border-gray-200 dark:border-gray-700">
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
+            Connect a checking or savings account to enable credit card payments.
           </p>
         </div>
       ) : (
@@ -99,51 +107,83 @@ const PayCardSection: React.FC<{
               <option value="">Select an account...</option>
               {checkingAccounts.map((account: any) => (
                 <option key={account.id} value={account.externalId}>
-                  {account.name} ({account.institutionName}) - {fmtMoney(account.balance)}
+                  {account.name} (...{account.lastFour || 'XXXX'}) - {fmtMoney(account.balance)}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Payment Options */}
+          {/* Payment capability check results */}
           {paymentCapability && (
             <div>
               {paymentCapability.canPay ? (
-                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <h4 className="font-semibold text-green-800 dark:text-green-400 mb-3">Payment Options Available</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {creditCardInfo.minimumDue && (
-                      <button
-                        onClick={() => onPaymentRequested(creditCardInfo.minimumDue, 'minimum')}
-                        className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
-                      >
-                        Pay Minimum Due ({fmtMoney(creditCardInfo.minimumDue)})
-                      </button>
-                    )}
-                    {creditCardInfo.statementBalance && (
-                      <button
-                        onClick={() => onPaymentRequested(creditCardInfo.statementBalance, 'statement')}
-                        className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
-                      >
-                        Pay Statement Balance ({fmtMoney(creditCardInfo.statementBalance)})
-                      </button>
-                    )}
+                !showPaymentForm ? (
+                  // Show Pay Card button when capability confirmed
+                  <div className="text-center">
                     <button
-                      onClick={() => onPaymentRequested(0, 'custom')}
-                      className="px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
+                      onClick={() => setShowPaymentForm(true)}
+                      className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
                     >
-                      Custom Amount
+                      Pay Card
+                    </button>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      Payments processed securely via Zelle/bill-pay
+                    </p>
+                  </div>
+                ) : (
+                  // Payment amount selection form
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <h4 className="font-semibold text-green-800 dark:text-green-400 mb-3">Choose Payment Amount</h4>
+                    <div className="space-y-2">
+                      {creditCardInfo.minimumDue && (
+                        <button
+                          onClick={() => onPaymentRequested(creditCardInfo.minimumDue, 'minimum')}
+                          className="w-full px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm text-left"
+                        >
+                          <div className="font-medium">Pay Minimum Due</div>
+                          <div className="text-blue-100">{fmtMoney(creditCardInfo.minimumDue)}</div>
+                        </button>
+                      )}
+                      {creditCardInfo.statementBalance && (
+                        <button
+                          onClick={() => onPaymentRequested(creditCardInfo.statementBalance, 'statement')}
+                          className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm text-left"
+                        >
+                          <div className="font-medium">Pay Statement Balance</div>
+                          <div className="text-green-100">{fmtMoney(creditCardInfo.statementBalance)}</div>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => onPaymentRequested(0, 'custom')}
+                        className="w-full px-4 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm text-left"
+                      >
+                        <div className="font-medium">Custom Amount</div>
+                        <div className="text-purple-100">Enter your own amount</div>
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setShowPaymentForm(false)}
+                      className="mt-3 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                    >
+                      ← Back
                     </button>
                   </div>
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-2">
-                    Payments are processed securely via Zelle/bill-pay
-                  </p>
-                </div>
+                )
               ) : (
-                <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                  <p className="text-orange-800 dark:text-orange-400 text-sm">
-                    {paymentCapability.reason || 'Payment not supported between these accounts'}
-                  </p>
+                // Subtle info banner for unsupported payments (not an error)
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                        This issuer doesn't support in-app payments for this account. Use your bank or card app to pay.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -463,7 +503,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     <div className="text-center">
                       <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide mb-2">Payment Due Date</div>
                       <div className="text-4xl font-bold text-red-700 dark:text-red-300 mb-4">
-                        {data.creditCardInfo.paymentDueDate || 'N/A'}
+                        {data.creditCardInfo.paymentDueDate || '—'}
                       </div>
                     </div>
                     
@@ -471,22 +511,22 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
                         <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Minimum Due</div>
                         <div className="text-xl font-bold text-red-700 dark:text-red-300 mt-1">
-                          {data.creditCardInfo.minimumDue ? fmtMoney(data.creditCardInfo.minimumDue) : 'N/A'}
+                          {data.creditCardInfo.minimumDue ? fmtMoney(data.creditCardInfo.minimumDue) : '—'}
                         </div>
                       </div>
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
                         <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Statement Balance</div>
                         <div className="text-xl font-bold text-red-700 dark:text-red-300 mt-1">
-                          {data.creditCardInfo.statementBalance ? fmtMoney(data.creditCardInfo.statementBalance) : 'N/A'}
+                          {data.creditCardInfo.statementBalance ? fmtMoney(data.creditCardInfo.statementBalance) : '—'}
                         </div>
                       </div>
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
                         <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Last Payment</div>
                         <div className="text-sm font-bold text-red-700 dark:text-red-300 mt-1">
-                          {data.creditCardInfo.lastPayment?.amount ? fmtMoney(data.creditCardInfo.lastPayment.amount) : 'N/A'}
+                          {data.creditCardInfo.lastPayment?.amount ? fmtMoney(data.creditCardInfo.lastPayment.amount) : '—'}
                         </div>
                         <div className="text-xs text-red-600 dark:text-red-400 mt-1">
-                          {data.creditCardInfo.lastPayment?.date || 'No recent payment'}
+                          {data.creditCardInfo.lastPayment?.date || '—'}
                         </div>
                       </div>
                     </div>

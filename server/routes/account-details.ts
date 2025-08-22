@@ -84,25 +84,28 @@ router.get("/accounts/:accountId/details", isAuthenticated, async (req: any, res
         let creditCardInfo = null;
         if (account.type === 'credit') {
           creditCardInfo = {
-            // Payment & Due Date Information
-            paymentDueDate: account.details?.payment_due_date || account.details?.due_date,
-            minimumDue: account.details?.minimum_payment_due || account.details?.minimum_due,
-            statementBalance: account.details?.statement_balance || Math.abs(account.balance?.current || 0),
+            // Payment & Due Date Information (use null for missing data, frontend will show "—")
+            paymentDueDate: account.details?.payment_due_date || account.details?.due_date || null,
+            minimumDue: account.details?.minimum_payment_due || account.details?.minimum_due || null,
+            statementBalance: account.details?.statement_balance || (account.balance?.current ? Math.abs(account.balance.current) : null),
             lastPayment: {
-              date: account.details?.last_payment_date,
-              amount: account.details?.last_payment_amount
+              date: account.details?.last_payment_date || null,
+              amount: account.details?.last_payment_amount || null
             },
             
             // Credit Availability
-            availableCredit: account.balance?.available,
-            creditLimit: account.balance?.limit || account.details?.credit_limit,
-            currentBalance: Math.abs(account.balance?.current || 0),
+            availableCredit: account.balance?.available || null,
+            creditLimit: account.balance?.limit || account.details?.credit_limit || null,
+            currentBalance: account.balance?.current ? Math.abs(account.balance.current) : null,
             
-            // APR & Fees
-            apr: account.details?.apr || account.details?.interest_rate,
-            cashAdvanceApr: account.details?.cash_advance_apr,
-            annualFee: account.details?.annual_fee,
-            lateFee: account.details?.late_fee,
+            // APR & Fees (use null for missing data)
+            apr: account.details?.apr || account.details?.interest_rate || null,
+            cashAdvanceApr: account.details?.cash_advance_apr || null,
+            annualFee: account.details?.annual_fee || null,
+            lateFee: account.details?.late_fee || null,
+            
+            // Account identifiers (masked)
+            lastFour: account.last_four || null,
             
             // Payment capabilities
             paymentCapabilities: {
