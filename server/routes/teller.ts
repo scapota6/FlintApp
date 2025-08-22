@@ -728,7 +728,7 @@ router.post("/webhook", async (req, res) => {
 
 /**
  * POST /api/teller/payments
- * Initiate ACH payment from account
+ * Initiate capability-checked payment from account (requires issuer support)
  */
 router.post("/payments", isAuthenticated, async (req: any, res) => {
   try {
@@ -756,7 +756,7 @@ router.post("/payments", isAuthenticated, async (req: any, res) => {
     
     const authHeader = `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`;
     
-    // Create ACH payment via Teller
+    // Create capability-checked payment via Teller
     const response = await fetch(
       `https://api.teller.io/accounts/${accountId}/payments`,
       {

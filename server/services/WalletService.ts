@@ -119,7 +119,7 @@ export class WalletService {
   }
 
   /**
-   * Process ACH transfer using Teller between user accounts
+   * Process capability-checked transfer between user accounts (requires account-pair support)
    */
   static async initiateACHTransfer(userId: string, fromAccountId: string, toAccountId: string, amount: number): Promise<{ success: boolean; transferId: string }> {
     // Verify user owns both accounts
@@ -139,11 +139,11 @@ export class WalletService {
       amount: amount.toString(),
       currency: 'USD',
       status: 'pending',
-      description: `ACH transfer via Teller: ${fromAccount.institutionName} → ${toAccount.institutionName}`
+      description: `Capability-based transfer: ${fromAccount.institutionName} → ${toAccount.institutionName}`
     });
     
-    // TODO: Integrate with Teller's actual ACH API
-    console.log(`Initiated ACH transfer: $${amount} from ${fromAccount.institutionName} to ${toAccount.institutionName}`);
+    // TODO: Integrate with capability-based payment processor (requires separate ACH originator)
+    console.log(`Initiated capability-based transfer: $${amount} from ${fromAccount.institutionName} to ${toAccount.institutionName}`);
     
     // Simulate processing time
     setTimeout(() => {
