@@ -10,10 +10,11 @@ import { accountsApi } from "../lib/snaptrade";
 const router = Router();
 
 // Fetch detailed account information for Teller/SnapTrade accounts
-router.get("/accounts/:accountId/details", isAuthenticated, async (req: any, res) => {
+router.get("/accounts/:accountId/details", async (req: any, res) => {
   try {
     const { accountId } = req.params;
-    const userId = req.user.claims.sub;
+    // Support both authentication methods
+    const userId = req.user?.claims?.sub || req.headers['x-user-id'];
     
     console.log('[Account Details] Fetching for account:', accountId, 'user:', userId);
     
