@@ -195,25 +195,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let cryptoValue = 0;
       const enrichedAccounts = [];
 
-      // Fetch real bank account data from Teller
+      // Fetch real bank account data from Teller (including credit cards)
       try {
         console.log('Fetching bank accounts for user:', userEmail);
-        const bankAccounts = await storage.getBankAccounts(userId);
+        const connectedAccounts = await storage.getConnectedAccounts(userId);
+        const tellerAccounts = connectedAccounts.filter(acc => acc.provider === 'teller');
         
-        for (const account of bankAccounts) {
+        for (const account of tellerAccounts) {
           const balance = parseFloat(account.balance) || 0;
-          bankBalance += balance;
-          totalBalance += balance;
           
-          enrichedAccounts.push({
-            id: account.id,
-            provider: 'teller',
-            accountName: account.name || 'Bank Account',
-            balance: balance,
-            type: 'bank' as const,
-            institution: account.institution || 'Bank',
-            lastUpdated: account.lastSynced || new Date().toISOString()
-          });
+          // Handle credit cards differently - they show debt amount and don't count toward net worth
+          if (account.accountType === 'card') {
+            // Credit cards: show debt amount (positive), don't add to bankBalance (would double-count debt)
+            enrichedAccounts.push({
+              id: account.id,
+              provider: 'teller',
+              accountName: account.accountName || 'Credit Card',
+              balance: balance, // Already converted to positive debt amount in accounts.ts
+              type: 'credit' as const,
+              institution: account.institutionName || 'Credit Card',
+              lastUpdated: account.lastSynced || new Date().toISOString()
+            });
+            // Don't add credit card debt to bankBalance (net worth calculation)
+          } else {
+            // Regular bank accounts: checking/savings
+            bankBalance += balance;
+            totalBalance += balance;
+            
+            enrichedAccounts.push({
+              id: account.id,
+              provider: 'teller',
+              accountName: account.accountName || 'Bank Account',
+              balance: balance,
+              type: 'bank' as const,
+              institution: account.institutionName || 'Bank',
+              lastUpdated: account.lastSynced || new Date().toISOString()
+            });
+          }
         }
       } catch (error) {
         console.error('Error fetching bank accounts:', error);
