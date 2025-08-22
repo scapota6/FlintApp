@@ -62,9 +62,14 @@ const app = express();
 
     next();
   });
+  
   // Mount SnapTrade API router BEFORE auth setup (no auth required)
   app.use("/api/snaptrade", snaptradeRouter);
+
+  // Initialize authentication and base routes
+  const server = await registerRoutes(app);
   
+  // Mount routes that REQUIRE authentication AFTER passport is initialized
   // Mount SnapTrade connections router
   const connectionsSnaptradeRouter = (await import("./routes/connections.snaptrade")).default;
   app.use("/api", connectionsSnaptradeRouter);
@@ -76,8 +81,6 @@ const app = express();
   // Mount account details route
   const accountDetailsRouter = (await import("./routes/account-details")).default;
   app.use("/api", accountDetailsRouter);
-
-  const server = await registerRoutes(app);
 
   // CSRF via double-submit cookie
   const isProd = process.env.NODE_ENV === 'production';
