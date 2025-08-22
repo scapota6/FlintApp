@@ -1552,7 +1552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const authHeader = `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`;
         
         try {
-          // Fetch account details from Teller using external account ID
+          // Fetch account core object from Teller
           const accountResponse = await fetch(
             `https://api.teller.io/accounts/${account.externalAccountId}`,
             {
@@ -1569,9 +1569,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const tellerAccount = await accountResponse.json();
           
-          // Fetch transactions for completeness
+          // Fetch live balances from Teller Balances endpoint
+          const balancesResponse = await fetch(
+            `https://api.teller.io/accounts/${account.externalAccountId}/balances`,
+            {
+              headers: {
+                'Authorization': authHeader,
+                'Accept': 'application/json'
+              }
+            }
+          );
+          
+          const balances = balancesResponse.ok ? await balancesResponse.json() : null;
+          
+          // Fetch account details (routing/account info) for masked identifiers
+          const detailsResponse = await fetch(
+            `https://api.teller.io/accounts/${account.externalAccountId}/details`,
+            {
+              headers: {
+                'Authorization': authHeader,
+                'Accept': 'application/json'
+              }
+            }
+          );
+          
+          const accountDetails = detailsResponse.ok ? await detailsResponse.json() : null;
+          
+          // Fetch transactions with pagination (recent 30 days worth)
           const transactionsResponse = await fetch(
-            `https://api.teller.io/accounts/${account.externalAccountId}/transactions?count=10`,
+            `https://api.teller.io/accounts/${account.externalAccountId}/transactions?count=50`,
             {
               headers: {
                 'Authorization': authHeader,
@@ -1582,7 +1608,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const transactions = transactionsResponse.ok ? await transactionsResponse.json() : [];
           
-          // Return the Teller Account core object with all required fields
+          // Process credit card specific information if this is a credit card
+          let creditCardInfo = null;
+          if (tellerAccount.subtype === 'credit_card' && balances) {
+            creditCardInfo = {
+              statementBalance: balances.statement || null,
+              minimumDue: balances.minimum_payment || null,
+              paymentDueDate: balances.due_date || null,
+              creditLimit: balances.credit_limit || null,
+              availableCredit: balances.available || null,
+              currentBalance: balances.current || null
+            };
+          }
+          
+          // Return comprehensive Teller Account data
           res.json({
             provider: 'teller',
             account: {
@@ -1594,7 +1633,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               currency: tellerAccount.currency || 'USD',
               last4: tellerAccount.last_four,
               mask: tellerAccount.mask,
-              balances: tellerAccount.balances,
               status: tellerAccount.status,
               // Links to related resources
               links: {
@@ -1603,7 +1641,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 details: `/accounts/${tellerAccount.id}/details`
               }
             },
-            transactions: transactions
+            // Live balances from Balances endpoint
+            balances: {
+              available: balances?.available || null,
+              ledger: balances?.ledger || null,
+              current: balances?.current || null,
+              statement: balances?.statement || null,
+              creditLimit: balances?.credit_limit || null,
+              availableCredit: balances?.available || null,
+              minimumPayment: balances?.minimum_payment || null,
+              dueDate: balances?.due_date || null
+            },
+            // Account details with masked routing/account numbers
+            accountDetails: {
+              routingNumber: accountDetails?.routing_number || null,
+              accountNumber: accountDetails?.account_number || null,
+              // Only show last 4 digits for security
+              routingNumberMask: accountDetails?.routing_number ? 
+                `****${accountDetails.routing_number.slice(-4)}` : null,
+              accountNumberMask: accountDetails?.account_number ? 
+                `****${accountDetails.account_number.slice(-4)}` : null
+            },
+            // Enhanced transactions with proper fields
+            transactions: transactions.map((txn: any) => ({
+              id: txn.id,
+              date: txn.date,
+              status: txn.status, // pending or posted
+              description: txn.description,
+              merchant: txn.counterparty?.name || null,
+              amount: txn.amount,
+              category: txn.category || null,
+              type: txn.type,
+              running_balance: txn.running_balance || null
+            })),
+            // Credit card specific info (if applicable)
+            creditCardInfo,
+            metadata: {
+              fetched_at: new Date().toISOString(),
+              account_type: tellerAccount.type,
+              account_subtype: tellerAccount.subtype,
+              is_credit_card: tellerAccount.subtype === 'credit_card'
+            }
           });
           
         } catch (error: any) {

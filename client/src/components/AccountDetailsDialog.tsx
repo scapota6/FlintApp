@@ -219,58 +219,146 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <Info label="Account ID" value={data.accountInformation?.id || data.account?.id || 'N/A'} />
-                <Info label="Brokerage" value={data.accountInformation?.brokerage || data.account?.institution?.name || 'N/A'} />
+                <Info label="Institution" value={data.accountInformation?.brokerage || data.account?.institution?.name || 'N/A'} />
                 <Info label="Account Type" value={data.accountInformation?.type || data.account?.type || 'N/A'} />
-                <Info label="Currency" value={data.accountInformation?.currency || data.account?.currency || 'USD'} />
+                <Info label="Account Subtype" value={data.account?.subtype || data.accountInformation?.type || 'N/A'} />
               </div>
               <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Info label="Cash" value={fmtMoney(data.accountInformation?.balancesOverview?.cash || data.account?.balance?.available)} />
-                <Info label="Equity" value={fmtMoney(data.accountInformation?.balancesOverview?.equity || data.account?.balance?.current)} />
-                <Info label="Buying Power" value={fmtMoney(data.accountInformation?.balancesOverview?.buyingPower || data.account?.balance?.ledger)} />
+                <Info label="Currency" value={data.accountInformation?.currency || data.account?.currency || 'USD'} />
+                <Info label="Status" value={data.account?.status || data.accountInformation?.status || 'N/A'} />
+                <Info label="Last 4" value={data.account?.last4 || data.account?.mask || 'N/A'} />
               </div>
+              {/* Account Details (Routing/Account Numbers) */}
+              {data.accountDetails && (
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Info label="Routing Number" value={data.accountDetails.routingNumberMask || 'N/A'} />
+                  <Info label="Account Number" value={data.accountDetails.accountNumberMask || 'N/A'} />
+                </div>
+              )}
             </section>
 
-            {/* 2. Balances and Holdings */}
+            {/* 2. Live Balances */}
             <section>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm mr-3">2</div>
-                Balances and Holdings
+                Live Balances
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                <Info label="Cash Available" value={fmtMoney(data.balancesAndHoldings?.balances?.cashAvailableToTrade || data.account?.balance?.available)} />
-                <Info label="Total Equity" value={fmtMoney(data.balancesAndHoldings?.balances?.totalEquityValue || data.account?.balance?.current)} />
-                <Info label="Buying Power / Margin" value={fmtMoney(data.balancesAndHoldings?.balances?.buyingPowerOrMargin || data.account?.balance?.ledger)} />
-              </div>
+              {data.provider === 'teller' && data.balances ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Bank Account Balances */}
+                  {data.account?.type === 'depository' && (
+                    <>
+                      <Info label="Available Balance" value={fmtMoney(data.balances.available)} />
+                      <Info label="Ledger Balance" value={fmtMoney(data.balances.ledger)} />
+                      <Info label="Current Balance" value={fmtMoney(data.balances.current)} />
+                    </>
+                  )}
+                  {/* Credit Card Balances */}
+                  {data.account?.type === 'credit' && (
+                    <>
+                      <Info label="Current Balance" value={fmtMoney(data.balances.current)} />
+                      <Info label="Statement Balance" value={fmtMoney(data.balances.statement)} />
+                      <Info label="Available Credit" value={fmtMoney(data.balances.availableCredit)} />
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <Info label="Cash" value={fmtMoney(data.accountInformation?.balancesOverview?.cash || data.account?.balance?.available)} />
+                  <Info label="Equity" value={fmtMoney(data.accountInformation?.balancesOverview?.equity || data.account?.balance?.current)} />
+                  <Info label="Buying Power" value={fmtMoney(data.accountInformation?.balancesOverview?.buyingPower || data.account?.balance?.ledger)} />
+                </div>
+              )}
+            </section>
 
-              {(data.balancesAndHoldings?.holdings && data.balancesAndHoldings.holdings.length > 0) && (
+            {/* 3. Credit Card Information (if applicable) */}
+            {data.creditCardInfo && (
+              <section>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm mr-3">💳</div>
+                  Credit Card Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <Info label="Credit Limit" value={fmtMoney(data.creditCardInfo.creditLimit)} />
+                  <Info label="Available Credit" value={fmtMoney(data.creditCardInfo.availableCredit)} />
+                  <Info label="Current Balance" value={fmtMoney(data.creditCardInfo.currentBalance)} />
+                </div>
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <Info label="Statement Balance" value={fmtMoney(data.creditCardInfo.statementBalance)} />
+                  <Info label="Minimum Due" value={fmtMoney(data.creditCardInfo.minimumDue)} />
+                  <Info label="Payment Due Date" value={data.creditCardInfo.paymentDueDate || 'N/A'} />
+                </div>
+              </section>
+            )}
+
+            {/* 4. Enhanced Transactions */}
+            <section>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm mr-3">📊</div>
+                Recent Transactions
+              </h3>
+              {data.transactions && data.transactions.length > 0 ? (
                 <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
                   <table className="w-full text-sm">
-                    <thead className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30">
+                    <thead className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30">
                       <tr>
-                        <Th>Symbol</Th>
-                        <Th className="text-right">Quantity</Th>
-                        <Th className="text-right">Cost Basis</Th>
-                        <Th className="text-right">Market Value</Th>
-                        <Th className="text-right">P&L</Th>
+                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Date</th>
+                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Status</th>
+                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Description / Merchant</th>
+                        <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Amount</th>
+                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Category</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {data.balancesAndHoldings.holdings.map((h: any, i: number) => (
-                        <tr key={i} className="border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors duration-150">
-                          <Td className="font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300">{h.symbol}</Td>
-                          <TdRight className="hover:text-gray-900 dark:hover:text-gray-100">{fmtNum(h.quantity)}</TdRight>
-                          <TdRight className="hover:text-gray-900 dark:hover:text-gray-100">{fmtMoney(h.costBasis)}</TdRight>
-                          <TdRight className="font-semibold hover:text-gray-900 dark:hover:text-gray-100">{fmtMoney(h.marketValue)}</TdRight>
-                          <TdRight className={`font-bold ${Number(h.unrealized) < 0 ? 'text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300' : 'text-green-500 dark:text-green-400 hover:text-green-600 dark:hover:text-green-300'}`}>
-                            {Number(h.unrealized) < 0 ? '▼' : '▲'} {fmtMoney(h.unrealized)}
-                          </TdRight>
+                      {data.transactions.slice(0, 10).map((txn: any, index: number) => (
+                        <tr key={txn.id || index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors duration-150">
+                          <td className="p-3 text-gray-900 dark:text-white">
+                            {new Date(txn.date).toLocaleDateString()}
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              txn.status === 'posted' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                            }`}>
+                              {txn.status || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-gray-900 dark:text-white">
+                            <div>
+                              <div className="font-medium">{txn.description || 'N/A'}</div>
+                              {txn.merchant && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{txn.merchant}</div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className={`font-medium ${
+                              (txn.amount || 0) >= 0 
+                                ? 'text-green-600 dark:text-green-400' 
+                                : 'text-red-600 dark:text-red-400'
+                            }`}>
+                              {fmtMoney(txn.amount)}
+                            </span>
+                          </td>
+                          <td className="p-3 text-gray-500 dark:text-gray-400">
+                            {txn.category || 'N/A'}
+                          </td>
                         </tr>
                       ))}
-                      {data.balancesAndHoldings.holdings.length === 0 && (
-                        <tr><Td colSpan={5} className="text-center text-gray-500 dark:text-gray-400 py-6 italic">No holdings available</Td></tr>
-                      )}
                     </tbody>
                   </table>
+                  {data.transactions.length > 10 && (
+                    <div className="mt-4 text-center">
+                      <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                        Load More Transactions
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  No transactions available
                 </div>
               )}
             </section>
