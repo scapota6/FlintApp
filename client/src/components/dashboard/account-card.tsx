@@ -100,7 +100,7 @@ export default function AccountCard({ account }: AccountCardProps) {
             {/* Main Balance */}
             <div>
               <p className="text-sm text-muted-foreground mb-1">Total Balance</p>
-              <p className="text-2xl font-bold">
+              <p className={`text-2xl font-bold ${account.type === 'credit' ? 'text-red-500' : 'text-green-500'}`}>
                 {formatCurrency(account.balance)}
               </p>
             </div>
