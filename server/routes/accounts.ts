@@ -21,54 +21,102 @@ router.get("/brokerages", isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
     
     // Get connected brokerage accounts from database
-    const accounts = await storage.getConnectedAccounts(userId);
-    const brokerageAccounts = accounts.filter(acc => acc.accountType === 'brokerage');
+    const dbAccounts = await storage.getConnectedAccountsByProvider(userId, 'snaptrade');
     
-    // If SnapTrade is configured, fetch fresh data
-    // SnapTrade integration always available via centralized config
+    if (!dbAccounts || dbAccounts.length === 0) {
+      return res.json({ accounts: [] });
+    }
+    
+    // Get SnapTrade user credentials for connectivity validation
     const snaptradeUser = await storage.getSnapTradeUser(userId);
     
-    if (snaptradeUser?.snaptradeUserId && snaptradeUser?.userSecret) {
-      try {
-        // Fetch account data from SnapTrade
-        const snaptradeAccounts = await accountsApi.listUserAccounts({
-          userId: snaptradeUser.snaptradeUserId,
-          userSecret: snaptradeUser.userSecret
-        });
+    if (!snaptradeUser?.snaptradeUserId || !snaptradeUser?.userSecret) {
+      // No SnapTrade credentials - mark all SnapTrade accounts as inactive
+      console.log('[SnapTrade Connectivity] No user credentials found, marking all accounts inactive');
+      for (const account of dbAccounts) {
+        await storage.updateConnectedAccountActive(account.id, false);
+      }
+      return res.json({ accounts: [] });
+    }
+    
+    // Test connectivity and filter accessible accounts
+    const validAccounts = [];
+    const invalidAccountIds = [];
+    
+    try {
+      // Test connectivity by fetching account list from SnapTrade
+      const snaptradeAccounts = await accountsApi.listUserAccounts({
+        userId: snaptradeUser.snaptradeUserId,
+        userSecret: snaptradeUser.userSecret
+      });
+      
+      // Create a map of accessible account IDs from SnapTrade
+      const accessibleAccountIds = new Set(snaptradeAccounts.map(acc => acc.id));
+      
+      for (const dbAccount of dbAccounts) {
+        if (!dbAccount.externalAccountId) {
+          console.log(`[SnapTrade Connectivity] Account ${dbAccount.id} missing externalAccountId, marking inactive`);
+          invalidAccountIds.push(dbAccount.id);
+          continue;
+        }
         
-        // Update local database with fresh data
-        for (const snapAccount of snaptradeAccounts) {
-          const existingAccount = brokerageAccounts.find(
-            acc => acc.externalAccountId === snapAccount.id
-          );
-          
-          if (existingAccount) {
-            // Update balance
+        if (accessibleAccountIds.has(dbAccount.externalAccountId)) {
+          // Account is accessible via SnapTrade API
+          const snapAccount = snaptradeAccounts.find(acc => acc.id === dbAccount.externalAccountId);
+          if (snapAccount) {
+            // Update balance with fresh data
             await storage.updateAccountBalance(
-              existingAccount.id,
+              dbAccount.id,
               String(snapAccount.balance?.total?.amount || 0)
             );
+            
+            validAccounts.push({
+              id: dbAccount.id,
+              name: dbAccount.accountName,
+              currency: dbAccount.currency || 'USD',
+              balance: parseFloat(String(snapAccount.balance?.total?.amount || 0)),
+              buyingPower: parseFloat(String(snapAccount.balance?.total?.amount || 0)) * 0.5,
+              lastSync: new Date()
+            });
+            console.log(`[SnapTrade Connectivity] Account ${dbAccount.id} (${dbAccount.externalAccountId}) is accessible`);
           }
+        } else {
+          // Account not found in SnapTrade API response - mark as inactive
+          console.log(`[SnapTrade Connectivity] Account ${dbAccount.id} (${dbAccount.externalAccountId}) not accessible, marking inactive`);
+          invalidAccountIds.push(dbAccount.id);
         }
-      } catch (error) {
-        logger.error("Failed to fetch SnapTrade accounts", { error });
+      }
+      
+    } catch (error: any) {
+      // SnapTrade API error - could be authentication issue
+      console.log('[SnapTrade Connectivity] API call failed:', error.message);
+      if (error.message?.includes('401') || error.message?.includes('403') || error.message?.includes('authentication')) {
+        // Authentication error - mark all accounts as inactive
+        for (const account of dbAccounts) {
+          invalidAccountIds.push(account.id);
+        }
+      }
+      // For other errors, don't mark accounts as inactive (might be temporary)
+    }
+    
+    // Mark accounts with invalid credentials as inactive in database
+    for (const accountId of invalidAccountIds) {
+      try {
+        await storage.updateConnectedAccountActive(accountId, false);
+        console.log(`[SnapTrade Connectivity] Marked account ${accountId} as inactive in database`);
+      } catch (updateError: any) {
+        console.error(`[SnapTrade Connectivity] Failed to mark account ${accountId} as inactive:`, updateError.message);
       }
     }
     
-    // Fetch updated accounts from database
-    const updatedAccounts = await storage.getConnectedAccounts(userId);
-    const finalBrokerageAccounts = updatedAccounts
-      .filter(acc => acc.accountType === 'brokerage')
-      .map(account => ({
-        id: account.id,
-        name: account.accountName,
-        currency: account.currency || 'USD',
-        balance: parseFloat(account.balance),
-        buyingPower: parseFloat(account.balance) * 0.5, // Estimate buying power as 50% of balance
-        lastSync: account.lastSynced
-      }));
+    logger.info("SnapTrade accounts retrieved with connectivity validation", { 
+      userId, 
+      totalInDb: dbAccounts.length,
+      validAccounts: validAccounts.length,
+      invalidAccounts: invalidAccountIds.length
+    });
     
-    res.json({ accounts: finalBrokerageAccounts });
+    res.json({ accounts: validAccounts });
     
   } catch (error) {
     logger.error("Error fetching brokerage accounts", { error });

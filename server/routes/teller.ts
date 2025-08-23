@@ -230,19 +230,98 @@ router.post("/exchange-token", isAuthenticated, async (req: any, res) => {
 
 /**
  * GET /api/teller/accounts
- * Get connected Teller accounts
+ * Get connected Teller accounts - with connectivity validation
  */
 router.get("/accounts", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.claims.sub;
     
-    const accounts = await storage.getConnectedAccounts(userId);
-    const tellerAccounts = accounts.filter(acc => acc.provider === 'teller');
+    // Get accounts from database first
+    const dbAccounts = await storage.getConnectedAccountsByProvider(userId, 'teller');
     
-    res.json({ accounts: tellerAccounts });
+    if (!dbAccounts || dbAccounts.length === 0) {
+      return res.json({ 
+        provider: 'teller',
+        accounts: [] 
+      });
+    }
+    
+    // Test connectivity for each account and filter out inaccessible ones
+    const validAccounts = [];
+    const invalidAccountIds = [];
+    
+    for (const dbAccount of dbAccounts) {
+      if (!dbAccount.accessToken || !dbAccount.externalAccountId) {
+        console.log(`[Teller Connectivity] Account ${dbAccount.id} missing credentials, marking inactive`);
+        invalidAccountIds.push(dbAccount.id);
+        continue;
+      }
+      
+      try {
+        // Test connectivity by making a simple API call
+        const authHeader = `Basic ${Buffer.from(dbAccount.accessToken + ":").toString("base64")}`;
+        const response = await fetch(`https://api.teller.io/accounts/${dbAccount.externalAccountId}`, {
+          headers: {
+            'Authorization': authHeader,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const accountData = await response.json();
+          validAccounts.push({
+            id: accountData.id,
+            name: accountData.name,
+            type: accountData.type,
+            subtype: accountData.subtype,
+            institution: accountData.institution,
+            balance: accountData.balance,
+            balances: accountData.balances,
+            status: accountData.status,
+            currency: accountData.currency || 'USD',
+            enrollment_id: accountData.enrollment_id,
+            last_four: accountData.last_four,
+            details: accountData.details
+          });
+          console.log(`[Teller Connectivity] Account ${dbAccount.id} (${dbAccount.externalAccountId}) is accessible`);
+        } else if (response.status === 401 || response.status === 403) {
+          // Authentication/authorization error - mark account as inactive
+          console.log(`[Teller Connectivity] Account ${dbAccount.id} authentication failed (${response.status}), marking inactive`);
+          invalidAccountIds.push(dbAccount.id);
+        } else {
+          // Other errors - log but don't mark inactive (might be temporary)
+          console.log(`[Teller Connectivity] Account ${dbAccount.id} temporary error (${response.status}), excluding from results`);
+        }
+      } catch (error: any) {
+        console.log(`[Teller Connectivity] Account ${dbAccount.id} connection failed:`, error.message);
+        // Network errors might be temporary, so don't mark as inactive
+      }
+    }
+    
+    // Mark accounts with invalid credentials as inactive in database
+    for (const accountId of invalidAccountIds) {
+      try {
+        // Update isActive field to false for accounts that failed authentication
+        await storage.updateConnectedAccountActive(accountId, false);
+        console.log(`[Teller Connectivity] Marked account ${accountId} as inactive in database`);
+      } catch (updateError: any) {
+        console.error(`[Teller Connectivity] Failed to mark account ${accountId} as inactive:`, updateError.message);
+      }
+    }
+    
+    logger.info("Teller accounts retrieved with connectivity validation", { 
+      userId, 
+      totalInDb: dbAccounts.length,
+      validAccounts: validAccounts.length,
+      invalidAccounts: invalidAccountIds.length
+    });
+    
+    res.json({ 
+      accounts: validAccounts 
+    });
     
   } catch (error: any) {
-    logger.error("Failed to fetch Teller accounts", { error });
+    logger.error("Failed to fetch Teller accounts", { error: error.message });
     res.status(500).json({ 
       message: "Failed to fetch bank accounts",
       error: error.message 
