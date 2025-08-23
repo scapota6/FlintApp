@@ -120,32 +120,47 @@ const app = express();
       && !req.path.startsWith('/api/webhooks')
       && !req.path.startsWith('/health')
       && req.path !== '/api/csrf-token';
+    
+    // CSRF diagnostic bypass removed - routes confirmed working
+    
     return needs ? csrfProtection(req, res, next) : next();
   });
 
-  // Enhanced CSRF error handler with detailed logging
+  // Enhanced CSRF error handler with comprehensive diagnostics
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     if (err.code === 'EBADCSRFTOKEN') {
-      // Log detailed CSRF failure information
+      const cookiePresent = !!_req.cookies.flint_csrf;
+      const headerPresent = !!_req.headers['x-csrf-token'];
+      const userId = _req.user?.id || 'anonymous';
+      
+      // Log comprehensive CSRF failure details
       logger.warn('CSRF validation failed', { 
-        userId: _req.user?.id || 'anonymous',
+        userId,
         metadata: {
           path: _req.path,
           method: _req.method,
           userAgent: _req.get('User-Agent'),
           ip: _req.ip,
-          csrfTokenProvided: !!_req.headers['x-csrf-token'],
-          csrfCookie: !!_req.cookies.flint_csrf,
-          statusCode: 403
+          csrfTokenProvided: headerPresent,
+          csrfCookiePresent: cookiePresent,
+          csrfCookieValue: cookiePresent ? _req.cookies.flint_csrf.substring(0, 8) + '...' : 'none',
+          csrfHeaderValue: headerPresent ? _req.headers['x-csrf-token'].substring(0, 8) + '...' : 'none',
+          statusCode: 403,
+          accountId: _req.body?.accountId || 'unknown'
         }
       });
       
       return res.status(403).json({ 
         message: 'Invalid CSRF token',
+        expectedHeader: 'x-csrf-token',
+        cookiePresent,
+        headerPresent,
         details: process.env.NODE_ENV === 'development' ? {
-          reason: 'CSRF token missing or invalid',
-          expectedHeader: 'x-csrf-token',
-          tokenProvided: !!_req.headers['x-csrf-token']
+          reason: !cookiePresent ? 'CSRF cookie missing' : 
+                  !headerPresent ? 'CSRF header missing' : 
+                  'CSRF token mismatch',
+          cookieKey: 'flint_csrf',
+          headerKey: 'x-csrf-token'
         } : undefined
       });
     }
