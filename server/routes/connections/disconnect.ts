@@ -42,10 +42,12 @@ router.post("/snaptrade", async (req: any, res) => {
         brokerageAuthId: accountId
       });
 
+      // Also remove from local database
+      await storage.deleteConnectedAccount(userId, 'snaptrade', accountId);
+
       logger.info("SnapTrade account disconnected", { 
         userId, 
-        accountId,
-        snaptradeUserId: snapUser.userId 
+        metadata: { accountId, snaptradeUserId: snapUser.userId }
       });
 
       res.json({ 
@@ -58,7 +60,10 @@ router.post("/snaptrade", async (req: any, res) => {
       
       // If the account is already deleted or not found, consider it success
       if (snapError.status === 404 || snapError.responseBody?.code === '1004') {
-        logger.info("SnapTrade account already disconnected", { userId, accountId });
+        // Still remove from local database in case it exists
+        await storage.deleteConnectedAccount(userId, 'snaptrade', accountId);
+        
+        logger.info("SnapTrade account already disconnected", { userId, metadata: { accountId } });
         return res.json({ 
           success: true, 
           message: "Account was already disconnected" 
@@ -72,7 +77,7 @@ router.post("/snaptrade", async (req: any, res) => {
     logger.error("Failed to disconnect SnapTrade account", { 
       error: error.message,
       userId: req.user?.id,
-      accountId: req.body?.accountId
+      metadata: { accountId: req.body?.accountId }
     });
     
     res.status(500).json({ 
@@ -116,7 +121,7 @@ router.post("/snaptrade", async (req: any, res) => {
 
         logger.info("All SnapTrade accounts disconnected", { 
           userId,
-          snaptradeUserId: snapUser.userId 
+          metadata: { snaptradeUserId: snapUser.userId }
         });
 
         return res.json({ 
@@ -163,10 +168,12 @@ router.post("/snaptrade", async (req: any, res) => {
         brokerageAuthId: accountId
       });
 
+      // Also remove from local database
+      await storage.deleteConnectedAccount(userId, 'snaptrade', accountId);
+
       logger.info("SnapTrade account disconnected", { 
         userId, 
-        accountId,
-        snaptradeUserId: snapUser.userId 
+        metadata: { accountId, snaptradeUserId: snapUser.userId }
       });
 
       res.json({ 
@@ -179,7 +186,10 @@ router.post("/snaptrade", async (req: any, res) => {
       
       // If the account is already deleted or not found, consider it success
       if (snapError.status === 404 || snapError.responseBody?.code === '1004') {
-        logger.info("SnapTrade account already disconnected", { userId, accountId });
+        // Still remove from local database in case it exists
+        await storage.deleteConnectedAccount(userId, 'snaptrade', accountId);
+        
+        logger.info("SnapTrade account already disconnected", { userId, metadata: { accountId } });
         return res.json({ 
           success: true, 
           message: "Account was already disconnected" 
@@ -193,7 +203,7 @@ router.post("/snaptrade", async (req: any, res) => {
     logger.error("Failed to disconnect SnapTrade account", { 
       error: error.message,
       userId: req.user?.id,
-      accountId: req.body?.accountId
+      metadata: { accountId: req.body?.accountId }
     });
     
     res.status(500).json({ 
@@ -221,9 +231,9 @@ router.post("/teller", async (req: any, res) => {
     }
 
     // Remove from database
-    await storage.deleteBankAccount(userId, accountId);
+    await storage.deleteConnectedAccount(userId, 'teller', accountId);
 
-    logger.info("Teller account disconnected", { userId, accountId });
+    logger.info("Teller account disconnected", { userId, metadata: { accountId } });
 
     res.json({ 
       success: true, 
@@ -234,7 +244,7 @@ router.post("/teller", async (req: any, res) => {
     logger.error("Failed to disconnect Teller account", { 
       error: error.message,
       userId: req.user?.id,
-      accountId: req.body?.accountId
+      metadata: { accountId: req.body?.accountId }
     });
     
     res.status(500).json({ 
