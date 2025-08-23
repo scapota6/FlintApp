@@ -826,7 +826,6 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     </div>
                   </section>
                 )}
-            )}
 
 
             {/* e) Statements - Built into the credit card layout above */}
