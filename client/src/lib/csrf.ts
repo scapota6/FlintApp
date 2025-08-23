@@ -1,13 +1,11 @@
-let _csrf: string | null = null;
+let cachedCsrf: string | null = null;
 
-export async function ensureCsrf(): Promise<string> {
-  if (_csrf) return _csrf;
+export async function getCsrfToken(): Promise<string> {
+  if (cachedCsrf) return cachedCsrf;
   const r = await fetch('/api/csrf-token', { credentials: 'include' });
   const j = await r.json();
-  _csrf = j.csrfToken;
-  return _csrf!;
+  cachedCsrf = j.csrfToken;
+  return cachedCsrf!;
 }
 
-export function resetCsrf() { 
-  _csrf = null; 
-}
+export function invalidateCsrf() { cachedCsrf = null; }
