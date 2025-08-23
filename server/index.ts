@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
-import csrf from "csurf";
+import { installCsrf } from "./security/csrf";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initSentry, sentryErrorHandler } from "./lib/sentry";
@@ -120,29 +120,7 @@ const app = express();
   });
   
   // 4) CSRF setup (must come BEFORE protected routes)
-  const isProd = process.env.NODE_ENV === 'production';
-  app.use(csrf({
-    cookie: {
-      key: 'flint_csrf',
-      path: '/',
-      sameSite: isProd ? 'none' : 'lax',
-      secure: isProd,
-      httpOnly: false, // double-submit: client must read it to echo in header
-    }
-  }));
-
-  // 5) Issue CSRF tokens for the client to read
-  app.get('/api/csrf-token', (req, res) => {
-    res.json({ csrfToken: req.csrfToken() });
-  });
-
-  // 6) CSRF error handler -> JSON (not HTML)
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (err.code === 'EBADCSRFTOKEN') {
-      return res.status(403).json({ code: 'CSRF_INVALID', message: 'Invalid CSRF token' });
-    }
-    next(err);
-  });
+  installCsrf(app);
 
   // Mount SnapTrade API router BEFORE auth setup (no auth required)
   app.use("/api/snaptrade", snaptradeRouter);
