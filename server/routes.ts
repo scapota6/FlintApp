@@ -196,41 +196,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const enrichedAccounts = [];
 
       // Fetch real bank account data from Teller (including credit cards)
+      // Only include accounts that we can successfully access via API
       try {
         console.log('Fetching bank accounts for user:', userEmail);
         const connectedAccounts = await storage.getConnectedAccounts(userId);
         const tellerAccounts = connectedAccounts.filter(acc => acc.provider === 'teller');
         
         for (const account of tellerAccounts) {
-          const balance = parseFloat(account.balance) || 0;
-          
-          // Handle credit cards differently - they show debt amount and don't count toward net worth
-          if (account.accountType === 'card') {
-            // Credit cards: show debt amount (positive), don't add to bankBalance (would double-count debt)
-            enrichedAccounts.push({
-              id: account.id,
-              provider: 'teller',
-              accountName: account.accountName || 'Credit Card',
-              balance: balance, // Already converted to positive debt amount in accounts.ts
-              type: 'credit' as const,
-              institution: account.institutionName || 'Credit Card',
-              lastUpdated: account.lastSynced || new Date().toISOString()
-            });
-            // Don't add credit card debt to bankBalance (net worth calculation)
-          } else {
-            // Regular bank accounts: checking/savings
-            bankBalance += balance;
-            totalBalance += balance;
-            
-            enrichedAccounts.push({
-              id: account.id,
-              provider: 'teller',
-              accountName: account.accountName || 'Bank Account',
-              balance: balance,
-              type: 'bank' as const,
-              institution: account.institutionName || 'Bank',
-              lastUpdated: account.lastSynced || new Date().toISOString()
-            });
+          // Validate account access before including it
+          if (account.accessToken) {
+            try {
+              const response = await fetch(`https://api.teller.io/accounts/${account.externalAccountId}`, {
+                headers: {
+                  'Authorization': `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`,
+                },
+              });
+              
+              if (response.ok) {
+                const tellerAccount = await response.json();
+                
+                // Update balance in database - handle credit cards differently
+                let balanceToStore;
+                if (tellerAccount.type === 'credit') {
+                  // For credit cards, show the debt (positive amount owed)
+                  balanceToStore = tellerAccount.balance?.current ? Math.abs(tellerAccount.balance.current) : 0;
+                } else {
+                  // For bank accounts, show available balance
+                  balanceToStore = tellerAccount.balance?.available || 0;
+                }
+                
+                await storage.updateAccountBalance(account.id, String(balanceToStore));
+                
+                // Handle credit cards differently - they show debt amount and don't count toward net worth
+                if (account.accountType === 'card') {
+                  // Credit cards: show debt amount (positive), don't add to bankBalance (would double-count debt)
+                  enrichedAccounts.push({
+                    id: account.id,
+                    provider: 'teller',
+                    accountName: account.accountName || 'Credit Card',
+                    balance: balanceToStore,
+                    type: 'credit' as const,
+                    institution: account.institutionName || 'Credit Card',
+                    lastUpdated: new Date().toISOString()
+                  });
+                  // Don't add credit card debt to bankBalance (net worth calculation)
+                } else {
+                  // Regular bank accounts: checking/savings
+                  bankBalance += balanceToStore;
+                  totalBalance += balanceToStore;
+                  
+                  enrichedAccounts.push({
+                    id: account.id,
+                    provider: 'teller',
+                    accountName: account.accountName || 'Bank Account',
+                    balance: balanceToStore,
+                    type: 'bank' as const,
+                    institution: account.institutionName || 'Bank',
+                    lastUpdated: new Date().toISOString()
+                  });
+                }
+              } else if (response.status === 401 || response.status === 403) {
+                // Account access expired - mark as inactive so it won't show up again
+                console.log(`[Dashboard] Teller account ${account.id} access expired, marking as inactive`);
+                await storage.deactivateAccount(account.id);
+              }
+            } catch (fetchError) {
+              console.error(`Error validating Teller account ${account.id}:`, fetchError);
+              // Don't include accounts we can't access
+            }
           }
         }
       } catch (error) {
@@ -302,36 +335,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Add any legacy connected accounts that aren't covered above
-      // Skip placeholder accounts to avoid showing false data
-      for (const account of connectedAccounts) {
-        const existingAccount = enrichedAccounts.find(ea => ea.id === account.id);
-        if (!existingAccount && account.provider !== 'placeholder') {
-          const accountBalance = parseFloat(account.balance?.toString() || '0') || 0;
-          
-          // Skip accounts with exactly 100000 balance (placeholder)
-          if (accountBalance === 100000) continue;
-          
-          let accountType: 'bank' | 'investment' | 'crypto' = 'investment';
-          if (account.provider === 'teller') accountType = 'bank';
-          else if (account.provider === 'crypto') accountType = 'crypto';
-          
-          if (accountType === 'crypto') {
-            cryptoValue += accountBalance;
-          }
-          totalBalance += accountBalance;
-          
-          enrichedAccounts.push({
-            id: account.id,
-            provider: account.provider,
-            accountName: account.accountName || 'Account',
-            balance: accountBalance,
-            type: accountType,
-            institution: account.accountName || account.provider,
-            lastUpdated: account.lastSynced || new Date().toISOString()
-          });
-        }
-      }
+      // Skip legacy connected accounts - only show accounts we can validate via API
+      // This ensures the dashboard only displays accounts that are truly accessible
       
       // Check if we have any connected accounts
       const hasConnectedAccounts = enrichedAccounts.length > 0;

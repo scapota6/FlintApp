@@ -524,6 +524,17 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(connectedAccounts.connectionId, enrollmentId));
   }
+
+  async deactivateAccount(accountId: number): Promise<void> {
+    // Mark account as inactive so it won't show up in future queries
+    await db
+      .update(connectedAccounts)
+      .set({ 
+        isActive: false,
+        updatedAt: new Date()
+      })
+      .where(eq(connectedAccounts.id, accountId));
+  }
   
   async upsertTransaction(transaction: any): Promise<void> {
     // Store transaction data - would need a transactions table
