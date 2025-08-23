@@ -42,6 +42,9 @@ interface TellerClient {
   balances: {
     get: (accountId: string) => Promise<any>;
   };
+  details: {
+    get: (accountId: string) => Promise<any>;
+  };
 }
 
 /**
@@ -65,13 +68,38 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
     }
   });
   
+  console.log('[Teller Client] Token mapping created:', {
+    userId,
+    accountCount: accounts.length,
+    tokenMapSize: tokenMap.size,
+    accountIds: Array.from(tokenMap.keys()),
+    tokenPreviews: Array.from(tokenMap.entries()).map(([id, token]) => ({
+      accountId: id,
+      tokenPrefix: token.substring(0, 8) + '...',
+      tokenLength: token.length,
+      isTestToken: token.includes('test') || token.includes('sandbox')
+    }))
+  });
+  
   const client: TellerClient = {
     accounts: {
       async get(accountId: string): Promise<TellerAccount> {
         const token = tokenMap.get(accountId);
         if (!token) {
+          console.error('[Teller API] No token found for account:', { 
+            accountId, 
+            availableAccounts: Array.from(tokenMap.keys()),
+            userId 
+          });
           throw new Error(`No access token found for account ${accountId}`);
         }
+        
+        console.log('[Teller API] Calling GET /accounts/:id:', {
+          accountId,
+          tokenPrefix: token.substring(0, 8) + '...',
+          isTestToken: token.includes('test') || token.includes('sandbox'),
+          url: `https://api.teller.io/accounts/${accountId}`
+        });
         
         const response = await fetch(`https://api.teller.io/accounts/${accountId}`, {
           headers: {
@@ -81,10 +109,21 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
         });
         
         if (!response.ok) {
-          throw new Error(`Failed to fetch account: ${response.status}`);
+          const errorText = await response.text();
+          console.error('[Teller API] Account fetch failed:', {
+            accountId,
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText,
+            tokenPrefix: token.substring(0, 8) + '...'
+          });
+          const error = new Error(`Teller API error: ${response.status}`);
+          (error as any).response = { status: response.status };
+          throw error;
         }
         
         const data = await response.json();
+        console.log('[Teller API] Account fetch successful:', { accountId, accountType: data.type, accountSubtype: data.subtype });
         
         // Normalize the response to our expected format
         return {
@@ -94,8 +133,12 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
           subtype: data.subtype || data.type, // Fallback to type if subtype not present
           institution: data.institution || { name: 'Unknown', id: '' },
           balances: data.balances,
+          balance: data.balance,
           status: data.status,
-          currency: data.currency || 'USD'
+          currency: data.currency || 'USD',
+          enrollment_id: data.enrollment_id,
+          last_four: data.last_four,
+          details: data.details
         };
       },
       
@@ -127,7 +170,7 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
               });
             }
           } catch (error: any) {
-            logger.error(`Failed to fetch account ${accountId}`, { error: error.message });
+            console.error(`[Teller API] Failed to fetch account ${accountId}:`, error.message);
           }
         }
         
@@ -147,6 +190,12 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
           url.searchParams.set('count', params.count.toString());
         }
         
+        console.log('[Teller API] Calling GET /accounts/:id/transactions:', { 
+          accountId: params.account_id, 
+          count: params.count,
+          url: url.toString()
+        });
+        
         const response = await fetch(url.toString(), {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -155,10 +204,22 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
         });
         
         if (!response.ok) {
-          throw new Error(`Failed to fetch transactions: ${response.status}`);
+          const errorText = await response.text();
+          console.error('[Teller API] Transactions fetch failed:', {
+            accountId: params.account_id,
+            status: response.status,
+            error: errorText
+          });
+          const error = new Error(`Failed to fetch transactions: ${response.status}`);
+          (error as any).response = { status: response.status };
+          throw error;
         }
         
         const data = await response.json();
+        console.log('[Teller API] Transactions fetch successful:', { 
+          accountId: params.account_id, 
+          transactionCount: data?.length || 0 
+        });
         return data || [];
       }
     },
@@ -228,6 +289,8 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
           throw new Error(`No access token found for account ${accountId}`);
         }
         
+        console.log('[Teller API] Calling GET /accounts/:id/balances:', { accountId });
+        
         const response = await fetch(`https://api.teller.io/accounts/${accountId}/balances`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -236,10 +299,54 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
         });
         
         if (!response.ok) {
-          throw new Error(`Failed to fetch balances: ${response.status}`);
+          const errorText = await response.text();
+          console.error('[Teller API] Balances fetch failed:', {
+            accountId,
+            status: response.status,
+            error: errorText
+          });
+          const error = new Error(`Failed to fetch balances: ${response.status}`);
+          (error as any).response = { status: response.status };
+          throw error;
         }
         
-        return response.json();
+        const data = await response.json();
+        console.log('[Teller API] Balances fetch successful:', { accountId, balanceKeys: Object.keys(data) });
+        return data;
+      }
+    },
+    
+    details: {
+      async get(accountId: string): Promise<any> {
+        const token = tokenMap.get(accountId);
+        if (!token) {
+          throw new Error(`No access token found for account ${accountId}`);
+        }
+        
+        console.log('[Teller API] Calling GET /accounts/:id/details:', { accountId });
+        
+        const response = await fetch(`https://api.teller.io/accounts/${accountId}/details`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[Teller API] Details fetch failed:', {
+            accountId,
+            status: response.status,
+            error: errorText
+          });
+          const error = new Error(`Failed to fetch details: ${response.status}`);
+          (error as any).response = { status: response.status };
+          throw error;
+        }
+        
+        const data = await response.json();
+        console.log('[Teller API] Details fetch successful:', { accountId, detailKeys: Object.keys(data) });
+        return data;
       }
     }
   };

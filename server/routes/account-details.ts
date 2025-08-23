@@ -89,13 +89,14 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
         // Step 1: Get account metadata
         const account = await teller.accounts.get(externalId);
         
-        // Step 2-4: Get balances, transactions (60-90 days), and statements in parallel
-        const [balances, transactions] = await Promise.all([
+        // Step 2-4: Get balances, transactions, and details in parallel
+        const [balances, transactions, accountDetails] = await Promise.all([
           teller.balances.get(externalId).catch(() => null), // Gracefully handle if balances fail
           teller.transactions.list({
             account_id: externalId,
             count: 90 // Get 90 days of transactions
-          }).catch(() => []) // Return empty array if transactions fail
+          }).catch(() => []), // Return empty array if transactions fail
+          teller.details.get(externalId).catch(() => null) // Get routing/masked numbers if available
         ]);
         
         // Note: Statements API would be called here if available
@@ -104,7 +105,8 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
         console.log('[Account Details] Teller aggregation complete:', {
           hasAccount: !!account,
           hasBalances: !!balances,
-          transactionCount: transactions?.length || 0
+          transactionCount: transactions?.length || 0,
+          hasDetails: !!accountDetails
         });
         
         // For credit cards, extract comprehensive payment and credit information
@@ -178,6 +180,7 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
             statement: balances?.statement ?? null,
             credit_limit: balances?.credit_limit ?? null
           },
+          accountDetails: accountDetails,
           creditCardInfo,
           transactions: transactions || [],
           statements: [] // Placeholder - would be populated if Teller statements API available
