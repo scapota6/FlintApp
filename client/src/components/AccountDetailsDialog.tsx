@@ -549,7 +549,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     <div className="text-center">
                       <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide mb-2">Payment Due Date</div>
                       <div className="text-4xl font-bold text-red-700 dark:text-red-300 mb-4">
-                        {data.creditCardInfo.paymentDueDate || '—'}
+                        {data.creditCardInfo?.paymentDueDate || '—'}
                       </div>
                     </div>
                     
@@ -557,22 +557,22 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
                         <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Minimum Due</div>
                         <div className="text-xl font-bold text-red-700 dark:text-red-300 mt-1">
-                          {data.creditCardInfo.minimumDue ? fmtMoney(data.creditCardInfo.minimumDue) : '—'}
+                          {data.creditCardInfo?.minimumDue ? fmtMoney(data.creditCardInfo?.minimumDue) : '—'}
                         </div>
                       </div>
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
                         <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Statement Balance</div>
                         <div className="text-xl font-bold text-red-700 dark:text-red-300 mt-1">
-                          {data.creditCardInfo.statementBalance ? fmtMoney(data.creditCardInfo.statementBalance) : '—'}
+                          {data.creditCardInfo?.statementBalance ? fmtMoney(data.creditCardInfo?.statementBalance) : '—'}
                         </div>
                       </div>
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
                         <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Last Payment</div>
                         <div className="text-sm font-bold text-red-700 dark:text-red-300 mt-1">
-                          {data.creditCardInfo.lastPayment?.amount ? fmtMoney(data.creditCardInfo.lastPayment.amount) : '—'}
+                          {data.creditCardInfo?.lastPayment?.amount ? fmtMoney(data.creditCardInfo?.lastPayment?.amount) : '—'}
                         </div>
                         <div className="text-xs text-red-600 dark:text-red-400 mt-1">
-                          {data.creditCardInfo.lastPayment?.date || '—'}
+                          {data.creditCardInfo?.lastPayment?.date || '—'}
                         </div>
                       </div>
                     </div>
@@ -586,31 +586,31 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     Credit Availability
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <Info label="Available Credit" value={fmtMoney(data.creditCardInfo.availableCredit)} />
-                    <Info label="Credit Limit" value={fmtMoney(data.creditCardInfo.creditLimit)} />
-                    <Info label="Current Balance" value={fmtMoney(data.creditCardInfo.currentBalance)} />
+                    <Info label="Available Credit" value={fmtMoney(data.creditCardInfo?.availableCredit)} />
+                    <Info label="Credit Limit" value={fmtMoney(data.creditCardInfo?.creditLimit)} />
+                    <Info label="Current Balance" value={fmtMoney(data.creditCardInfo?.currentBalance)} />
                   </div>
                 </section>
 
                 {/* 3. APR & Fees */}
-                {(data.creditCardInfo.apr || data.creditCardInfo.annualFee || data.creditCardInfo.lateFee) && (
+                {(data.creditCardInfo?.apr || data.creditCardInfo?.annualFee || data.creditCardInfo?.lateFee) && (
                   <section>
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white font-bold text-sm mr-3">%</div>
                       APR & Fees
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {data.creditCardInfo.apr && (
-                        <Info label="APR" value={`${data.creditCardInfo.apr}%`} />
+                      {data.creditCardInfo?.apr && (
+                        <Info label="APR" value={`${data.creditCardInfo?.apr}%`} />
                       )}
-                      {data.creditCardInfo.cashAdvanceApr && (
-                        <Info label="Cash Advance APR" value={`${data.creditCardInfo.cashAdvanceApr}%`} />
+                      {data.creditCardInfo?.cashAdvanceApr && (
+                        <Info label="Cash Advance APR" value={`${data.creditCardInfo?.cashAdvanceApr}%`} />
                       )}
-                      {data.creditCardInfo.annualFee && (
-                        <Info label="Annual Fee" value={fmtMoney(data.creditCardInfo.annualFee)} />
+                      {data.creditCardInfo?.annualFee && (
+                        <Info label="Annual Fee" value={fmtMoney(data.creditCardInfo?.annualFee)} />
                       )}
-                      {data.creditCardInfo.lateFee && (
-                        <Info label="Late Fee" value={fmtMoney(data.creditCardInfo.lateFee)} />
+                      {data.creditCardInfo?.lateFee && (
+                        <Info label="Late Fee" value={fmtMoney(data.creditCardInfo?.lateFee)} />
                       )}
                     </div>
                   </section>
@@ -751,24 +751,24 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
             {/* NO TRADING SECTIONS FOR TELLER ACCOUNTS - Only for brokerage accounts */}
 
                 {/* c) APR & Fees */}
-                {(data.creditCardInfo.apr || data.creditCardInfo.annualFee || data.creditCardInfo.lateFee) && (
+                {(data.creditCardInfo?.apr || data.creditCardInfo?.annualFee || data.creditCardInfo?.lateFee) && (
                   <section>
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white font-bold text-sm mr-3">%</div>
                       APR & Fees
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {data.creditCardInfo.apr && (
-                        <Info label="APR" value={`${data.creditCardInfo.apr}%`} />
+                      {data.creditCardInfo?.apr && (
+                        <Info label="APR" value={`${data.creditCardInfo?.apr}%`} />
                       )}
-                      {data.creditCardInfo.cashAdvanceApr && (
-                        <Info label="Cash Advance APR" value={`${data.creditCardInfo.cashAdvanceApr}%`} />
+                      {data.creditCardInfo?.cashAdvanceApr && (
+                        <Info label="Cash Advance APR" value={`${data.creditCardInfo?.cashAdvanceApr}%`} />
                       )}
-                      {data.creditCardInfo.annualFee && (
-                        <Info label="Annual Fee" value={fmtMoney(data.creditCardInfo.annualFee)} />
+                      {data.creditCardInfo?.annualFee && (
+                        <Info label="Annual Fee" value={fmtMoney(data.creditCardInfo?.annualFee)} />
                       )}
-                      {data.creditCardInfo.lateFee && (
-                        <Info label="Late Fee" value={fmtMoney(data.creditCardInfo.lateFee)} />
+                      {data.creditCardInfo?.lateFee && (
+                        <Info label="Late Fee" value={fmtMoney(data.creditCardInfo?.lateFee)} />
                       )}
                     </div>
                   </section>
