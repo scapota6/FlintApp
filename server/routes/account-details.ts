@@ -47,8 +47,9 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
       if (dbAccount) {
         provider = dbAccount.provider;
         externalId = dbAccount.externalAccountId;
-        console.log('[Account Details API] Resolved account:', { 
-          flintId: dbId,
+        console.log('[Account Details API] Account resolved:', { 
+          userId,
+          flintAccountId: dbId,
           tellerAccountId: externalId,
           provider, 
           institution: dbAccount.institutionName 
@@ -64,7 +65,9 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
       if (dbAccount) {
         provider = dbAccount.provider;
         externalId = accountId;
-        console.log('[Account Details API] Found by external ID:', { 
+        console.log('[Account Details API] Account found by external ID:', { 
+          userId,
+          flintAccountId: dbAccount.id,
           tellerAccountId: externalId,
           provider,
           institution: dbAccount.institutionName 
@@ -73,7 +76,11 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
     }
     
     if (!provider || !externalId) {
-      console.log('[Account Details API] Failed: Account not found (404)', { accountId });
+      console.log('[Account Details API] Failed: Account not found (404)', { 
+        userId,
+        requestedAccountId: accountId,
+        reason: 'No matching account in database'
+      });
       return res.status(404).json({ 
         message: "Account not found",
         code: 'ACCOUNT_NOT_FOUND',
@@ -102,11 +109,16 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
         // Note: Statements API would be called here if available
         // const statements = await teller.statements?.list(externalId).catch(() => []);
         
-        console.log('[Account Details] Teller aggregation complete:', {
+        console.log('[Account Details API] Teller data fetched successfully:', {
+          userId,
+          flintAccountId: dbId,
+          tellerAccountId: externalId,
+          provider: 'teller',
           hasAccount: !!account,
           hasBalances: !!balances,
           transactionCount: transactions?.length || 0,
-          hasDetails: !!accountDetails
+          hasDetails: !!accountDetails,
+          httpStatus: 200
         });
         
         // For credit cards, extract comprehensive payment and credit information
@@ -189,20 +201,31 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           statements: [] // Placeholder - would be populated if Teller statements API available
         });
       } catch (error: any) {
-        // Check for Teller auth errors
+        // Extract comprehensive error details
         const statusCode = error.response?.status || error.statusCode || 500;
         const errorMessage = error.message || 'Teller API error';
+        const errorDetails = error.response?.data || {};
         
-        console.error('[Account Details API] Teller error:', {
+        // Enhanced diagnostic logging with all required fields
+        console.error('[Account Details API] Teller API call failed:', {
           userId,
+          flintAccountId: dbId || 'unknown',
           tellerAccountId: externalId,
-          status: statusCode,
-          reason: errorMessage
+          tellerHttpStatus: statusCode,
+          reason: errorMessage,
+          errorDetails: errorDetails,
+          provider: 'teller'
         });
         
-        // Handle Teller auth expiration
-        if (statusCode === 401 || statusCode === 403) {
-          console.log('[Account Details API] Teller consent expired, reconnection required');
+        // Handle specific auth error cases
+        if (statusCode === 403) {
+          console.log('[Account Details API] Teller 403 error - reconnect required:', {
+            userId,
+            flintAccountId: dbId || 'unknown',
+            tellerAccountId: externalId,
+            tellerHttpStatus: 403,
+            reason: 'reconnect required'
+          });
           return res.status(401).json({
             message: 'Teller account reconnection required',
             code: 'TELLER_RECONNECT_REQUIRED',
@@ -210,9 +233,30 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           });
         }
         
+        if (statusCode === 401) {
+          console.log('[Account Details API] Teller 401 error - token invalid:', {
+            userId,
+            flintAccountId: dbId || 'unknown',
+            tellerAccountId: externalId,
+            tellerHttpStatus: 401,
+            reason: 'token invalid or expired'
+          });
+          return res.status(401).json({
+            message: 'Teller authentication failed',
+            code: 'TELLER_AUTH_FAILED',
+            provider: 'teller'
+          });
+        }
+        
         // For test accounts, provide fallback mock data when Teller API fails
         if (externalId?.includes('test') || externalId?.includes('acc_test')) {
-          console.log('[Account Details] Providing test data fallback for:', externalId);
+          console.log('[Account Details API] Providing test data fallback:', {
+            userId,
+            flintAccountId: dbId || 'unknown',
+            tellerAccountId: externalId,
+            tellerHttpStatus: statusCode,
+            reason: 'using test data fallback'
+          });
           
           // Get account info from database for basic details
           const [dbAccount] = await db
@@ -315,7 +359,13 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
       const snapUser = null; // TODO: Implement proper SnapTrade user lookup
       
       if (!snapUser) {
-        console.log('[Account Details] No SnapTrade credentials for user');
+        console.log('[Account Details API] SnapTrade not connected:', {
+          userId,
+          flintAccountId: dbId || 'unknown',
+          snaptradeAccountId: externalId,
+          reason: 'no SnapTrade credentials for user',
+          provider: 'snaptrade'
+        });
         return res.status(400).json({ message: "SnapTrade not connected" });
       }
       
@@ -323,9 +373,20 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
         // For now, return a stub response since we don't have SnapTrade user lookup implemented
         return res.status(501).json({ message: "SnapTrade account details not implemented yet" });
       } catch (error: any) {
-        console.error('[Account Details] SnapTrade API error:', error);
-        return res.status(500).json({ 
-          message: "Failed to fetch account details",
+        const statusCode = error.response?.status || error.statusCode || 500;
+        const errorMessage = error.message || 'SnapTrade API error';
+        
+        console.error('[Account Details API] SnapTrade API call failed:', {
+          userId,
+          flintAccountId: dbId || 'unknown',
+          snaptradeAccountId: externalId,
+          snaptradeHttpStatus: statusCode,
+          reason: errorMessage,
+          provider: 'snaptrade'
+        });
+        
+        return res.status(statusCode === 401 || statusCode === 403 ? 401 : 500).json({ 
+          message: statusCode === 401 || statusCode === 403 ? 'SnapTrade authentication failed' : 'Failed to fetch account details',
           error: error.message 
         });
       }
@@ -333,7 +394,11 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
       return res.status(400).json({ message: "Unknown provider" });
     }
   } catch (error: any) {
-    console.error('[Account Details] Error:', error);
+    console.error('[Account Details API] Unexpected error:', {
+      userId: req.user?.claims?.sub || req.headers['x-user-id'],
+      requestedAccountId: req.params.accountId,
+      reason: error.message || 'unexpected server error'
+    });
     res.status(500).json({ 
       message: "Failed to fetch account details",
       error: error.message 
