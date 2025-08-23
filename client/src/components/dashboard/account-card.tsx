@@ -11,6 +11,17 @@ import {
   Activity,
   Wallet
 } from 'lucide-react';
+import { 
+  SiCapitalone,
+  SiChase,
+  SiAmericanexpress,
+  SiBankofamerica,
+  SiWellsfargo,
+  SiCitibank,
+  SiUsbank,
+  SiRobinhood,
+  SiCoinbase
+} from 'react-icons/si';
 import { formatCurrency } from '@/lib/utils';
 import AccountDetailsDialog from '../AccountDetailsDialog';
 
@@ -35,16 +46,48 @@ export default function AccountCard({ account }: AccountCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const { user } = useAuth();
 
-  const getAccountIcon = () => {
+  const getBankLogo = () => {
+    const institution = account.institution.toLowerCase();
+    
+    // Bank-specific logos
+    if (institution.includes('capitalone') || institution.includes('capital one')) {
+      return <SiCapitalone className="h-5 w-5 text-red-500" />;
+    }
+    if (institution.includes('chase')) {
+      return <SiChase className="h-5 w-5 text-blue-600" />;
+    }
+    if (institution.includes('american express') || institution.includes('amex')) {
+      return <SiAmericanexpress className="h-5 w-5 text-blue-700" />;
+    }
+    if (institution.includes('bank of america') || institution.includes('boa')) {
+      return <SiBankofamerica className="h-5 w-5 text-red-600" />;
+    }
+    if (institution.includes('wells fargo')) {
+      return <SiWellsfargo className="h-5 w-5 text-yellow-600" />;
+    }
+    if (institution.includes('citi')) {
+      return <SiCitibank className="h-5 w-5 text-blue-600" />;
+    }
+    if (institution.includes('us bank')) {
+      return <SiUsbank className="h-5 w-5 text-blue-700" />;
+    }
+    if (institution.includes('robinhood')) {
+      return <SiRobinhood className="h-5 w-5 text-green-500" />;
+    }
+    if (institution.includes('coinbase')) {
+      return <SiCoinbase className="h-5 w-5 text-blue-500" />;
+    }
+    
+    // Fallback to generic icons by type
     switch (account.type) {
       case 'bank':
-        return <Building2 className="h-5 w-5" />;
+        return <Building2 className="h-5 w-5 text-green-500" />;
       case 'investment':
-        return <TrendingUp className="h-5 w-5" />;
+        return <TrendingUp className="h-5 w-5 text-orange-500" />;
       case 'crypto':
-        return <Wallet className="h-5 w-5" />;
+        return <Wallet className="h-5 w-5 text-yellow-500" />;
       case 'credit':
-        return <DollarSign className="h-5 w-5" />;
+        return <DollarSign className="h-5 w-5 text-red-500" />;
       default:
         return <DollarSign className="h-5 w-5" />;
     }
@@ -76,7 +119,7 @@ export default function AccountCard({ account }: AccountCardProps) {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-muted">
-                {getAccountIcon()}
+                {getBankLogo()}
               </div>
               <div>
                 <CardTitle className="text-lg font-semibold">
@@ -104,7 +147,7 @@ export default function AccountCard({ account }: AccountCardProps) {
             {/* Main Balance */}
             <div>
               <p className="text-sm text-muted-foreground mb-1">Total Balance</p>
-              <p className={`text-2xl font-bold ${account.type === 'credit' ? '!text-red-500' : '!text-green-500'}`} style={{color: account.type === 'credit' ? '#ef4444' : '#10b981'}}>
+              <p className={`text-2xl font-bold ${account.type === 'credit' ? 'text-red-500' : 'text-green-500'}`}>
                 {formatCurrency(account.balance)}
               </p>
             </div>
