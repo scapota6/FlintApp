@@ -7,6 +7,7 @@ import { Router } from "express";
 import { getSnapUser, deleteSnapUser } from "../../store/snapUsers";
 import { storage } from "../../storage";
 import { logger } from "@shared/logger";
+import { isAuthenticated } from "../replitAuth"; // ensureUser equivalent
 
 const router = Router();
 
@@ -14,7 +15,7 @@ const router = Router();
  * POST /api/connections/disconnect/snaptrade
  * Disconnects a SnapTrade brokerage account
  */
-router.post("/snaptrade", async (req: any, res) => {
+router.post("/snaptrade", isAuthenticated, async (req: any, res, next) => {
   const startTime = Date.now();
   const userId = req.user?.id;
   const { accountId } = req.body;
@@ -244,7 +245,7 @@ router.post("/snaptrade", async (req: any, res) => {
  * POST /api/connections/disconnect/teller
  * Disconnects a Teller bank account
  */
-router.post("/teller", async (req: any, res) => {
+router.post("/teller", isAuthenticated, async (req: any, res, next) => {
   const startTime = Date.now();
   const userId = req.user?.id;
   const { accountId } = req.body;
@@ -273,9 +274,13 @@ router.post("/teller", async (req: any, res) => {
         userId, 
         metadata: { statusCode: 400 }
       });
-      return res.status(400).json({ message: "Account ID is required" });
+      return res.status(400).json({ message: "accountId required" });
     }
 
+    // 1) Look up user's stored Teller account connection by accountId
+    // 2) Revoke/remove token or delete the linkage record (per Teller integration)  
+    // 3) Delete the linkage in our DB (do not touch SnapTrade here)
+    
     // Remove from database
     await storage.deleteConnectedAccount(userId, 'teller', accountId);
 
@@ -290,35 +295,10 @@ router.post("/teller", async (req: any, res) => {
       }
     });
 
-    res.json({ 
-      success: true, 
-      message: "Bank account disconnected successfully" 
-    });
+    return res.status(200).json({ success: true });
 
   } catch (error: any) {
-    const duration = Date.now() - startTime;
-    logger.error("Failed to disconnect Teller account", { 
-      error: error.message,
-      userId: req.user?.id,
-      metadata: { 
-        accountId: req.body?.accountId, 
-        statusCode: 500,
-        duration: `${duration}ms`,
-        csrfValidated: true,
-        errorDetails: {
-          message: error.message,
-          stack: error.stack
-        }
-      }
-    });
-    
-    res.status(500).json({ 
-      message: "Failed to disconnect bank account",
-      error: error.message,
-      details: process.env.NODE_ENV === 'development' ? {
-        stack: error.stack
-      } : undefined
-    });
+    next(error);
   }
 });
 
