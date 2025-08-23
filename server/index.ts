@@ -20,8 +20,25 @@ const app = express();
 
 (async () => {
   try {
-  // 1) Security + parsers
-  app.use(helmet());
+  // 1) Security + parsers (allow necessary external scripts)
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'", 
+          "'unsafe-inline'", // Allow inline scripts for Vite dev
+          "https://cdn.teller.io", // Teller Connect
+          "https://replit.com", // Replit dev banner
+          "https://js.sentry-cdn.com" // Sentry if used
+        ],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        connectSrc: ["'self'", "wss:", "ws:", "https:"],
+        imgSrc: ["'self'", "data:", "https:"],
+        fontSrc: ["'self'", "data:", "https:"],
+      },
+    },
+  }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
