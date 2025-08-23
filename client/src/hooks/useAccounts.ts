@@ -33,8 +33,9 @@ export function useAccounts() {
   } = useQuery({
     queryKey: ['teller', 'accounts'],
     queryFn: () => tellerService.getAccounts(),
-    staleTime: 12 * 60 * 60 * 1000, // 12 hours
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours - poll balances no more than once per session
     gcTime: 24 * 60 * 60 * 1000, // 24 hours
+    refetchOnWindowFocus: false, // Don't refetch on window focus to respect rate limits
   });
 
   // Fetch balances for all accounts
@@ -61,8 +62,9 @@ export function useAccounts() {
       return balanceResults.reduce((acc, curr) => ({ ...acc, ...curr }), {} as Record<string, TellerBalance | null>);
     },
     enabled: !!accounts && accounts.length > 0,
-    staleTime: 12 * 60 * 60 * 1000, // 12 hours
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours - poll balances no more than once per session
     gcTime: 24 * 60 * 60 * 1000, // 24 hours
+    refetchOnWindowFocus: false, // Don't refetch on window focus to respect rate limits
   });
 
   // Fetch credit metadata for credit cards
@@ -91,8 +93,9 @@ export function useAccounts() {
       return creditResults.reduce((acc, curr) => ({ ...acc, ...curr }), {} as Record<string, TellerDetails | null>);
     },
     enabled: !!accounts && accounts.some(a => a.type === 'credit'),
-    staleTime: 12 * 60 * 60 * 1000, // 12 hours
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours - poll balances no more than once per session
     gcTime: 24 * 60 * 60 * 1000, // 24 hours
+    refetchOnWindowFocus: false, // Don't refetch on window focus to respect rate limits
   });
 
   // Compute accounts with display fields
@@ -110,9 +113,8 @@ export function useAccounts() {
     const availableCredit = creditDetails?.available_credit ? parseFloat(creditDetails.available_credit) : undefined;
 
     // Map subtype → asset vs liability based on Teller account types
-    const isAsset = (account.type === 'depository' && 
-                    ['checking', 'savings', 'money_market', 'cd'].includes(account.subtype)) ||
-                   (account.type === 'investment');
+    // If account subtype is unknown, default to asset display
+    const isAsset = account.type === 'credit' ? false : true; // Default to asset unless explicitly credit
     const isCredit = account.type === 'credit';
 
     let displayValue: number;
@@ -123,10 +125,11 @@ export function useAccounts() {
     if (isCredit) {
       // Credit cards: Show amount spent in red
       // Primary: current_balance, Fallback: credit_limit - available_credit
-      if (currentBalance !== undefined) {
+      if (currentBalance !== undefined && currentBalance !== null) {
         amountSpentCycle = Math.abs(currentBalance); // Current balance is negative for spending
         displayValue = amountSpentCycle;
-      } else if (creditLimit !== undefined && availableCredit !== undefined) {
+      } else if (creditLimit !== undefined && creditLimit !== null && 
+                 availableCredit !== undefined && availableCredit !== null) {
         amountSpentCycle = creditLimit - availableCredit;
         displayValue = amountSpentCycle;
       } else {
@@ -140,7 +143,12 @@ export function useAccounts() {
       displayColor = 'red';
     } else {
       // Assets: display_value = available_balance, color green
-      displayValue = availableBalance || ledgerBalance || currentBalance || 0;
+      // Handle null values - if Teller returns null, use 0 but mark as unavailable
+      displayValue = availableBalance !== null && availableBalance !== undefined ? 
+                   availableBalance : 
+                   (ledgerBalance !== null && ledgerBalance !== undefined ? 
+                    ledgerBalance : 
+                    (currentBalance !== null && currentBalance !== undefined ? currentBalance : 0));
       displayLabel = 'Available balance';
       displayColor = 'green';
     }
@@ -165,19 +173,22 @@ export function useAccounts() {
   }) || [];
 
   // Compute percent_of_total using sum of asset available_balance
+  // Only include accounts with valid available_balance (not null/undefined)
   const assetAccounts = accountsWithComputedFields.filter(acc => 
-    (acc.type === 'depository' && ['checking', 'savings', 'money_market', 'cd'].includes(acc.subtype)) ||
-    acc.type === 'investment'
+    acc.type !== 'credit' && 
+    acc.available_balance !== null && 
+    acc.available_balance !== undefined
   );
   
   const totalAssetValue = assetAccounts.reduce((sum, acc) => sum + (acc.available_balance || 0), 0);
   
-  // Add percent_of_total to asset accounts
+  // Add percent_of_total to asset accounts - if Teller returns null, do not compute percent
   const finalAccounts = accountsWithComputedFields.map(account => {
-    if (assetAccounts.includes(account) && totalAssetValue > 0) {
+    if (assetAccounts.includes(account) && totalAssetValue > 0 && 
+        account.available_balance !== null && account.available_balance !== undefined) {
       return {
         ...account,
-        percent_of_total: Math.round(((account.available_balance || 0) / totalAssetValue) * 100)
+        percent_of_total: Math.round((account.available_balance / totalAssetValue) * 100)
       };
     }
     return account;

@@ -51,18 +51,33 @@ export default function AccountCard({ account, currentUserId }: AccountCardProps
 
             {/* Big number: display_value with currency format */}
             <div className="text-right">
-              <div className={`text-2xl font-bold ${
+              <div className={`text-2xl font-bold flex items-center justify-end gap-2 ${
                 account.display_color === 'green' ? 'text-green-400' : 'text-red-400'
               }`}>
                 {formatCurrency(account.display_value)}
+                {/* If available_balance is negative (overdraft), add badge */}
+                {account.display_color === 'green' && account.available_balance !== null && 
+                 account.available_balance !== undefined && account.available_balance < 0 && (
+                  <span className="bg-orange-500/20 text-orange-400 text-xs px-2 py-1 rounded-full font-normal">
+                    Overdraft
+                  </span>
+                )}
               </div>
               
               {/* Small line: percent for assets, credit available for credit cards */}
               <div className="text-gray-400 text-sm mt-1">
                 {account.display_color === 'green' && account.percent_of_total ? (
                   `${account.percent_of_total}% of total`
-                ) : account.display_color === 'red' && account.available_credit !== undefined ? (
-                  `Credit available — ${formatCurrency(account.available_credit)}`
+                ) : account.display_color === 'red' ? (
+                  // If credit_limit is missing, hide "Credit available" line and show just "Amount spent"
+                  account.credit_limit !== null && account.credit_limit !== undefined && 
+                  account.available_credit !== null && account.available_credit !== undefined ? (
+                    `Credit available — ${formatCurrency(account.available_credit)}`
+                  ) : (
+                    'Amount spent'
+                  )
+                ) : account.available_balance === null || account.available_balance === undefined ? (
+                  '—'
                 ) : (
                   account.display_label
                 )}

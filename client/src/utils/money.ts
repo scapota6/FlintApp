@@ -1,7 +1,10 @@
 /**
  * Format a number as currency (USD)
  */
-export function formatCurrency(n: number): string {
+export function formatCurrency(n: number | null | undefined): string {
+  if (n === null || n === undefined || isNaN(n)) {
+    return "—";
+  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
