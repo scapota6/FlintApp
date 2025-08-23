@@ -217,33 +217,18 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           provider: 'teller'
         });
         
-        // Handle specific auth error cases
-        if (statusCode === 403) {
-          console.log('[Account Details API] Teller 403 error - reconnect required:', {
+        // Handle specific auth error cases with 428 Precondition Required
+        if (statusCode === 401 || statusCode === 403) {
+          console.log('[Account Details API] Teller auth error - reconnect required:', {
             userId,
             flintAccountId: dbId || 'unknown',
             tellerAccountId: externalId,
-            tellerHttpStatus: 403,
-            reason: 'reconnect required'
+            tellerHttpStatus: statusCode,
+            reason: 'reconnect required - stale consent or wrong token/account mapping'
           });
-          return res.status(401).json({
-            message: 'Teller account reconnection required',
+          return res.status(428).json({ // 428 Precondition Required is a nice fit
             code: 'TELLER_RECONNECT_REQUIRED',
-            provider: 'teller'
-          });
-        }
-        
-        if (statusCode === 401) {
-          console.log('[Account Details API] Teller 401 error - token invalid:', {
-            userId,
-            flintAccountId: dbId || 'unknown',
-            tellerAccountId: externalId,
-            tellerHttpStatus: 401,
-            reason: 'token invalid or expired'
-          });
-          return res.status(401).json({
-            message: 'Teller authentication failed',
-            code: 'TELLER_AUTH_FAILED',
+            message: 'Please re-authenticate this account to continue.',
             provider: 'teller'
           });
         }
@@ -282,20 +267,19 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
                 creditLimit: 15000,
                 currentBalance: balance,
                 
+                apr: 24.99,
+                cashAdvanceApr: 29.99,
+                annualFee: 695,
+                lateFee: 39,
+                lastFour: dbAccount.accountNumber?.slice(-4) || '8731',
+                
                 // Payment capabilities for test data
                 paymentCapabilities: {
                   canPay: false,
                   paymentMethods: ['zelle'],
                   sandboxMode: true,
                   reason: 'This institution does not support Teller payments in sandbox mode. In production, payment support varies by institution.',
-                  supportedInProduction: true
-                },
-                apr: 24.99,
-                cashAdvanceApr: 29.99,
-                annualFee: 695,
-                lateFee: 39,
-                lastFour: dbAccount.accountNumber?.slice(-4) || '8731',
-                paymentCapabilities: {
+                  supportedInProduction: true,
                   paymentsSupported: true
                 }
               };
@@ -342,8 +326,8 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
         }
         
         return res.status(500).json({ 
-          message: "Failed to fetch account details",
-          error: error.message 
+          code: 'TELLER_FETCH_FAILED', 
+          message: 'Failed to fetch account details from Teller'
         });
       }
     } else if (provider === 'snaptrade') {
@@ -385,9 +369,18 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           provider: 'snaptrade'
         });
         
-        return res.status(statusCode === 401 || statusCode === 403 ? 401 : 500).json({ 
-          message: statusCode === 401 || statusCode === 403 ? 'SnapTrade authentication failed' : 'Failed to fetch account details',
-          error: error.message 
+        // Handle SnapTrade auth errors similarly
+        if (statusCode === 401 || statusCode === 403) {
+          return res.status(428).json({ 
+            code: 'SNAPTRADE_RECONNECT_REQUIRED',
+            message: 'Please re-authenticate this account to continue.',
+            provider: 'snaptrade'
+          });
+        }
+        
+        return res.status(500).json({ 
+          code: 'SNAPTRADE_FETCH_FAILED',
+          message: 'Failed to fetch account details from SnapTrade'
         });
       }
     } else {
@@ -441,10 +434,22 @@ router.get("/accounts/:provider/:accountId/details", isAuthenticated, async (req
       res.status(400).json({ message: "Invalid provider" });
     }
   } catch (error: any) {
+    const { provider } = req.params;
     console.error('[Account Details Legacy] Error:', error);
+    
+    // Handle auth errors for legacy route too
+    const status = error?.response?.status || error?.status;
+    if (status === 401 || status === 403) {
+      return res.status(428).json({ 
+        code: provider === 'teller' ? 'TELLER_RECONNECT_REQUIRED' : 'SNAPTRADE_RECONNECT_REQUIRED',
+        message: 'Please re-authenticate this account to continue.',
+        provider 
+      });
+    }
+    
     res.status(500).json({ 
-      message: "Failed to fetch account details",
-      error: error.message 
+      code: provider === 'teller' ? 'TELLER_FETCH_FAILED' : 'SNAPTRADE_FETCH_FAILED',
+      message: `Failed to fetch account details from ${provider}`
     });
   }
 });
