@@ -380,7 +380,9 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
     setShowPaymentDialog(false);
     setCustomPaymentAmount('');
   };
-  const { data, isLoading, isError, error } = useQuery({
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['account-details', accountId],
     enabled: open,
     queryFn: async () => {
@@ -400,6 +402,57 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
   const errorDetails = error as any;
   const isDev = process.env.NODE_ENV === 'development';
   const [showErrorDetails, setShowErrorDetails] = useState(false);
+  
+  // Reconnection handler
+  const handleReconnectAccount = async () => {
+    setIsReconnecting(true);
+    
+    try {
+      // Initialize Teller Connect in update mode
+      const response = await fetch('/api/teller/init-update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ accountId })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to initialize reconnection');
+      }
+      
+      const { applicationId, connectToken } = await response.json();
+      
+      // Launch Teller Connect in update mode with connectToken
+      const tellerConnect = (window as any).TellerConnect?.setup({
+        applicationId: applicationId,
+        connectToken: connectToken, // This enables update mode
+        onSuccess: async (enrollment: any) => {
+          // Account has been updated, refetch the details
+          await refetch();
+          setIsReconnecting(false);
+          toast({
+            title: "Account Reconnected",
+            description: "Your account has been successfully reconnected.",
+          });
+        },
+        onExit: () => {
+          setIsReconnecting(false);
+        }
+      });
+      
+      tellerConnect?.open();
+      
+    } catch (error) {
+      console.error('Failed to reconnect account:', error);
+      setIsReconnecting(false);
+      toast({
+        title: "Reconnection Failed",
+        description: "Failed to initialize account reconnection. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (!open) return null;
 
@@ -442,6 +495,22 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     ? 'Account reconnection required. Please reconnect your account.'
                     : 'Please check your connection and try again.'}
                 </p>
+                {errorDetails?.code === 'TELLER_RECONNECT_REQUIRED' && (
+                  <button
+                    onClick={handleReconnectAccount}
+                    disabled={isReconnecting}
+                    className="mt-3 inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium rounded-lg transition-colors text-sm"
+                  >
+                    {isReconnecting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                        Reconnecting...
+                      </>
+                    ) : (
+                      'Reconnect Account'
+                    )}
+                  </button>
+                )}
                 {isDev && (
                   <button
                     onClick={() => setShowErrorDetails(!showErrorDetails)}

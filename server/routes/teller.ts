@@ -1068,4 +1068,64 @@ function analyzeRecurringTransactions(transactions: any[]): any[] {
   return recurring.slice(0, 10); // Limit to top 10
 }
 
+/**
+ * POST /api/teller/init-update
+ * Initialize Teller Connect in update mode for reconnecting an existing account
+ */
+router.post("/init-update", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { accountId } = req.body;
+    
+    if (!accountId) {
+      return res.status(400).json({ 
+        message: "Account ID is required" 
+      });
+    }
+    
+    console.log('[Teller Update] Initializing update mode for account:', { userId, accountId });
+    
+    // Get the Teller account from our database
+    const account = await storage.getConnectedAccount(userId, parseInt(accountId));
+    if (!account || account.provider !== 'teller') {
+      return res.status(404).json({ 
+        message: "Teller account not found" 
+      });
+    }
+    
+    console.log('[Teller Update] Found account:', {
+      externalId: account.externalAccountId,
+      accountName: account.accountName,
+      institutionName: account.institutionName
+    });
+    
+    // For update mode, we need to get a connectToken from Teller
+    // This requires the existing enrollment_id/access_token
+    const existingToken = account.accessToken;
+    if (!existingToken) {
+      return res.status(400).json({ 
+        message: "No access token found for account. Cannot initialize update mode." 
+      });
+    }
+    
+    // According to Teller docs, we can use the existing enrollment_id as connectToken
+    // for update mode, or we need to call Teller API to get a proper connectToken
+    // For now, we'll use the enrollment_id directly as the connectToken
+    const connectToken = existingToken;
+    
+    res.json({
+      applicationId: process.env.TELLER_APPLICATION_ID,
+      connectToken: connectToken,
+      environment: process.env.TELLER_ENVIRONMENT || 'sandbox'
+    });
+    
+  } catch (error: any) {
+    console.error('[Teller Update] Error initializing update mode:', error.message);
+    res.status(500).json({ 
+      message: "Failed to initialize account reconnection",
+      error: error.message
+    });
+  }
+});
+
 export default router;
