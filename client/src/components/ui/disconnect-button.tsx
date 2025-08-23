@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, X } from 'lucide-react';
+import { Trash2, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -21,8 +21,13 @@ export default function DisconnectButton({
 }: DisconnectButtonProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [lastError, setLastError] = useState<any>(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
   const { toast } = useToast();
   const popoverRef = useRef<HTMLDivElement>(null);
+  
+  // Check if we're in development mode
+  const isDev = import.meta.env.DEV;
 
   // Handle click outside to close popover
   useEffect(() => {
@@ -98,6 +103,7 @@ export default function DisconnectButton({
       }
     } catch (error: any) {
       console.error('Disconnect error:', error);
+      setLastError(error); // Store error for dev details
       
       // Show meaningful error message from server
       let errorMessage = "Failed to disconnect account. Please try again.";
@@ -121,7 +127,20 @@ export default function DisconnectButton({
       
       toast({
         title: "Disconnect Failed",
-        description: errorMessage,
+        description: (
+          <div className="space-y-2">
+            <div>{errorMessage}</div>
+            {isDev && lastError && (
+              <button
+                onClick={() => setShowErrorDetails(!showErrorDetails)}
+                className="text-xs text-blue-400 hover:text-blue-300 underline flex items-center gap-1"
+              >
+                View details
+                {showErrorDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </button>
+            )}
+          </div>
+        ),
         variant: "destructive",
       });
     } finally {

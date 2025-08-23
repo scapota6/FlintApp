@@ -123,16 +123,31 @@ const app = express();
     return needs ? csrfProtection(req, res, next) : next();
   });
 
-  // Friendly CSRF error handler
+  // Enhanced CSRF error handler with detailed logging
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     if (err.code === 'EBADCSRFTOKEN') {
-      logger.warn('Invalid CSRF token detected', { 
+      // Log detailed CSRF failure information
+      logger.warn('CSRF validation failed', { 
+        userId: _req.user?.id || 'anonymous',
         metadata: {
           path: _req.path,
-          method: _req.method
+          method: _req.method,
+          userAgent: _req.get('User-Agent'),
+          ip: _req.ip,
+          csrfTokenProvided: !!_req.headers['x-csrf-token'],
+          csrfCookie: !!_req.cookies.flint_csrf,
+          statusCode: 403
         }
       });
-      return res.status(403).json({ message: 'Invalid CSRF token' });
+      
+      return res.status(403).json({ 
+        message: 'Invalid CSRF token',
+        details: process.env.NODE_ENV === 'development' ? {
+          reason: 'CSRF token missing or invalid',
+          expectedHeader: 'x-csrf-token',
+          tokenProvided: !!_req.headers['x-csrf-token']
+        } : undefined
+      });
     }
     next(err);
   });

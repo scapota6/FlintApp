@@ -15,15 +15,34 @@ const router = Router();
  * Disconnects a SnapTrade brokerage account
  */
 router.post("/snaptrade", async (req: any, res) => {
+  const startTime = Date.now();
+  const userId = req.user?.id;
+  const { accountId } = req.body;
+  
+  // Log disconnect attempt with CSRF validation status
+  logger.info("SnapTrade disconnect attempt", {
+    userId,
+    metadata: { 
+      accountId, 
+      csrfValidated: true, // If we reach here, CSRF passed
+      userAgent: req.get('User-Agent'),
+      ip: req.ip
+    }
+  });
+  
   try {
-    const userId = req.user?.id;
-    const { accountId } = req.body;
-    
     if (!userId) {
+      logger.warn("SnapTrade disconnect: Unauthorized", { 
+        metadata: { accountId, statusCode: 401 }
+      });
       return res.status(401).json({ message: "Unauthorized" });
     }
 
     if (!accountId) {
+      logger.warn("SnapTrade disconnect: Missing account ID", { 
+        userId, 
+        metadata: { statusCode: 400 }
+      });
       return res.status(400).json({ message: "Account ID is required" });
     }
 
@@ -226,22 +245,50 @@ router.post("/snaptrade", async (req: any, res) => {
  * Disconnects a Teller bank account
  */
 router.post("/teller", async (req: any, res) => {
+  const startTime = Date.now();
+  const userId = req.user?.id;
+  const { accountId } = req.body;
+  
+  // Log disconnect attempt with CSRF validation status
+  logger.info("Teller disconnect attempt", {
+    userId,
+    metadata: { 
+      accountId, 
+      csrfValidated: true, // If we reach here, CSRF passed
+      userAgent: req.get('User-Agent'),
+      ip: req.ip
+    }
+  });
+  
   try {
-    const userId = req.user?.id;
-    const { accountId } = req.body;
-    
     if (!userId) {
+      logger.warn("Teller disconnect: Unauthorized", { 
+        metadata: { accountId, statusCode: 401 }
+      });
       return res.status(401).json({ message: "Unauthorized" });
     }
 
     if (!accountId) {
+      logger.warn("Teller disconnect: Missing account ID", { 
+        userId, 
+        metadata: { statusCode: 400 }
+      });
       return res.status(400).json({ message: "Account ID is required" });
     }
 
     // Remove from database
     await storage.deleteConnectedAccount(userId, 'teller', accountId);
 
-    logger.info("Teller account disconnected", { userId, metadata: { accountId } });
+    const duration = Date.now() - startTime;
+    logger.info("Teller account disconnected successfully", { 
+      userId, 
+      metadata: { 
+        accountId, 
+        statusCode: 200,
+        duration: `${duration}ms`,
+        csrfValidated: true
+      }
+    });
 
     res.json({ 
       success: true, 
@@ -249,15 +296,28 @@ router.post("/teller", async (req: any, res) => {
     });
 
   } catch (error: any) {
+    const duration = Date.now() - startTime;
     logger.error("Failed to disconnect Teller account", { 
       error: error.message,
       userId: req.user?.id,
-      metadata: { accountId: req.body?.accountId }
+      metadata: { 
+        accountId: req.body?.accountId, 
+        statusCode: 500,
+        duration: `${duration}ms`,
+        csrfValidated: true,
+        errorDetails: {
+          message: error.message,
+          stack: error.stack
+        }
+      }
     });
     
     res.status(500).json({ 
       message: "Failed to disconnect bank account",
-      error: error.message 
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? {
+        stack: error.stack
+      } : undefined
     });
   }
 });
