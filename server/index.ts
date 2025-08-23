@@ -1,7 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
-import csrf from "csurf";
 import cors from "cors";
+import helmet from "helmet";
+import csrf from "csurf";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initSentry, sentryErrorHandler } from "./lib/sentry";
@@ -19,21 +20,23 @@ const app = express();
 
 (async () => {
   try {
-  // Trust proxy (Replit/Heroku-style) so secure cookies & proto work
-  app.set('trust proxy', 1);
-
-  // Parse JSON & cookies BEFORE csurf
+  // 1) Security + parsers
+  app.use(helmet());
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
 
-  // CORS: allow front-end origin, cookies, and CSRF token header
+  // 2) CORS — allow credentials from your client origin
+  const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev';
   app.use(cors({
-    origin: true,
+    origin: CLIENT_ORIGIN,
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
-    exposedHeaders: ['x-csrf-token']
+    allowedHeaders: ['Content-Type', 'x-csrf-token'],
+    methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   }));
+
+  // 3) Trust proxy so Secure cookies work behind Replit's TLS
+  app.set('trust proxy', 1);
 
   app.use((req, res, next) => {
     const start = Date.now();
@@ -92,79 +95,32 @@ const app = express();
   const accountsRouter = (await import("./routes/accounts")).default;
   app.use("/api/accounts", accountsRouter);
 
-  // CSRF via double-submit cookie
+  // 4) CSRF (double-submit cookie)
   const isProd = process.env.NODE_ENV === 'production';
-  const csrfProtection = csrf({
+  app.use(csrf({
     cookie: {
       key: 'flint_csrf',
-      httpOnly: false,        // must be readable by JS (double-submit pattern)
-      sameSite: isProd ? 'none' : 'lax', // 'none' if front/back on different origins
-      secure: isProd,         // true when HTTPS
-    },
-    ignoreMethods: ['GET', 'HEAD', 'OPTIONS'], // ignore OPTIONS (preflight) and GET/HEAD
-  });
+      path: '/',                 // must cover /api/*
+      sameSite: isProd ? 'none' : 'lax', // 'none' for cross-subdomain; 'lax' for same-origin dev
+      secure: isProd,            // Secure=true in prod (https)
+      httpOnly: false,           // double-submit pattern: JS must read the token to send in header
+    }
+  }));
 
-  // Issue token endpoint (no CSRF required beforehand)
-  app.get('/api/csrf-token', csrfProtection, (req: any, res) => {
-    res.json({ csrfToken: req.csrfToken() });
-  });
-  
-  // Also support POST for CSRF token
-  app.post('/api/csrf-token', csrfProtection, (req: any, res) => {
+  // 5) Issue CSRF tokens for the client to read
+  app.get('/api/csrf-token', (req, res) => {
     res.json({ csrfToken: req.csrfToken() });
   });
 
-  // Apply CSRF ONLY to state-changing routes, AFTER the token route
-  app.use((req, res, next) => {
-    const needs = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)
-      && !req.path.startsWith('/api/webhooks')
-      && !req.path.startsWith('/health')
-      && req.path !== '/api/csrf-token';
-    
-    // CSRF diagnostic bypass removed - routes confirmed working
-    
-    return needs ? csrfProtection(req, res, next) : next();
-  });
-
-  // Enhanced CSRF error handler with comprehensive diagnostics
-  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+  // 6) CSRF error -> JSON (not HTML)
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err.code === 'EBADCSRFTOKEN') {
-      const cookiePresent = !!_req.cookies.flint_csrf;
-      const headerPresent = !!_req.headers['x-csrf-token'];
-      const userId = _req.user?.id || 'anonymous';
-      
-      // Log comprehensive CSRF failure details
-      logger.warn('CSRF validation failed', { 
-        userId,
-        metadata: {
-          path: _req.path,
-          method: _req.method,
-          userAgent: _req.get('User-Agent'),
-          ip: _req.ip,
-          csrfTokenProvided: headerPresent,
-          csrfCookiePresent: cookiePresent,
-          csrfCookieValue: cookiePresent ? _req.cookies.flint_csrf.substring(0, 8) + '...' : 'none',
-          csrfHeaderValue: headerPresent ? _req.headers['x-csrf-token'].substring(0, 8) + '...' : 'none',
-          statusCode: 403,
-          accountId: _req.body?.accountId || 'unknown'
-        }
-      });
-      
-      return res.status(403).json({ 
+      return res.status(403).json({
         message: 'Invalid CSRF token',
-        expectedHeader: 'x-csrf-token',
-        cookiePresent,
-        headerPresent,
-        details: process.env.NODE_ENV === 'development' ? {
-          reason: !cookiePresent ? 'CSRF cookie missing' : 
-                  !headerPresent ? 'CSRF header missing' : 
-                  'CSRF token mismatch',
-          cookieKey: 'flint_csrf',
-          headerKey: 'x-csrf-token'
-        } : undefined
+        code: 'CSRF_INVALID',
       });
     }
-    next(err);
+    return res.status(err.status || 500).json({ message: err.message || 'Internal Server Error' });
   });
   
   // Mount Orders API router
