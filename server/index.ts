@@ -119,6 +119,31 @@ const app = express();
     next();
   });
   
+  // 4) CSRF setup (must come BEFORE protected routes)
+  const isProd = process.env.NODE_ENV === 'production';
+  app.use(csrf({
+    cookie: {
+      key: 'flint_csrf',
+      path: '/',
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
+      httpOnly: false, // double-submit: client must read it to echo in header
+    }
+  }));
+
+  // 5) Issue CSRF tokens for the client to read
+  app.get('/api/csrf-token', (req, res) => {
+    res.json({ csrfToken: req.csrfToken() });
+  });
+
+  // 6) CSRF error handler -> JSON (not HTML)
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err.code === 'EBADCSRFTOKEN') {
+      return res.status(403).json({ code: 'CSRF_INVALID', message: 'Invalid CSRF token' });
+    }
+    next(err);
+  });
+
   // Mount SnapTrade API router BEFORE auth setup (no auth required)
   app.use("/api/snaptrade", snaptradeRouter);
 
@@ -145,34 +170,6 @@ const app = express();
   // Mount accounts route
   const accountsRouter = (await import("./routes/accounts")).default;
   app.use("/api/accounts", accountsRouter);
-
-  // 4) CSRF (double-submit cookie)
-  const isProd = process.env.NODE_ENV === 'production';
-  app.use(csrf({
-    cookie: {
-      key: 'flint_csrf',
-      path: '/',                 // must cover /api/*
-      sameSite: isProd ? 'none' : 'lax', // 'none' for cross-subdomain; 'lax' for same-origin dev
-      secure: isProd,            // Secure=true in prod (https)
-      httpOnly: false,           // double-submit pattern: JS must read the token to send in header
-    }
-  }));
-
-  // 5) Issue CSRF tokens for the client to read
-  app.get('/api/csrf-token', (req, res) => {
-    res.json({ csrfToken: req.csrfToken() });
-  });
-
-  // 6) CSRF error -> JSON (not HTML)
-  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    if (err.code === 'EBADCSRFTOKEN') {
-      return res.status(403).json({
-        message: 'Invalid CSRF token',
-        code: 'CSRF_INVALID',
-      });
-    }
-    return res.status(err.status || 500).json({ message: err.message || 'Internal Server Error' });
-  });
   
   // Mount Orders API router
   app.use("/api", ordersRouter);
