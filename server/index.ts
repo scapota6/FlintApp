@@ -29,13 +29,38 @@ const app = express();
           "'self'", 
           "'unsafe-inline'", // Allow inline scripts for Vite dev
           "https://cdn.teller.io", // Teller Connect
+          "https://js.stripe.com", // Stripe loader
           "https://replit.com", // Replit dev banner
-          "https://js.sentry-cdn.com" // Sentry if used
+          "https://js.sentry-cdn.com" // Sentry
         ],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        connectSrc: ["'self'", "wss:", "ws:", "https:"],
+        styleSrc: [
+          "'self'", 
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com" // Google Fonts CSS
+        ],
+        fontSrc: [
+          "'self'", 
+          "data:", 
+          "https://fonts.gstatic.com" // Google Fonts
+        ],
+        frameSrc: [
+          "'self'",
+          "https://js.stripe.com", // Stripe frames
+          "https://hooks.stripe.com", // Stripe webhooks
+          "https://cdn.teller.io" // Teller Connect iframe
+        ],
+        connectSrc: [
+          "'self'", 
+          "wss:", 
+          "ws:", 
+          "https://api.stripe.com", // Stripe API
+          "https://hooks.stripe.com", // Stripe webhooks
+          "https://api.teller.io", // Teller API
+          "https://cdn.teller.io", // Teller CDN
+          "https://o*.ingest.sentry.io", // Sentry ingest
+          "https://sentry.io" // Sentry
+        ],
         imgSrc: ["'self'", "data:", "https:"],
-        fontSrc: ["'self'", "data:", "https:"],
       },
     },
   }));
