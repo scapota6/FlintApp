@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PaymentDialog } from "./PaymentDialog";
 import {
   Dialog,
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Building2,
   CreditCard,
@@ -31,6 +32,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
 
 interface AccountDetailsModalProps {
   isOpen: boolean;
@@ -114,12 +116,15 @@ interface RecurringTransaction {
 }
 
 interface AccountDetailsResponse {
-  account: TellerAccount;
+  provider: string;
+  accountOverview?: TellerAccount;
+  account?: TellerAccount;
   balances: TellerBalances | CreditCardBalances;
+  creditCardInfo?: any;
   transactions?: TellerTransaction[];
   statements?: TellerStatement[];
   recurring?: RecurringTransaction[];
-  success: boolean;
+  success?: boolean;
 }
 
 export function AccountDetailsModal({
@@ -131,19 +136,158 @@ export function AccountDetailsModal({
 }: AccountDetailsModalProps) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [reconnectError, setReconnectError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['/api/teller/account', accountId, 'details'],
-    queryFn: () => apiRequest(`/api/teller/account/${accountId}/details`),
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['/api/accounts', accountId, 'details'],
+    queryFn: async () => {
+      const response = await fetch(`/api/accounts/${accountId}/details`, { 
+        credentials: 'include' 
+      });
+      
+      if (response.status === 428) {
+        const errorData = await response.json();
+        throw { status: 428, code: errorData.code, message: errorData.message };
+      }
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      return response.json();
+    },
     enabled: isOpen && !!accountId,
+    retry: (failureCount, error: any) => {
+      // Don't retry 428 errors automatically - they need manual reconnection
+      if (error?.status === 428) return false;
+      return failureCount < 2;
+    }
   });
 
   const accountData = data as AccountDetailsResponse;
-  const account = accountData?.account;
+  const account = accountData?.accountOverview || accountData?.account;
   const balances = accountData?.balances;
   const transactions = accountData?.transactions || [];
   const statements = accountData?.statements || [];
   const recurring = accountData?.recurring || [];
+  
+  // Check for reconnection requirement
+  const needsReconnect = error?.status === 428 && error?.code === 'TELLER_RECONNECT_REQUIRED';
+  
+  const handleTellerReconnect = async () => {
+    setIsReconnecting(true);
+    setReconnectError(null);
+    
+    try {
+      // Get Teller configuration
+      const initResponse = await fetch('/api/teller/connect-init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      
+      if (!initResponse.ok) {
+        throw new Error('Failed to initialize Teller Connect');
+      }
+      
+      const { applicationId, environment, redirectUri } = await initResponse.json();
+      
+      // Open Teller Connect in update mode
+      const tellerConnect = (window as any).TellerConnect?.setup({
+        applicationId,
+        environment,
+        mode: 'update', // Update mode for reconnection
+        enrollmentId: account?.enrollment_id, // Pass existing enrollment ID if available
+        onSuccess: async (enrollment: any) => {
+          try {
+            // Save updated account information
+            const saveResponse = await fetch('/api/teller/save-account', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                accessToken: enrollment.accessToken,
+                enrollmentId: enrollment.enrollmentId,
+                institution: enrollment.institution?.name
+              })
+            });
+            
+            if (saveResponse.ok) {
+              toast({
+                title: "Account Reconnected!",
+                description: "Your account has been successfully reconnected.",
+              });
+              
+              // Refetch account details
+              refetch();
+            } else {
+              throw new Error('Failed to save updated account');
+            }
+          } catch (err) {
+            console.error('Failed to save reconnected account:', err);
+            setReconnectError('Failed to save updated account information');
+          }
+          setIsReconnecting(false);
+        },
+        onExit: () => {
+          setIsReconnecting(false);
+        },
+        onError: (error: any) => {
+          console.error('Teller Connect error:', error);
+          setReconnectError('Failed to reconnect account');
+          setIsReconnecting(false);
+        }
+      });
+
+      tellerConnect?.open();
+    } catch (err: any) {
+      console.error('Failed to open Teller Connect:', err);
+      setReconnectError(err.message || 'Failed to open reconnection flow');
+      setIsReconnecting(false);
+    }
+  };
+  
+  const renderReconnectBanner = () => {
+    if (!needsReconnect) return null;
+    
+    return (
+      <Alert className="mb-4 border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20">
+        <AlertCircle className="h-4 w-4 text-yellow-600" />
+        <AlertDescription className="flex items-center justify-between">
+          <div>
+            <strong>Account Reconnection Required</strong>
+            <p className="text-sm mt-1">
+              This account needs to be reconnected to continue accessing details.
+            </p>
+            {reconnectError && (
+              <p className="text-sm text-red-600 mt-1">{reconnectError}</p>
+            )}
+          </div>
+          <Button 
+            onClick={handleTellerReconnect}
+            disabled={isReconnecting}
+            size="sm"
+            className="ml-4"
+          >
+            {isReconnecting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Reconnecting...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Reconnect Account
+              </>
+            )}
+          </Button>
+        </AlertDescription>
+      </Alert>
+    );
+  };
 
   const isCreditCard = accountType === 'card' || account?.type === 'credit';
 
@@ -270,7 +414,7 @@ export function AccountDetailsModal({
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-gray-600 dark:text-gray-400">Current Balance:</span>
-              <p className="font-semibold text-lg">{formatCurrency(balances.ledger, account?.currency)}</p>
+              <p className="font-semibold text-lg">{formatCurrency((balances as TellerBalances).ledger, account?.currency)}</p>
             </div>
             <div>
               <span className="text-gray-600 dark:text-gray-400">Available Balance:</span>
@@ -278,11 +422,11 @@ export function AccountDetailsModal({
             </div>
             <div>
               <span className="text-gray-600 dark:text-gray-400">Ledger Balance:</span>
-              <p className="font-medium">{formatCurrency(balances.ledger, account?.currency)}</p>
+              <p className="font-medium">{formatCurrency((balances as TellerBalances).ledger, account?.currency)}</p>
             </div>
             <div>
               <span className="text-gray-600 dark:text-gray-400">Pending:</span>
-              <p className="font-medium">{formatCurrency((balances.ledger || 0) - (balances.available || 0), account?.currency)}</p>
+              <p className="font-medium">{formatCurrency(((balances as TellerBalances).ledger || 0) - (balances.available || 0), account?.currency)}</p>
             </div>
           </div>
         )}
@@ -690,11 +834,13 @@ export function AccountDetailsModal({
               Error Loading Account Details
             </DialogTitle>
           </DialogHeader>
+          {renderReconnectBanner()}
+          
           <div className="p-4 text-center">
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Failed to load account details. Please try again.
+              {needsReconnect ? 'Account needs to be reconnected.' : 'Failed to load account details. Please try again.'}
             </p>
-            <Button onClick={onClose}>Close</Button>
+            {!needsReconnect && <Button onClick={onClose}>Close</Button>}
           </div>
         </DialogContent>
       </Dialog>
@@ -710,6 +856,8 @@ export function AccountDetailsModal({
             Account Details - {accountName}
           </DialogTitle>
         </DialogHeader>
+        
+        {renderReconnectBanner()}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
