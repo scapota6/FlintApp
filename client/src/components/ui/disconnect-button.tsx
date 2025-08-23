@@ -96,11 +96,32 @@ export default function DisconnectButton({
       } else {
         throw new Error('Disconnect failed');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Disconnect error:', error);
+      
+      // Show meaningful error message from server
+      let errorMessage = "Failed to disconnect account. Please try again.";
+      
+      if (error.message) {
+        // Extract JSON error message if available
+        if (error.message.includes('403') || error.message.includes('CSRF')) {
+          errorMessage = "Session expired. Please refresh the page and try again.";
+        } else if (error.message.includes('401')) {
+          errorMessage = "Please log in and try again.";
+        } else if (error.message.includes('404')) {
+          errorMessage = "Account not found or already disconnected.";
+        } else {
+          // Use server error message if it's readable
+          const serverMsg = error.message.split(' · body:')[0];
+          if (serverMsg && serverMsg.length < 100) {
+            errorMessage = serverMsg;
+          }
+        }
+      }
+      
       toast({
         title: "Disconnect Failed",
-        description: "Failed to disconnect account. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

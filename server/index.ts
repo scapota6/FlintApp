@@ -27,10 +27,12 @@ const app = express();
   app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
 
-  // CORS: allow front-end origin and cookies
+  // CORS: allow front-end origin, cookies, and CSRF token header
   app.use(cors({
     origin: true,
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
+    exposedHeaders: ['x-csrf-token']
   }));
 
   app.use((req, res, next) => {
