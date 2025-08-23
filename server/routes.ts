@@ -237,11 +237,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 let accountType: 'bank' | 'credit';
                 let displayBalance: number;
+                let availableCredit: number | null = null;
+                let amountSpent: number | null = null;
                 
                 // Asset accounts (green): checking, savings, money_market, cash_management
                 if (['checking', 'savings', 'money_market', 'cash_management'].includes(tellerSubtype) || 
                     tellerType === 'depository') {
                   accountType = 'bank';
+                  // For assets: show available_balance
                   displayBalance = parseFloat(tellerBalances.available || tellerBalances.current || '0') || 0;
                   bankBalance += displayBalance;
                   totalBalance += displayBalance;
@@ -250,9 +253,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 else if (['credit_card', 'line_of_credit'].includes(tellerSubtype) || 
                          tellerType === 'credit') {
                   accountType = 'credit';
-                  // For credit cards, show current balance owed (positive number)
-                  const currentBalance = parseFloat(tellerBalances.current || '0') || 0;
-                  displayBalance = Math.abs(currentBalance); // Show as positive debt amount
+                  
+                  // For credit cards: show amount spent this cycle
+                  // Primary method: use current_balance if available
+                  if (tellerBalances.current) {
+                    amountSpent = Math.abs(parseFloat(tellerBalances.current));
+                    displayBalance = amountSpent;
+                  }
+                  // Fallback: credit_limit - available_credit
+                  else if (tellerBalances.credit_limit && tellerBalances.available) {
+                    const creditLimit = parseFloat(tellerBalances.credit_limit) || 0;
+                    const availableCreditAmount = parseFloat(tellerBalances.available) || 0;
+                    amountSpent = creditLimit - availableCreditAmount;
+                    displayBalance = Math.max(0, amountSpent);
+                    availableCredit = availableCreditAmount;
+                  }
+                  // Last resort: use available as credit available and assume some spending
+                  else {
+                    displayBalance = 0;
+                    availableCredit = parseFloat(tellerBalances.available || '0') || 0;
+                  }
+                  
+                  // Set available credit for display
+                  if (!availableCredit && tellerBalances.available) {
+                    availableCredit = parseFloat(tellerBalances.available) || 0;
+                  }
                 }
                 else {
                   // Default fallback based on stored account type
@@ -287,7 +312,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   availableBalance: parseFloat(tellerBalances.available || '0') || 0,
                   ledgerBalance: parseFloat(tellerBalances.ledger || '0') || 0,
                   currentBalance: parseFloat(tellerBalances.current || '0') || 0,
-                  creditLimit: parseFloat(tellerBalances.credit_limit || '0') || null
+                  creditLimit: parseFloat(tellerBalances.credit_limit || '0') || null,
+                  // Credit-specific fields
+                  availableCredit: availableCredit,
+                  amountSpent: amountSpent
                 });
               } else if (accountResponse.status === 401 || accountResponse.status === 403) {
                 // Account access expired - show stored balance and mark for reconnection
@@ -462,12 +490,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasConnectedAccounts = enrichedAccounts.length > 0;
       const needsConnection = !hasConnectedAccounts || snapTradeError === 'not_connected';
       
+      // Calculate percentages based on total assets (excluding liabilities)
+      const totalAssets = bankBalance + investmentValue + cryptoValue;
+      const accountsWithPercentages = enrichedAccounts.map(account => {
+        let percentOfTotal = 0;
+        
+        // Only calculate percentage for asset accounts (bank, investment, crypto)
+        if (account.type !== 'credit' && totalAssets > 0) {
+          percentOfTotal = (account.balance / totalAssets) * 100;
+        }
+        
+        return {
+          ...account,
+          percentOfTotal: Math.round(percentOfTotal * 10) / 10 // Round to 1 decimal place
+        };
+      });
+
       const dashboardData = {
         totalBalance: hasConnectedAccounts ? totalBalance : 0,
         bankBalance,
         investmentValue,
         cryptoValue,
-        accounts: enrichedAccounts,
+        totalAssets, // Assets only (for percentage calculations)
+        accounts: accountsWithPercentages,
         subscriptionTier: user?.subscriptionTier || 'free',
         isAdmin: user?.isAdmin || false,
         needsConnection,

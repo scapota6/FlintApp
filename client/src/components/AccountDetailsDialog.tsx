@@ -17,8 +17,10 @@ import {
   DollarSign, 
   Calendar,
   Clock,
-  X
+  X,
+  Info as InfoIcon
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import OrderPreviewDialog from './OrderPreviewDialog';
 import OrderStatusDialog from './OrderStatusDialog';
 
@@ -642,7 +644,26 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <Info label="Available Balance" value={fmtMoney(data.balances?.available)} />
                     {data.balances?.ledger && data.balances?.ledger !== data.balances?.available && (
-                      <Info label="Ledger Balance" value={fmtMoney(data.balances?.ledger)} />
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="cursor-help">
+                              <Info 
+                                label={
+                                  <div className="flex items-center gap-1">
+                                    Ledger Balance
+                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                                  </div>
+                                } 
+                                value={fmtMoney(data.balances?.ledger)} 
+                              />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Ledger includes pending transactions; available is what you can use right now.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                   </div>
                 </section>

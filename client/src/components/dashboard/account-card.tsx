@@ -39,6 +39,11 @@ interface AccountCardProps {
     holdings?: number;
     cash?: number;
     buyingPower?: number;
+    // Percentage and credit-specific fields
+    percentOfTotal?: number;
+    availableCredit?: number | null;
+    amountSpent?: number | null;
+    needsReconnection?: boolean;
   };
 }
 
@@ -146,10 +151,23 @@ export default function AccountCard({ account }: AccountCardProps) {
           <div className="space-y-4">
             {/* Main Balance */}
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Total Balance</p>
+              <p className="text-sm text-muted-foreground mb-1">
+                {account.type === 'credit' ? 'Amount Spent This Cycle' : 'Available Balance'}
+              </p>
               <p className={`text-2xl font-bold ${account.type === 'credit' ? 'text-red-500' : 'text-green-500'}`}>
                 {formatCurrency(account.balance)}
               </p>
+              
+              {/* Subtitle based on account type */}
+              {account.type === 'credit' && account.availableCredit !== null && account.availableCredit !== undefined ? (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Credit available — {formatCurrency(account.availableCredit)}
+                </p>
+              ) : account.type !== 'credit' && account.percentOfTotal !== undefined ? (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {account.percentOfTotal}% of total
+                </p>
+              ) : null}
             </div>
 
             {/* Additional Account Info */}
@@ -181,6 +199,11 @@ export default function AccountCard({ account }: AccountCardProps) {
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Activity className="h-3 w-3" />
                 <span>Updated {new Date(account.lastUpdated).toLocaleTimeString()}</span>
+                {account.needsReconnection && (
+                  <span className="text-amber-600 dark:text-amber-400 ml-1">
+                    • Reconnection needed
+                  </span>
+                )}
               </div>
               
               {/* View Details Button */}
