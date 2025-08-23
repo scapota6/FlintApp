@@ -13,8 +13,11 @@ interface AccountBalance {
   provider: string;
   accountName: string;
   balance: number;
-  type: 'bank' | 'investment' | 'crypto';
+  type: 'bank' | 'investment' | 'crypto' | 'credit';
   institution?: string;
+  percentOfTotal?: number;
+  availableCredit?: number | null;
+  needsReconnection?: boolean;
 }
 
 interface DashboardData {
@@ -56,19 +59,38 @@ export default function UnifiedDashboard() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const { user } = useAuth();
 
+  // Use same query key as parent component for data consistency
   const { data: dashboardData, isLoading, error } = useQuery<DashboardData>({
-    queryKey: ['/api/dashboard'],
+    queryKey: ["teller", "accounts", "balances"],
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/dashboard');
       if (!response.ok) throw new Error('Failed to fetch dashboard data');
       return response.json();
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 12 * 60 * 60 * 1000, // 12 hours - matches Teller refresh cadence
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours - keep in cache for 24 hours
+    refetchInterval: false, // Don't auto-refetch
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnReconnect: true, // Refetch when connection restored
   });
 
   if (isLoading) {
     return (
       <div className="space-y-6">
+        {/* Loading state for net worth header */}
+        <Card className="flint-card">
+          <CardHeader>
+            <CardTitle className="text-center">
+              <div className="animate-pulse">
+                <div className="text-lg text-gray-400 mb-2">Total Net Worth</div>
+                <div className="h-12 bg-gray-700 rounded mx-auto w-48 mb-2"></div>
+                <div className="h-4 bg-gray-700 rounded mx-auto w-64"></div>
+              </div>
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        
+        {/* Loading skeleton for cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[1, 2, 3].map(i => (
             <Card key={i} className="flint-card">
@@ -76,6 +98,7 @@ export default function UnifiedDashboard() {
                 <div className="animate-pulse">
                   <div className="h-4 bg-gray-700 rounded w-1/2 mb-2"></div>
                   <div className="h-8 bg-gray-700 rounded w-3/4"></div>
+                  <div className="h-3 bg-gray-700 rounded w-1/3 mt-2"></div>
                 </div>
               </CardContent>
             </Card>
@@ -147,7 +170,10 @@ export default function UnifiedDashboard() {
           <CardTitle className="text-center">
             <div className="text-lg text-gray-400 mb-2">Total Net Worth</div>
             <div className="text-4xl font-bold text-white">
-              {dashboardData.needsConnection ? '$0.00' : formatCurrency(dashboardData.totalBalance)}
+              {dashboardData.needsConnection ? 
+                <span className="text-gray-500">Connect accounts</span> : 
+                formatCurrency(dashboardData.totalBalance)
+              }
             </div>
             <div className="text-sm text-gray-400 mt-2">
               {dashboardData.needsConnection 
@@ -330,11 +356,16 @@ export default function UnifiedDashboard() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-white text-lg font-bold">
+                  <div className={`text-lg font-bold ${
+                    account.type === 'credit' ? 'text-red-500' : 'text-green-500'
+                  }`}>
                     {formatCurrency(account.balance)}
                   </div>
                   <div className="text-gray-400 text-sm">
-                    {((account.balance / dashboardData.totalBalance) * 100).toFixed(1)}% of total
+                    {account.type === 'credit' ? 
+                      account.availableCredit ? `Credit available — ${formatCurrency(account.availableCredit)}` : 'Credit card' :
+                      account.percentOfTotal ? `${account.percentOfTotal}% of total` : '—'
+                    }
                   </div>
                   <Button 
                     variant="ghost" 

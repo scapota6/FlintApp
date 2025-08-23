@@ -22,11 +22,15 @@ export default function Dashboard() {
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
-  // Fetch dashboard data
+  // Fetch dashboard data with proper Teller refresh cadence
   const { data: dashboardData, isLoading, error } = useQuery({
-    queryKey: ["/api/dashboard"],
+    queryKey: ["teller", "accounts", "balances"],
     queryFn: FinancialAPI.getDashboardData,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 12 * 60 * 60 * 1000, // 12 hours - data considered fresh for 12 hours
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours - keep in cache for 24 hours
+    refetchInterval: false, // Don't auto-refetch
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnReconnect: true, // Refetch when connection restored
   });
 
   // Log user login
