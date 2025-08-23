@@ -150,11 +150,13 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
             // Account identifiers
             lastFour: account.last_four ?? null,
             
-            // Note: Payment capability is checked separately when needed
-            // Not blocking details load on payment capability
+            // Payment capability checking - Most institutions don't support payments in sandbox
             paymentCapabilities: {
-              checkSeparately: true,
-              message: "Payment capability verified when Pay button is clicked"
+              canPay: false, // In sandbox mode, most institutions don't support Teller payments
+              paymentMethods: ['zelle'],
+              sandboxMode: true,
+              reason: 'This institution does not support Teller payments in sandbox mode. In production, payment support varies by institution.',
+              supportedInProduction: true // Would need to check actual institution capabilities in production
             }
           };
         }
@@ -182,6 +184,7 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           },
           accountDetails: accountDetails,
           creditCardInfo,
+          paymentCapabilities: creditCardInfo?.paymentCapabilities || null,
           transactions: transactions || [],
           statements: [] // Placeholder - would be populated if Teller statements API available
         });
@@ -234,6 +237,15 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
                 availableCredit: 15000 - balance,
                 creditLimit: 15000,
                 currentBalance: balance,
+                
+                // Payment capabilities for test data
+                paymentCapabilities: {
+                  canPay: false,
+                  paymentMethods: ['zelle'],
+                  sandboxMode: true,
+                  reason: 'This institution does not support Teller payments in sandbox mode. In production, payment support varies by institution.',
+                  supportedInProduction: true
+                },
                 apr: 24.99,
                 cashAdvanceApr: 29.99,
                 annualFee: 695,

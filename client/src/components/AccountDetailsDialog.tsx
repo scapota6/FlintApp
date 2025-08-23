@@ -706,63 +706,49 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
               </>
             )}
 
-            {/* Credit Card Information - Specialized Layout for Teller accounts only */}
-            {data.creditCardInfo && data.provider === 'teller' && (
-              <>
-                {/* a) Payments & Due Dates */}
-                <section>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm mr-3">💳</div>
-                    Payments & Due Dates
-                  </h3>
-                  
-                  {/* Payment Due Date - Most Prominent */}
-                  <div className="mb-6 p-6 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                    <div className="text-center">
-                      <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide mb-2">Payment Due Date</div>
-                      <div className="text-4xl font-bold text-red-700 dark:text-red-300 mb-4">
-                        {data.creditCardInfo.paymentDueDate || '—'}
+            {/* Payment Button for Credit Cards - Capability-based */}
+            {data.provider === 'teller' && data.creditCardInfo && (
+              <section>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm mr-3">💳</div>
+                  Card Payments
+                </h3>
+                
+                {/* Check if payments are supported - capability-based */}
+                {data.paymentCapabilities?.canPay ? (
+                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold text-green-800 dark:text-green-200">Payments Available</h4>
+                        <p className="text-sm text-green-600 dark:text-green-300 mt-1">You can make payments using Zelle through this account.</p>
                       </div>
+                      <button
+                        onClick={() => setShowPaymentDialog(true)}
+                        className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+                      >
+                        Pay Card
+                      </button>
                     </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
-                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Minimum Due</div>
-                        <div className="text-xl font-bold text-red-700 dark:text-red-300 mt-1">
-                          {data.creditCardInfo.minimumDue ? fmtMoney(data.creditCardInfo.minimumDue) : '—'}
-                        </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/20 dark:to-slate-800/20 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                        <span className="text-gray-500 dark:text-gray-400 text-sm">ℹ️</span>
                       </div>
-                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
-                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Statement Balance</div>
-                        <div className="text-xl font-bold text-red-700 dark:text-red-300 mt-1">
-                          {data.creditCardInfo.statementBalance ? fmtMoney(data.creditCardInfo.statementBalance) : '—'}
-                        </div>
-                      </div>
-                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
-                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Last Payment</div>
-                        <div className="text-sm font-bold text-red-700 dark:text-red-300 mt-1">
-                          {data.creditCardInfo.lastPayment?.amount ? fmtMoney(data.creditCardInfo.lastPayment.amount) : '—'}
-                        </div>
-                        <div className="text-xs text-red-600 dark:text-red-400 mt-1">
-                          {data.creditCardInfo.lastPayment?.date || '—'}
-                        </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-700 dark:text-gray-300">Payments Not Available</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          This institution doesn't support Teller payments in sandbox mode. In production, check if your bank supports Zelle payments.
+                        </p>
                       </div>
                     </div>
                   </div>
-                </section>
-
-                {/* b) Credit Availability */}
-                <section>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm mr-3">📊</div>
-                    Credit Availability
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <Info label="Available Credit" value={fmtMoney(data.creditCardInfo.availableCredit)} />
-                    <Info label="Credit Limit" value={fmtMoney(data.creditCardInfo.creditLimit)} />
-                    <Info label="Current Balance" value={fmtMoney(data.creditCardInfo.currentBalance)} />
-                  </div>
-                </section>
+                )}
+              </section>
+            )}
+            
+            {/* NO TRADING SECTIONS FOR TELLER ACCOUNTS - Only for brokerage accounts */}
 
                 {/* c) APR & Fees */}
                 {(data.creditCardInfo.apr || data.creditCardInfo.annualFee || data.creditCardInfo.lateFee) && (
@@ -840,19 +826,52 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     </div>
                   </section>
                 )}
-              </>
             )}
 
 
             {/* e) Statements - Built into the credit card layout above */}
 
-            {/* Pay Card Section - Capability-based payment options */}
+            {/* 4. Pay Card Button - Capability-based for Teller Credit Cards ONLY */}
             {data.provider === 'teller' && data.creditCardInfo && (
-              <PayCardSection 
-                creditCardInfo={data.creditCardInfo} 
-                accountId={accountId}
-                onPaymentRequested={handlePayment}
-              />
+              <section>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm mr-3">💳</div>
+                  Card Payments
+                </h3>
+                
+                {/* Check if payments are supported - capability-based */}
+                {data.paymentCapabilities?.canPay ? (
+                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold text-green-800 dark:text-green-200">Payments Available</h4>
+                        <p className="text-sm text-green-600 dark:text-green-300 mt-1">You can make payments using Zelle through this account.</p>
+                      </div>
+                      <button
+                        onClick={() => alert('Payment feature would open here')}
+                        className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+                        data-testid="button-pay-card"
+                      >
+                        Pay Card
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/20 dark:to-slate-800/20 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                        <span className="text-gray-500 dark:text-gray-400 text-sm">ℹ️</span>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-700 dark:text-gray-300">Payments Not Available</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          This institution does not support Teller payments in sandbox mode. In production, check if your bank supports Zelle payments.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
             )}
 
             {/* Regular Statements - Only for non-credit cards */}
@@ -916,80 +935,11 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
               </section>
             )}
 
-            {/* 5. Enhanced Transactions */}
-            <section>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm mr-3">📊</div>
-                Recent Transactions
-              </h3>
-              {data.transactions && data.transactions.length > 0 ? (
-                <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30">
-                      <tr>
-                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Date</th>
-                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Status</th>
-                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Description / Merchant</th>
-                        <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Amount</th>
-                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Category</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.transactions.slice(0, 10).map((txn: any, index: number) => (
-                        <tr key={txn.id || index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors duration-150">
-                          <td className="p-3 text-gray-900 dark:text-white">
-                            {new Date(txn.date).toLocaleDateString()}
-                          </td>
-                          <td className="p-3">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              txn.status === 'posted' 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                            }`}>
-                              {txn.status || 'N/A'}
-                            </span>
-                          </td>
-                          <td className="p-3 text-gray-900 dark:text-white">
-                            <div>
-                              <div className="font-medium">{txn.description || 'N/A'}</div>
-                              {txn.merchant && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">{txn.merchant}</div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-3 text-right">
-                            <span className={`font-medium ${
-                              (txn.amount || 0) >= 0 
-                                ? 'text-green-600 dark:text-green-400' 
-                                : 'text-red-600 dark:text-red-400'
-                            }`}>
-                              {fmtMoney(txn.amount)}
-                            </span>
-                          </td>
-                          <td className="p-3 text-gray-500 dark:text-gray-400">
-                            {txn.category || 'N/A'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {data.transactions.length > 10 && (
-                    <div className="mt-4 text-center">
-                      <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
-                        Load More Transactions
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  No transactions available
-                </div>
-              )}
-            </section>
-
-            {/* 3. Positions and Orders */}
-            <section>
+            {/* BROKERAGE-ONLY SECTIONS - Only show for SnapTrade accounts, NOT Teller accounts */}
+            {data.provider !== 'teller' && (
+              <>
+                {/* 3. Positions and Orders - BROKERAGE ONLY */}
+                <section>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm mr-3">3</div>
                 Positions and Orders
@@ -1079,8 +1029,8 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 )}/>
               </Card>
             </section>
-
-
+              </>
+            )}
 
             {/* Footer with metadata */}
             <div className="mt-8 pt-6 border-t border-gradient-to-r from-purple-200 to-blue-200 dark:from-purple-800 dark:to-blue-800 bg-gradient-to-r from-purple-50/50 to-blue-50/50 dark:from-purple-950/30 dark:to-blue-950/30 rounded-xl p-4">
