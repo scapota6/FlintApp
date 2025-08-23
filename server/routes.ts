@@ -203,7 +203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const tellerAccounts = connectedAccounts.filter(acc => acc.provider === 'teller');
         
         for (const account of tellerAccounts) {
-          // Validate account access before including it
+          // Always include accounts, validate access for real-time data
           if (account.accessToken) {
             try {
               const response = await fetch(`https://api.teller.io/accounts/${account.externalAccountId}`, {
@@ -256,13 +256,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   });
                 }
               } else if (response.status === 401 || response.status === 403) {
-                // Account access expired - mark as inactive so it won't show up again
-                console.log(`[Dashboard] Teller account ${account.id} access expired, marking as inactive`);
-                await storage.deactivateAccount(account.id);
+                // Account access expired - show stored balance and mark for reconnection
+                console.log(`[Dashboard] Teller account ${account.id} access expired, using stored balance`);
+                
+                const storedBalance = parseFloat(account.balance) || 0;
+                
+                if (account.accountType === 'card') {
+                  enrichedAccounts.push({
+                    id: account.id,
+                    provider: 'teller',
+                    accountName: account.accountName || 'Credit Card',
+                    balance: storedBalance,
+                    type: 'credit' as const,
+                    institution: account.institutionName || 'Credit Card',
+                    lastUpdated: account.lastSynced || new Date().toISOString(),
+                    needsReconnection: true
+                  });
+                } else {
+                  bankBalance += storedBalance;
+                  totalBalance += storedBalance;
+                  
+                  enrichedAccounts.push({
+                    id: account.id,
+                    provider: 'teller',
+                    accountName: account.accountName || 'Bank Account',
+                    balance: storedBalance,
+                    type: 'bank' as const,
+                    institution: account.institutionName || 'Bank',
+                    lastUpdated: account.lastSynced || new Date().toISOString(),
+                    needsReconnection: true
+                  });
+                }
               }
             } catch (fetchError) {
               console.error(`Error validating Teller account ${account.id}:`, fetchError);
-              // Don't include accounts we can't access
+              // Include stored balance for accounts we can't access
+              const storedBalance = parseFloat(account.balance) || 0;
+              
+              if (account.accountType === 'card') {
+                enrichedAccounts.push({
+                  id: account.id,
+                  provider: 'teller',
+                  accountName: account.accountName || 'Credit Card',
+                  balance: storedBalance,
+                  type: 'credit' as const,
+                  institution: account.institutionName || 'Credit Card',
+                  lastUpdated: account.lastSynced || new Date().toISOString(),
+                  needsReconnection: true
+                });
+              } else {
+                bankBalance += storedBalance;
+                totalBalance += storedBalance;
+                
+                enrichedAccounts.push({
+                  id: account.id,
+                  provider: 'teller',
+                  accountName: account.accountName || 'Bank Account',
+                  balance: storedBalance,
+                  type: 'bank' as const,
+                  institution: account.institutionName || 'Bank',
+                  lastUpdated: account.lastSynced || new Date().toISOString(),
+                  needsReconnection: true
+                });
+              }
+            }
+          } else {
+            // No access token - show stored balance
+            const storedBalance = parseFloat(account.balance) || 0;
+            
+            if (account.accountType === 'card') {
+              enrichedAccounts.push({
+                id: account.id,
+                provider: 'teller',
+                accountName: account.accountName || 'Credit Card',
+                balance: storedBalance,
+                type: 'credit' as const,
+                institution: account.institutionName || 'Credit Card',
+                lastUpdated: account.lastSynced || new Date().toISOString(),
+                needsReconnection: true
+              });
+            } else {
+              bankBalance += storedBalance;
+              totalBalance += storedBalance;
+              
+              enrichedAccounts.push({
+                id: account.id,
+                provider: 'teller',
+                accountName: account.accountName || 'Bank Account',
+                balance: storedBalance,
+                type: 'bank' as const,
+                institution: account.institutionName || 'Bank',
+                lastUpdated: account.lastSynced || new Date().toISOString(),
+                needsReconnection: true
+              });
             }
           }
         }

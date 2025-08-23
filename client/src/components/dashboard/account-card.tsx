@@ -21,7 +21,7 @@ interface AccountCardProps {
     accountName: string;
     accountNumber?: string;
     balance: number;
-    type: 'bank' | 'investment' | 'crypto';
+    type: 'bank' | 'investment' | 'crypto' | 'credit';
     institution: string;
     lastUpdated: string;
     currency?: string;
@@ -43,6 +43,8 @@ export default function AccountCard({ account }: AccountCardProps) {
         return <TrendingUp className="h-5 w-5" />;
       case 'crypto':
         return <Wallet className="h-5 w-5" />;
+      case 'credit':
+        return <DollarSign className="h-5 w-5" />;
       default:
         return <DollarSign className="h-5 w-5" />;
     }
@@ -60,6 +62,8 @@ export default function AccountCard({ account }: AccountCardProps) {
         return 'bg-orange-600/20 text-orange-400';
       case 'crypto':
         return 'bg-yellow-600/20 text-yellow-400';
+      case 'credit':
+        return 'bg-red-600/20 text-red-400';
       default:
         return 'bg-gray-600/20 text-gray-400';
     }
