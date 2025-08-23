@@ -50,6 +50,7 @@ interface TellerAccount {
   currency: string;
   status: string;
   last_four: string;
+  enrollment_id?: string;
   routing_numbers?: {
     ach?: string;
   };
