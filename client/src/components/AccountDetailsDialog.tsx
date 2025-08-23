@@ -642,7 +642,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     Balances
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <Info label="Available Balance" value={fmtMoney(data.balances?.available)} />
+                    <Info label="Available balance" value={fmtMoney(data.balances?.available)} />
                     {data.balances?.ledger && data.balances?.ledger !== data.balances?.available && (
                       <TooltipProvider>
                         <Tooltip>
@@ -651,7 +651,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                               <Info 
                                 label={
                                   <div className="flex items-center gap-1">
-                                    Ledger Balance
+                                    Ledger balance
                                     <InfoIcon className="h-3 w-3 text-muted-foreground" />
                                   </div>
                                 } 
@@ -664,6 +664,21 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
+                    )}
+                    
+                    {/* For credit cards: show Credit limit, Available credit, Current balance */}
+                    {data.accountType === 'credit' && (
+                      <>
+                        {data.balances?.credit_limit && (
+                          <Info label="Credit limit" value={fmtMoney(data.balances?.credit_limit)} />
+                        )}
+                        {data.balances?.available_credit && (
+                          <Info label="Available credit" value={fmtMoney(data.balances?.available_credit)} />
+                        )}
+                        {data.balances?.current && (
+                          <Info label="Current balance" value={fmtMoney(data.balances?.current)} />
+                        )}
+                      </>
                     )}
                   </div>
                 </section>

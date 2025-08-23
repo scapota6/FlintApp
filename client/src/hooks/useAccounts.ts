@@ -109,9 +109,10 @@ export function useAccounts() {
     const creditLimit = creditDetails?.credit_limit ? parseFloat(creditDetails.credit_limit) : undefined;
     const availableCredit = creditDetails?.available_credit ? parseFloat(creditDetails.available_credit) : undefined;
 
-    // Determine account classification
-    const isAsset = account.type === 'depository' || 
-                   (account.type === 'investment' && account.subtype !== 'credit');
+    // Map subtype → asset vs liability based on Teller account types
+    const isAsset = (account.type === 'depository' && 
+                    ['checking', 'savings', 'money_market', 'cd'].includes(account.subtype)) ||
+                   (account.type === 'investment');
     const isCredit = account.type === 'credit';
 
     let displayValue: number;
@@ -138,7 +139,7 @@ export function useAccounts() {
       displayLabel = 'Amount spent';
       displayColor = 'red';
     } else {
-      // Assets: Show available balance in green
+      // Assets: display_value = available_balance, color green
       displayValue = availableBalance || ledgerBalance || currentBalance || 0;
       displayLabel = 'Available balance';
       displayColor = 'green';
@@ -163,19 +164,20 @@ export function useAccounts() {
     } as ComputedAccount;
   }) || [];
 
-  // Calculate percentages (only for assets)
+  // Compute percent_of_total using sum of asset available_balance
   const assetAccounts = accountsWithComputedFields.filter(acc => 
-    acc.type === 'depository' || (acc.type === 'investment' && acc.subtype !== 'credit')
+    (acc.type === 'depository' && ['checking', 'savings', 'money_market', 'cd'].includes(acc.subtype)) ||
+    acc.type === 'investment'
   );
   
-  const totalAssetValue = assetAccounts.reduce((sum, acc) => sum + acc.display_value, 0);
+  const totalAssetValue = assetAccounts.reduce((sum, acc) => sum + (acc.available_balance || 0), 0);
   
   // Add percent_of_total to asset accounts
   const finalAccounts = accountsWithComputedFields.map(account => {
     if (assetAccounts.includes(account) && totalAssetValue > 0) {
       return {
         ...account,
-        percent_of_total: Math.round((account.display_value / totalAssetValue) * 100)
+        percent_of_total: Math.round(((account.available_balance || 0) / totalAssetValue) * 100)
       };
     }
     return account;

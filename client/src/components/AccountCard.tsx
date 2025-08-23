@@ -1,30 +1,83 @@
-import React from 'react';
+import { useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Eye } from 'lucide-react';
+import { formatCurrency } from '@/utils/money';
 import AccountDetailsDialog from './AccountDetailsDialog';
+import type { ComputedAccount } from '@/hooks/useAccounts';
 
-export default function AccountCard({ account, currentUser }: any) {
-  const [open, setOpen] = React.useState(false);
-  
+interface AccountCardProps {
+  account: ComputedAccount;
+  currentUserId: string;
+}
+
+export default function AccountCard({ account, currentUserId }: AccountCardProps) {
+  const [showDetails, setShowDetails] = useState(false);
+
+  // Extract last 4 digits from account name or use account ID
+  const getLastFour = () => {
+    const match = account.name.match(/\*+(\d{4})\)/);
+    return match ? match[1] : account.id.slice(-4);
+  };
+
+  const lastFour = getLastFour();
+
   return (
-    <div className="rounded-2xl border p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="font-semibold">{account.brokerageName || account.brokerage}</div>
-          <div className="text-sm text-gray-500">{account.id} · {account.type}</div>
-        </div>
-        <button 
-          onClick={() => setOpen(true)} 
-          className="rounded-xl border px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
-        >
-          Details
-        </button>
-      </div>
+    <>
+      <Card className="flint-card hover:shadow-lg transition-shadow">
+        <CardContent className="p-6">
+          <div className="flex flex-col space-y-4">
+            {/* Title line: {institution} — {name} (••••{last4}) */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-white font-medium truncate">
+                  {account.institution} — {account.name.replace(/\s*\([^)]*\)/, '')} (••••{lastFour})
+                </h3>
+                <div className="text-gray-400 text-sm capitalize mt-1">
+                  {account.type} • {account.subtype}
+                </div>
+              </div>
+              
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-purple-400 hover:text-purple-300 flex-shrink-0"
+                onClick={() => setShowDetails(true)}
+              >
+                <Eye className="h-3 w-3 mr-1" />
+                Details
+              </Button>
+            </div>
+
+            {/* Big number: display_value with currency format */}
+            <div className="text-right">
+              <div className={`text-2xl font-bold ${
+                account.display_color === 'green' ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {formatCurrency(account.display_value)}
+              </div>
+              
+              {/* Small line: percent for assets, credit available for credit cards */}
+              <div className="text-gray-400 text-sm mt-1">
+                {account.display_color === 'green' && account.percent_of_total ? (
+                  `${account.percent_of_total}% of total`
+                ) : account.display_color === 'red' && account.available_credit !== undefined ? (
+                  `Credit available — ${formatCurrency(account.available_credit)}`
+                ) : (
+                  account.display_label
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <AccountDetailsDialog
-        accountId={String(account.id)}
-        open={open}
-        onClose={() => setOpen(false)}
-        currentUserId={String(currentUser?.id)}
+        accountId={account.id}
+        open={showDetails}
+        onClose={() => setShowDetails(false)}
+        currentUserId={currentUserId}
       />
-    </div>
+    </>
   );
 }
