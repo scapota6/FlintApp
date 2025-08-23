@@ -20,49 +20,58 @@ const app = express();
 
 (async () => {
   try {
-  // 1) Security + parsers (allow necessary external scripts)
+  // 1) Security + parsers (improved CSP configuration)
+  const SELF = "'self'";
+  const UNSAFE_INLINE = "'unsafe-inline'"; // keep temporarily if you rely on inline styles/scripts
+  const isProdCSP = process.env.NODE_ENV === 'production';
+  
   app.use(helmet({
     contentSecurityPolicy: {
+      useDefaults: true,
       directives: {
-        defaultSrc: ["'self'"],
+        defaultSrc: [SELF],
+        // Scripts
         scriptSrc: [
-          "'self'", 
-          "'unsafe-inline'", // Allow inline scripts for Vite dev
-          "https://cdn.teller.io", // Teller Connect
-          "https://js.stripe.com", // Stripe loader
-          "https://replit.com", // Replit dev banner
-          "https://js.sentry-cdn.com" // Sentry
+          SELF,
+          UNSAFE_INLINE,              // ideally replace with nonces/hashes later
+          'https://cdn.teller.io',
+          'https://js.stripe.com',
+          'https://js.sentry-cdn.com',
+          'https://replit.com'
         ],
-        styleSrc: [
-          "'self'", 
-          "'unsafe-inline'",
-          "https://fonts.googleapis.com" // Google Fonts CSS
-        ],
-        fontSrc: [
-          "'self'", 
-          "data:", 
-          "https://fonts.gstatic.com" // Google Fonts
-        ],
+        // Styles (separate style-src-elem is respected by newer browsers)
+        styleSrc: [SELF, UNSAFE_INLINE, 'https://fonts.googleapis.com'],
+        styleSrcElem: [SELF, UNSAFE_INLINE, 'https://fonts.googleapis.com'],
+        // Fonts
+        fontSrc: [SELF, 'https://fonts.gstatic.com', 'data:'],
+        // Frames (Stripe elements, Teller Connect iframed)
         frameSrc: [
-          "'self'",
-          "https://js.stripe.com", // Stripe frames
-          "https://hooks.stripe.com", // Stripe webhooks
-          "https://cdn.teller.io" // Teller Connect iframe
+          SELF,
+          'https://js.stripe.com',
+          'https://hooks.stripe.com',
+          'https://cdn.teller.io'
         ],
+        // XHR/WebSocket endpoints
         connectSrc: [
-          "'self'", 
-          "wss:", 
-          "ws:", 
-          "https://api.stripe.com", // Stripe API
-          "https://hooks.stripe.com", // Stripe webhooks
-          "https://api.teller.io", // Teller API
-          "https://cdn.teller.io", // Teller CDN
-          "https://o*.ingest.sentry.io", // Sentry ingest
-          "https://sentry.io" // Sentry
+          SELF,
+          'https://api.teller.io',
+          'https://cdn.teller.io',
+          'https://js.stripe.com',
+          'https://api.stripe.com',
+          'https://hooks.stripe.com',
+          'https://o0.ingest.sentry.io',
+          'https://o1.ingest.sentry.io',
+          'https://sentry.io',
+          // add your exact Replit base (scheme+host+port) if you ever call absolute URLs
         ],
-        imgSrc: ["'self'", "data:", "https:"],
+        imgSrc: [SELF, 'data:'],
+        baseUri: [SELF],
+        frameAncestors: [SELF], // adjust if you embed your app elsewhere
+        // If you use Stripe web workers or wasm, add workerSrc/childSrc as needed.
       },
+      // reportOnly: true, // optionally trial first to see console reports without blocking
     },
+    crossOriginEmbedderPolicy: false, // keep false if third-party scripts require it
   }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
