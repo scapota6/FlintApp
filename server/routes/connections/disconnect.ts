@@ -7,7 +7,7 @@ import { Router } from "express";
 import { getSnapUser, deleteSnapUser } from "../../store/snapUsers";
 import { storage } from "../../storage";
 import { logger } from "@shared/logger";
-import { isAuthenticated } from "../replitAuth"; // ensureUser equivalent
+import { isAuthenticated } from "../../replitAuth"; // ensureUser equivalent
 
 const router = Router();
 
