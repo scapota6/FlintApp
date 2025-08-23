@@ -109,6 +109,20 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
         // Note: Statements API would be called here if available
         // const statements = await teller.statements?.list(externalId).catch(() => []);
         
+        // Update stored balance in database if we successfully fetched fresh balance
+        if (balances?.available && dbId) {
+          try {
+            await storage.updateAccountBalance(dbId, balances.available.toString());
+            console.log('[Account Details API] Updated stored balance:', {
+              accountId: dbId,
+              newBalance: balances.available,
+              lastSynced: new Date().toISOString()
+            });
+          } catch (error) {
+            console.error('[Account Details API] Failed to update balance:', error);
+          }
+        }
+
         console.log('[Account Details API] Teller data fetched successfully:', {
           userId,
           flintAccountId: dbId,

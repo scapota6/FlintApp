@@ -639,23 +639,22 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm mr-3">💰</div>
                     Balances
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <Info label="Available Balance" value={fmtMoney(data.balances?.available)} />
-                    <Info label="Current Balance" value={fmtMoney(data.balances?.current)} />
-                    <Info label="Ledger Balance" value={fmtMoney(data.balances?.ledger)} />
+                    {data.balances?.ledger && data.balances?.ledger !== data.balances?.available && (
+                      <Info label="Ledger Balance" value={fmtMoney(data.balances?.ledger)} />
+                    )}
                   </div>
                 </section>
 
-                {/* 2. Masked Identifiers */}
+                {/* 2. Account Identifiers */}
                 <section>
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm mr-3">🔒</div>
                     Account Identifiers
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <Info label="Routing Number" value={data.accountDetails?.routingNumberMask || '—'} />
                     <Info label="Account Number" value={data.accountDetails?.accountNumberMask || '—'} />
-                    <Info label="Account Last 4" value={data.accountOverview?.last_four || data.account?.last4 || '—'} />
                     <Info label="Status" value={data.accountOverview?.status || data.account?.status || '—'} />
                   </div>
                 </section>
@@ -666,10 +665,8 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm mr-3">ℹ️</div>
                     Account Information
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <Info label="Account ID" value={data.accountOverview?.id || data.account?.id || '—'} />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <Info label="Institution" value={data.accountOverview?.institution?.name || data.account?.institution?.name || '—'} />
-                    <Info label="Account Type" value={data.accountOverview?.type || data.account?.type || '—'} />
                     <Info label="Account Subtype" value={data.accountOverview?.subtype || data.account?.subtype || '—'} />
                   </div>
                 </section>
