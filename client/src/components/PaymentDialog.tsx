@@ -238,7 +238,7 @@ export function PaymentDialog({
     }
   };
 
-  const filteredBankAccounts = bankAccounts?.bankAccounts?.filter(
+  const filteredBankAccounts = (bankAccounts as any)?.bankAccounts?.filter(
     (acc: BankAccount) => acc.accountType === 'checking' || acc.accountType === 'savings'
   ) || [];
 
