@@ -64,21 +64,28 @@ export default function DisconnectButton({
     setIsDisconnecting(true);
     try {
       let endpoint: string;
-      let method: 'DELETE' | 'POST' = 'DELETE';
+      let method: 'POST' = 'POST';
+      let body: any = { accountId };
       
-      // Use different endpoints based on provider
+      // Use correct endpoints based on provider
       if (provider.toLowerCase() === 'teller') {
-        endpoint = `/api/banking/accounts/${accountId}/disconnect`;
+        endpoint = `/api/connections/disconnect/teller`;
       } else if (provider.toLowerCase() === 'snaptrade') {
-        endpoint = `/api/accounts/${provider}/${accountId}`;
+        endpoint = `/api/connections/disconnect/snaptrade`;
       } else {
-        // Default to main disconnect endpoint
-        endpoint = `/api/accounts/${provider}/${accountId}`;
+        // Default to SnapTrade endpoint
+        endpoint = `/api/connections/disconnect/snaptrade`;
       }
 
       console.log(`Disconnecting ${provider} account ${accountId} via ${endpoint}`);
       
-      const response = await apiRequest(method, endpoint);
+      const response = await apiRequest(endpoint, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
       
       if (response.status === 204 || response.status === 200 || response.success) {
         toast({
