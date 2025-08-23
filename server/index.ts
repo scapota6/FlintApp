@@ -106,6 +106,11 @@ const app = express();
   app.get('/api/csrf-token', csrfProtection, (req: any, res) => {
     res.json({ csrfToken: req.csrfToken() });
   });
+  
+  // Also support POST for CSRF token
+  app.post('/api/csrf-token', csrfProtection, (req: any, res) => {
+    res.json({ csrfToken: req.csrfToken() });
+  });
 
   // Apply CSRF ONLY to state-changing routes, AFTER the token route
   app.use((req, res, next) => {

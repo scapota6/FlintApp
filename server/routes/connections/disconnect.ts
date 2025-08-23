@@ -35,11 +35,15 @@ router.post("/snaptrade", async (req: any, res) => {
 
     try {
       // Delete the brokerage authorization in SnapTrade
-      const { authApi } = await import('../../lib/snaptrade');
-      await authApi.deleteBrokerageAuth({
+      const { Snaptrade } = await import('snaptrade-typescript-sdk');
+      const snaptrade = new Snaptrade({
+        clientId: process.env.SNAPTRADE_CLIENT_ID!,
+        consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
+      });
+      await snaptrade.connections.removeBrokerageAuthorization({
+        authorizationId: accountId,
         userId: snapUser.userId,
-        userSecret: snapUser.userSecret,
-        brokerageAuthId: accountId
+        userSecret: snapUser.userSecret
       });
 
       // Also remove from local database
@@ -161,11 +165,15 @@ router.post("/snaptrade", async (req: any, res) => {
 
     try {
       // Delete the brokerage authorization in SnapTrade
-      const { authApi } = await import('../../lib/snaptrade');
-      await authApi.deleteBrokerageAuth({
+      const { Snaptrade } = await import('snaptrade-typescript-sdk');
+      const snaptrade = new Snaptrade({
+        clientId: process.env.SNAPTRADE_CLIENT_ID!,
+        consumerKey: process.env.SNAPTRADE_CONSUMER_KEY!,
+      });
+      await snaptrade.connections.removeBrokerageAuthorization({
+        authorizationId: accountId,
         userId: snapUser.userId,
-        userSecret: snapUser.userSecret,
-        brokerageAuthId: accountId
+        userSecret: snapUser.userSecret
       });
 
       // Also remove from local database
