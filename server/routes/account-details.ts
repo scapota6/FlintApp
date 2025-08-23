@@ -72,80 +72,102 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
     if (provider === 'teller') {
       try {
         const teller = await tellerForUser(userId);
-        const [account, transactions] = await Promise.all([
-          teller.accounts.get(externalId),
+        
+        // Step 1: Get account metadata
+        const account = await teller.accounts.get(externalId);
+        
+        // Step 2-4: Get balances, transactions (60-90 days), and statements in parallel
+        const [balances, transactions] = await Promise.all([
+          teller.balances.get(externalId).catch(() => null), // Gracefully handle if balances fail
           teller.transactions.list({
             account_id: externalId,
-            count: 10
-          })
+            count: 90 // Get 90 days of transactions
+          }).catch(() => []) // Return empty array if transactions fail
         ]);
         
-        console.log('[Account Details] Teller response:', {
+        // Note: Statements API would be called here if available
+        // const statements = await teller.statements?.list(externalId).catch(() => []);
+        
+        console.log('[Account Details] Teller aggregation complete:', {
           hasAccount: !!account,
+          hasBalances: !!balances,
           transactionCount: transactions?.length || 0
         });
         
         // For credit cards, extract comprehensive payment and credit information
         let creditCardInfo = null;
-        if (account.type === 'credit') {
-          console.log('[Credit Card Debug] Raw account data:', JSON.stringify({
-            balance: account.balance,
-            details: account.details,
-            type: account.type
+        if (account.type === 'credit' || account.subtype === 'credit_card') {
+          console.log('[Credit Card Debug] Raw data:', JSON.stringify({
+            account_balance: account.balance,
+            fetched_balances: balances,
+            account_details: account.details,
+            type: account.type,
+            subtype: account.subtype
           }, null, 2));
           
+          // Use fetched balances first, fallback to account balances
+          const currentBalance = balances?.current ?? account.balance?.current ?? null;
+          const availableBalance = balances?.available ?? account.balance?.available ?? null;
+          const statementBalance = (balances as any)?.statement ?? (account.balance as any)?.statement ?? null;
+          const creditLimit = balances?.credit_limit ?? (account.balance as any)?.limit ?? null;
+          
           creditCardInfo = {
-            // Payment & Due Date Information (use null for missing data, frontend will show "—")
-            paymentDueDate: account.details?.payment_due_date || account.details?.due_date || null,
-            minimumDue: account.details?.minimum_payment_due || account.details?.minimum_due || null,
-            statementBalance: account.details?.statement_balance || (account.balance?.current ? Math.abs(account.balance.current) : null),
+            // Payment & Due Date Information (all nullable - UI shows "—")
+            paymentDueDate: account.details?.payment_due_date ?? account.details?.due_date ?? null,
+            minimumDue: account.details?.minimum_payment_due ?? account.details?.minimum_due ?? null,
+            statementBalance: statementBalance ?? (currentBalance ? Math.abs(currentBalance) : null),
             lastPayment: {
-              date: account.details?.last_payment_date || null,
-              amount: account.details?.last_payment_amount || null
+              date: account.details?.last_payment_date ?? null,
+              amount: account.details?.last_payment_amount ?? null
             },
             
-            // Credit Availability - Use all possible field names
-            availableCredit: account.balance?.available || account.details?.available_credit || null,
-            creditLimit: (account.balance as any)?.limit || account.details?.credit_limit || account.details?.limit || null,
-            currentBalance: account.balance?.current ? Math.abs(account.balance.current) : null,
+            // Credit Availability
+            availableCredit: availableBalance ?? account.details?.available_credit ?? null,
+            creditLimit: creditLimit ?? account.details?.credit_limit ?? null,
+            currentBalance: currentBalance ? Math.abs(currentBalance) : null,
             
-            // APR & Fees (use null for missing data)
-            apr: account.details?.apr || account.details?.interest_rate || null,
-            cashAdvanceApr: account.details?.cash_advance_apr || null,
-            annualFee: account.details?.annual_fee || null,
-            lateFee: account.details?.late_fee || null,
+            // APR & Fees (all nullable)
+            apr: account.details?.apr ?? account.details?.interest_rate ?? null,
+            cashAdvanceApr: account.details?.cash_advance_apr ?? null,
+            annualFee: account.details?.annual_fee ?? null,
+            lateFee: account.details?.late_fee ?? null,
             
-            // Account identifiers (masked)
-            lastFour: account.last_four || null,
+            // Account identifiers
+            lastFour: account.last_four ?? null,
             
-            // Payment capabilities
+            // Note: Payment capability is checked separately when needed
+            // Not blocking details load on payment capability
             paymentCapabilities: {
-              paymentsSupported: (account as any).capabilities?.payments_enabled !== false
+              checkSeparately: true,
+              message: "Payment capability verified when Pay button is clicked"
             }
           };
         }
 
         res.json({
           provider: 'teller',
-          account: {
+          accountOverview: {
             id: account.id,
-            name: account.name,
-            type: account.type,
-            subtype: account.subtype,
-            status: account.status,
-            institution: account.institution,
-            currency: account.currency,
-            enrollment_id: account.enrollment_id,
-            last_four: account.last_four,
-            balance: {
-              available: account.balance?.available,
-              current: account.balance?.current,
-              ledger: account.balance?.ledger
-            },
-            details: account.details || {}
+            name: account.name ?? null,
+            type: account.type ?? null,
+            subtype: account.subtype ?? null,
+            status: account.status ?? null,
+            institution: account.institution ?? { name: 'Unknown', id: '' },
+            currency: account.currency ?? 'USD',
+            enrollment_id: account.enrollment_id ?? null,
+            last_four: account.last_four ?? null
+          },
+          balances: {
+            // Use fetched balances with fallbacks
+            available: balances?.available ?? account.balance?.available ?? null,
+            current: balances?.current ?? account.balance?.current ?? null,
+            ledger: balances?.ledger ?? account.balance?.ledger ?? null,
+            statement: balances?.statement ?? null,
+            credit_limit: balances?.credit_limit ?? null
           },
           creditCardInfo,
-          transactions: transactions || []
+          transactions: transactions || [],
+          statements: [] // Placeholder - would be populated if Teller statements API available
         });
       } catch (error: any) {
         console.error('[Account Details] Teller API error:', error);

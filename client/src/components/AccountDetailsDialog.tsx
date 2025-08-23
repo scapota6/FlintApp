@@ -444,15 +444,15 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 Account Information
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <Info label="Account ID" value={data.accountInformation?.id || data.account?.id || 'N/A'} />
-                <Info label="Institution" value={data.accountInformation?.brokerage || data.account?.institution?.name || 'N/A'} />
-                <Info label="Account Type" value={data.accountInformation?.type || data.account?.type || 'N/A'} />
-                <Info label="Account Subtype" value={data.account?.subtype || data.accountInformation?.type || 'N/A'} />
+                <Info label="Account ID" value={data.accountOverview?.id || data.accountInformation?.id || data.account?.id || '—'} />
+                <Info label="Institution" value={data.accountOverview?.institution?.name || data.accountInformation?.brokerage || data.account?.institution?.name || '—'} />
+                <Info label="Account Type" value={data.accountOverview?.type || data.accountInformation?.type || data.account?.type || '—'} />
+                <Info label="Account Subtype" value={data.accountOverview?.subtype || data.account?.subtype || data.accountInformation?.type || '—'} />
               </div>
               <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Info label="Currency" value={data.accountInformation?.currency || data.account?.currency || 'USD'} />
-                <Info label="Status" value={data.account?.status || data.accountInformation?.status || 'N/A'} />
-                <Info label="Last 4" value={data.account?.last4 || data.account?.mask || 'N/A'} />
+                <Info label="Currency" value={data.accountOverview?.currency || data.accountInformation?.currency || data.account?.currency || 'USD'} />
+                <Info label="Status" value={data.accountOverview?.status || data.account?.status || data.accountInformation?.status || '—'} />
+                <Info label="Last 4" value={data.accountOverview?.last_four || data.account?.last4 || data.account?.mask || '—'} />
               </div>
               {/* Account Details (Routing/Account Numbers) */}
               {data.accountDetails && (
@@ -472,7 +472,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
               {data.provider === 'teller' && data.balances ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {/* Bank Account Balances */}
-                  {data.account?.type === 'depository' && (
+                  {(data.accountOverview?.type === 'depository' || data.account?.type === 'depository') && (
                     <>
                       <Info label="Available Balance" value={fmtMoney(data.balances.available)} />
                       <Info label="Ledger Balance" value={fmtMoney(data.balances.ledger)} />
@@ -480,11 +480,12 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     </>
                   )}
                   {/* Credit Card Balances */}
-                  {data.account?.type === 'credit' && (
+                  {(data.accountOverview?.type === 'credit' || data.accountOverview?.subtype === 'credit_card' || data.account?.type === 'credit') && (
                     <>
                       <Info label="Current Balance" value={fmtMoney(data.balances.current)} />
                       <Info label="Statement Balance" value={fmtMoney(data.balances.statement)} />
-                      <Info label="Available Credit" value={fmtMoney(data.balances.availableCredit)} />
+                      <Info label="Available Credit" value={fmtMoney(data.balances.available)} />
+                      <Info label="Credit Limit" value={fmtMoney(data.balances.credit_limit)} />
                     </>
                   )}
                 </div>
