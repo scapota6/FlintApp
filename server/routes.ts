@@ -206,56 +206,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Always include accounts, validate access for real-time data
           if (account.accessToken) {
             try {
-              const response = await fetch(`https://api.teller.io/accounts/${account.externalAccountId}`, {
-                headers: {
-                  'Authorization': `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`,
-                },
-              });
+              // Fetch both account info and balances from Teller
+              const [accountResponse, balancesResponse] = await Promise.all([
+                fetch(`https://api.teller.io/accounts/${account.externalAccountId}`, {
+                  headers: {
+                    'Authorization': `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`,
+                  },
+                }),
+                fetch(`https://api.teller.io/accounts/${account.externalAccountId}/balances`, {
+                  headers: {
+                    'Authorization': `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`,
+                  },
+                })
+              ]);
               
-              if (response.ok) {
-                const tellerAccount = await response.json();
+              if (accountResponse.ok && balancesResponse.ok) {
+                const tellerAccount = await accountResponse.json();
+                const tellerBalances = await balancesResponse.json();
                 
-                // Update balance in database - handle credit cards differently
-                let balanceToStore;
-                if (tellerAccount.type === 'credit') {
-                  // For credit cards, show the debt (positive amount owed)
-                  balanceToStore = tellerAccount.balance?.current ? Math.abs(tellerAccount.balance.current) : 0;
-                } else {
-                  // For bank accounts, show available balance
-                  balanceToStore = tellerAccount.balance?.available || 0;
+                console.log('[Dashboard] Teller account data:', {
+                  accountId: account.id,
+                  type: tellerAccount.type,
+                  subtype: tellerAccount.subtype,
+                  balances: tellerBalances
+                });
+                
+                // Determine account type based on Teller's type and subtype
+                const tellerType = tellerAccount.type?.toLowerCase() || '';
+                const tellerSubtype = tellerAccount.subtype?.toLowerCase() || '';
+                
+                let accountType: 'bank' | 'credit';
+                let displayBalance: number;
+                
+                // Asset accounts (green): checking, savings, money_market, cash_management
+                if (['checking', 'savings', 'money_market', 'cash_management'].includes(tellerSubtype) || 
+                    tellerType === 'depository') {
+                  accountType = 'bank';
+                  displayBalance = parseFloat(tellerBalances.available || tellerBalances.current || '0') || 0;
+                  bankBalance += displayBalance;
+                  totalBalance += displayBalance;
+                }
+                // Liability/credit accounts (red): credit_card, line_of_credit
+                else if (['credit_card', 'line_of_credit'].includes(tellerSubtype) || 
+                         tellerType === 'credit') {
+                  accountType = 'credit';
+                  // For credit cards, show current balance owed (positive number)
+                  const currentBalance = parseFloat(tellerBalances.current || '0') || 0;
+                  displayBalance = Math.abs(currentBalance); // Show as positive debt amount
+                }
+                else {
+                  // Default fallback based on stored account type
+                  accountType = account.accountType === 'card' ? 'credit' : 'bank';
+                  displayBalance = parseFloat(tellerBalances.available || tellerBalances.current || '0') || 0;
+                  if (accountType === 'bank') {
+                    bankBalance += displayBalance;
+                    totalBalance += displayBalance;
+                  }
                 }
                 
-                await storage.updateAccountBalance(account.id, String(balanceToStore));
+                console.log('[Dashboard] Account classification:', {
+                  accountId: account.id,
+                  tellerType,
+                  tellerSubtype,
+                  accountType,
+                  displayBalance
+                });
                 
-                // Handle credit cards differently - they show debt amount and don't count toward net worth
-                if (account.accountType === 'card') {
-                  // Credit cards: show debt amount (positive), don't add to bankBalance (would double-count debt)
-                  enrichedAccounts.push({
-                    id: account.id,
-                    provider: 'teller',
-                    accountName: account.accountName || 'Credit Card',
-                    balance: balanceToStore,
-                    type: 'credit' as const,
-                    institution: account.institutionName || 'Credit Card',
-                    lastUpdated: new Date().toISOString()
-                  });
-                  // Don't add credit card debt to bankBalance (net worth calculation)
-                } else {
-                  // Regular bank accounts: checking/savings
-                  bankBalance += balanceToStore;
-                  totalBalance += balanceToStore;
-                  
-                  enrichedAccounts.push({
-                    id: account.id,
-                    provider: 'teller',
-                    accountName: account.accountName || 'Bank Account',
-                    balance: balanceToStore,
-                    type: 'bank' as const,
-                    institution: account.institutionName || 'Bank',
-                    lastUpdated: new Date().toISOString()
-                  });
-                }
-              } else if (response.status === 401 || response.status === 403) {
+                // Update stored balance in database
+                await storage.updateAccountBalance(account.id, displayBalance.toString());
+                
+                enrichedAccounts.push({
+                  id: account.id,
+                  provider: 'teller',
+                  accountName: account.accountName || (accountType === 'credit' ? 'Credit Card' : 'Bank Account'),
+                  balance: displayBalance,
+                  type: accountType,
+                  institution: account.institutionName || (accountType === 'credit' ? 'Credit Card' : 'Bank'),
+                  lastUpdated: new Date().toISOString(),
+                  // Store additional balance info for details view
+                  availableBalance: parseFloat(tellerBalances.available || '0') || 0,
+                  ledgerBalance: parseFloat(tellerBalances.ledger || '0') || 0,
+                  currentBalance: parseFloat(tellerBalances.current || '0') || 0,
+                  creditLimit: parseFloat(tellerBalances.credit_limit || '0') || null
+                });
+              } else if (accountResponse.status === 401 || accountResponse.status === 403) {
                 // Account access expired - show stored balance and mark for reconnection
                 console.log(`[Dashboard] Teller account ${account.id} access expired, using stored balance`);
                 

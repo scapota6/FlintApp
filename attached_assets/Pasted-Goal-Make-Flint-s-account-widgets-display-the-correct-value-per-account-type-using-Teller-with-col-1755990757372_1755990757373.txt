@@ -1,0 +1,59 @@
+Goal: Make Flint’s account widgets display the correct value per account type using Teller, with colors and labels as specified. Fix the bug where the card shows $0 while the details modal shows the real balance. Keep “ledger balance” in the details view only, with a tooltip explaining it.
+
+Requirements
+Data source (Teller):
+
+Use Teller’s balances/transactions for each account.
+
+Use account.type + account.subtype to determine rendering.
+
+Asset accounts (green): checking, savings, money_market, cash_management.
+
+Liability/credit accounts (red/neutral): credit_card, line_of_credit.
+
+For each account, fetch both:
+
+available_balance
+
+ledger_balance
+
+For credit accounts also fetch/find:
+
+credit_limit (Teller field if present; otherwise from account metadata).
+
+current_balance (outstanding balance).
+If Teller doesn’t return a single field, compute:
+current_balance = credit_limit - available_credit
+(or sum of posted transactions since statement start; see fallback below).
+
+Computations & display rules
+
+Checking/Savings/etc (assets):
+
+Big number on the card = available_balance (color green).
+
+Subtitle (small, grey): “{percent_of_total}% of total”.
+
+Credit Card / Line of Credit (liabilities):
+
+Big number on the card = Amount spent this cycle (color red).
+
+Primary method: use Teller’s current_balance if provided.
+
+Fallback method when only credit_limit and available_credit are available:
+amount_spent = credit_limit - available_credit.
+
+Last-resort fallback: compute from transactions since statement open:
+
+Determine cycle start: use Teller statement/statement_close_date if available; otherwise use the first day of current month.
+
+Sum posted purchases + fees − payments/credits since cycle start.
+
+Small line under the big number (grey):
+“Credit available — $${available_credit}”
+
+Percent of total: Only include asset accounts in the “% of total” portfolio denominator by default. (Liabilities can be shown separately as “Debt”.)
+
+Ledger balance: Show only in the Account Details modal under “Balances” with a small info tooltip:
+
+“Ledger includes pending transactions; available is what you can use right now.”
