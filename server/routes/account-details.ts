@@ -16,11 +16,20 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
     // Support both authentication methods
     const userId = req.user?.claims?.sub || req.headers['x-user-id'];
     
-    console.log('[Account Details] Fetching for account:', accountId, 'user:', userId);
+    console.log('[Account Details API] Request:', {
+      path: req.originalUrl,
+      accountId,
+      userId,
+      hasAuthHeader: !!req.headers['x-user-id'],
+      hasSession: !!req.user
+    });
     
     if (!userId) {
-      console.log('[Account Details] No user ID found in request');
-      return res.status(401).json({ message: 'Unauthorized' });
+      console.log('[Account Details API] Failed: No user ID (401)');
+      return res.status(401).json({ 
+        message: 'Unauthorized',
+        code: 'NO_USER_ID' 
+      });
     }
     
     // Try to parse as number for database ID
@@ -38,11 +47,11 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
       if (dbAccount) {
         provider = dbAccount.provider;
         externalId = dbAccount.externalAccountId;
-        console.log('[Account Details] Found DB account:', { 
-          id: dbId, 
+        console.log('[Account Details API] Resolved account:', { 
+          flintId: dbId,
+          tellerAccountId: externalId,
           provider, 
-          externalId,
-          institutionName: dbAccount.institutionName 
+          institution: dbAccount.institutionName 
         });
       }
     } else {
@@ -55,17 +64,21 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
       if (dbAccount) {
         provider = dbAccount.provider;
         externalId = accountId;
-        console.log('[Account Details] Found by external ID:', { 
-          provider, 
-          externalId,
-          institutionName: dbAccount.institutionName 
+        console.log('[Account Details API] Found by external ID:', { 
+          tellerAccountId: externalId,
+          provider,
+          institution: dbAccount.institutionName 
         });
       }
     }
     
     if (!provider || !externalId) {
-      console.log('[Account Details] Account not found:', accountId);
-      return res.status(404).json({ message: "Account not found" });
+      console.log('[Account Details API] Failed: Account not found (404)', { accountId });
+      return res.status(404).json({ 
+        message: "Account not found",
+        code: 'ACCOUNT_NOT_FOUND',
+        accountId 
+      });
     }
     
     // Fetch details based on provider
@@ -170,7 +183,26 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           statements: [] // Placeholder - would be populated if Teller statements API available
         });
       } catch (error: any) {
-        console.error('[Account Details] Teller API error:', error);
+        // Check for Teller auth errors
+        const statusCode = error.response?.status || error.statusCode || 500;
+        const errorMessage = error.message || 'Teller API error';
+        
+        console.error('[Account Details API] Teller error:', {
+          userId,
+          tellerAccountId: externalId,
+          status: statusCode,
+          reason: errorMessage
+        });
+        
+        // Handle Teller auth expiration
+        if (statusCode === 401 || statusCode === 403) {
+          console.log('[Account Details API] Teller consent expired, reconnection required');
+          return res.status(401).json({
+            message: 'Teller account reconnection required',
+            code: 'TELLER_RECONNECT_REQUIRED',
+            provider: 'teller'
+          });
+        }
         
         // For test accounts, provide fallback mock data when Teller API fails
         if (externalId?.includes('test') || externalId?.includes('acc_test')) {

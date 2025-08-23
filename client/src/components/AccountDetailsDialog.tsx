@@ -380,7 +380,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
     setShowPaymentDialog(false);
     setCustomPaymentAmount('');
   };
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['account-details', accountId],
     enabled: open,
     queryFn: async () => {
@@ -388,10 +388,18 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
         headers: { 'x-user-id': currentUserId },
         credentials: 'include',
       });
-      if (!resp.ok) throw new Error(await resp.text());
+      if (!resp.ok) {
+        const errorData = await resp.json().catch(() => ({ message: resp.statusText }));
+        throw errorData;
+      }
       return resp.json();
     }
   });
+  
+  // Extract error details for dev mode
+  const errorDetails = error as any;
+  const isDev = process.env.NODE_ENV === 'development';
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   if (!open) return null;
 
@@ -427,9 +435,28 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
               <div className="flex-shrink-0">
                 <X className="h-5 w-5 text-red-400" />
               </div>
-              <div className="ml-3">
+              <div className="ml-3 flex-1">
                 <p className="text-red-800 dark:text-red-200 font-medium">Failed to load account details</p>
-                <p className="text-red-600 dark:text-red-300 text-sm mt-1">Please check your connection and try again.</p>
+                <p className="text-red-600 dark:text-red-300 text-sm mt-1">
+                  {errorDetails?.code === 'TELLER_RECONNECT_REQUIRED' 
+                    ? 'Account reconnection required. Please reconnect your account.'
+                    : 'Please check your connection and try again.'}
+                </p>
+                {isDev && (
+                  <button
+                    onClick={() => setShowErrorDetails(!showErrorDetails)}
+                    className="text-xs text-red-500 dark:text-red-400 underline mt-2"
+                  >
+                    {showErrorDetails ? 'Hide' : 'View'} error details
+                  </button>
+                )}
+                {isDev && showErrorDetails && (
+                  <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 rounded text-xs font-mono text-red-700 dark:text-red-300">
+                    <div>Code: {errorDetails?.code || 'Unknown'}</div>
+                    <div>Message: {errorDetails?.message || 'No message'}</div>
+                    {errorDetails?.accountId && <div>Account: {errorDetails.accountId}</div>}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -437,66 +464,178 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
 
         {data && (
           <div className="space-y-8 overflow-y-auto max-h-[75vh] p-6 bg-gradient-to-b from-transparent to-purple-50/30 dark:to-purple-950/10">
-            {/* 1. Account Information */}
-            <section>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm mr-3">1</div>
-                Account Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <Info label="Account ID" value={data.accountOverview?.id || data.accountInformation?.id || data.account?.id || '—'} />
-                <Info label="Institution" value={data.accountOverview?.institution?.name || data.accountInformation?.brokerage || data.account?.institution?.name || '—'} />
-                <Info label="Account Type" value={data.accountOverview?.type || data.accountInformation?.type || data.account?.type || '—'} />
-                <Info label="Account Subtype" value={data.accountOverview?.subtype || data.account?.subtype || data.accountInformation?.type || '—'} />
-              </div>
-              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Info label="Currency" value={data.accountOverview?.currency || data.accountInformation?.currency || data.account?.currency || 'USD'} />
-                <Info label="Status" value={data.accountOverview?.status || data.account?.status || data.accountInformation?.status || '—'} />
-                <Info label="Last 4" value={data.accountOverview?.last_four || data.account?.last4 || data.account?.mask || '—'} />
-              </div>
-              {/* Account Details (Routing/Account Numbers) */}
-              {data.accountDetails && (
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Info label="Routing Number" value={data.accountDetails.routingNumberMask || 'N/A'} />
-                  <Info label="Account Number" value={data.accountDetails.accountNumberMask || 'N/A'} />
-                </div>
-              )}
-            </section>
+            
+            {/* CREDIT CARD LAYOUT - Teller credit cards get special treatment */}
+            {data.provider === 'teller' && data.creditCardInfo ? (
+              <>
+                {/* 1. Payments & Due Dates (FIRST for credit cards) */}
+                <section>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm mr-3">💳</div>
+                    Payments & Due Dates
+                  </h3>
+                  
+                  {/* Payment Due Date - Most Prominent */}
+                  <div className="mb-6 p-6 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                    <div className="text-center">
+                      <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide mb-2">Payment Due Date</div>
+                      <div className="text-4xl font-bold text-red-700 dark:text-red-300 mb-4">
+                        {data.creditCardInfo.paymentDueDate || '—'}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
+                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Minimum Due</div>
+                        <div className="text-xl font-bold text-red-700 dark:text-red-300 mt-1">
+                          {data.creditCardInfo.minimumDue ? fmtMoney(data.creditCardInfo.minimumDue) : '—'}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
+                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Statement Balance</div>
+                        <div className="text-xl font-bold text-red-700 dark:text-red-300 mt-1">
+                          {data.creditCardInfo.statementBalance ? fmtMoney(data.creditCardInfo.statementBalance) : '—'}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
+                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Last Payment</div>
+                        <div className="text-sm font-bold text-red-700 dark:text-red-300 mt-1">
+                          {data.creditCardInfo.lastPayment?.amount ? fmtMoney(data.creditCardInfo.lastPayment.amount) : '—'}
+                        </div>
+                        <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                          {data.creditCardInfo.lastPayment?.date || '—'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
 
-            {/* 2. Live Balances */}
-            <section>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm mr-3">2</div>
-                Live Balances
-              </h3>
-              {data.provider === 'teller' && data.balances ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {/* Bank Account Balances */}
-                  {(data.accountOverview?.type === 'depository' || data.account?.type === 'depository') && (
-                    <>
-                      <Info label="Available Balance" value={fmtMoney(data.balances.available)} />
-                      <Info label="Ledger Balance" value={fmtMoney(data.balances.ledger)} />
-                      <Info label="Current Balance" value={fmtMoney(data.balances.current)} />
-                    </>
-                  )}
-                  {/* Credit Card Balances */}
-                  {(data.accountOverview?.type === 'credit' || data.accountOverview?.subtype === 'credit_card' || data.account?.type === 'credit') && (
-                    <>
-                      <Info label="Current Balance" value={fmtMoney(data.balances.current)} />
-                      <Info label="Statement Balance" value={fmtMoney(data.balances.statement)} />
-                      <Info label="Available Credit" value={fmtMoney(data.balances.available)} />
-                      <Info label="Credit Limit" value={fmtMoney(data.balances.credit_limit)} />
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <Info label="Cash" value={fmtMoney(data.accountInformation?.balancesOverview?.cash || data.account?.balance?.available)} />
-                  <Info label="Equity" value={fmtMoney(data.accountInformation?.balancesOverview?.equity || data.account?.balance?.current)} />
-                  <Info label="Buying Power" value={fmtMoney(data.accountInformation?.balancesOverview?.buyingPower || data.account?.balance?.ledger)} />
-                </div>
-              )}
-            </section>
+                {/* 2. Credit Availability */}
+                <section>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm mr-3">📊</div>
+                    Credit Availability
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Info label="Available Credit" value={fmtMoney(data.creditCardInfo.availableCredit)} />
+                    <Info label="Credit Limit" value={fmtMoney(data.creditCardInfo.creditLimit)} />
+                    <Info label="Current Balance" value={fmtMoney(data.creditCardInfo.currentBalance)} />
+                  </div>
+                </section>
+
+                {/* 3. APR & Fees */}
+                {(data.creditCardInfo.apr || data.creditCardInfo.annualFee || data.creditCardInfo.lateFee) && (
+                  <section>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white font-bold text-sm mr-3">%</div>
+                      APR & Fees
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {data.creditCardInfo.apr && (
+                        <Info label="APR" value={`${data.creditCardInfo.apr}%`} />
+                      )}
+                      {data.creditCardInfo.cashAdvanceApr && (
+                        <Info label="Cash Advance APR" value={`${data.creditCardInfo.cashAdvanceApr}%`} />
+                      )}
+                      {data.creditCardInfo.annualFee && (
+                        <Info label="Annual Fee" value={fmtMoney(data.creditCardInfo.annualFee)} />
+                      )}
+                      {data.creditCardInfo.lateFee && (
+                        <Info label="Late Fee" value={fmtMoney(data.creditCardInfo.lateFee)} />
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* 4. Account Information */}
+                <section>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm mr-3">ℹ️</div>
+                    Account Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <Info label="Account ID" value={data.accountOverview?.id || data.account?.id || '—'} />
+                    <Info label="Institution" value={data.accountOverview?.institution?.name || data.account?.institution?.name || '—'} />
+                    <Info label="Card Type" value={data.accountOverview?.subtype || data.account?.subtype || 'Credit Card'} />
+                    <Info label="Last 4" value={data.accountOverview?.last_four || data.account?.last4 || '—'} />
+                  </div>
+                </section>
+              </>
+            ) : data.provider === 'teller' ? (
+              /* BANK ACCOUNT LAYOUT - Checking/Savings accounts */
+              <>
+                {/* 1. Balances (FIRST for bank accounts) */}
+                <section>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm mr-3">💰</div>
+                    Balances
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Info label="Available Balance" value={fmtMoney(data.balances?.available)} />
+                    <Info label="Current Balance" value={fmtMoney(data.balances?.current)} />
+                    <Info label="Ledger Balance" value={fmtMoney(data.balances?.ledger)} />
+                  </div>
+                </section>
+
+                {/* 2. Masked Identifiers */}
+                <section>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm mr-3">🔒</div>
+                    Account Identifiers
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Info label="Routing Number" value={data.accountDetails?.routingNumberMask || '—'} />
+                    <Info label="Account Number" value={data.accountDetails?.accountNumberMask || '—'} />
+                    <Info label="Account Last 4" value={data.accountOverview?.last_four || data.account?.last4 || '—'} />
+                    <Info label="Status" value={data.accountOverview?.status || data.account?.status || '—'} />
+                  </div>
+                </section>
+
+                {/* 3. Account Information */}
+                <section>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm mr-3">ℹ️</div>
+                    Account Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <Info label="Account ID" value={data.accountOverview?.id || data.account?.id || '—'} />
+                    <Info label="Institution" value={data.accountOverview?.institution?.name || data.account?.institution?.name || '—'} />
+                    <Info label="Account Type" value={data.accountOverview?.type || data.account?.type || '—'} />
+                    <Info label="Account Subtype" value={data.accountOverview?.subtype || data.account?.subtype || '—'} />
+                  </div>
+                </section>
+              </>
+            ) : (
+              /* BROKERAGE ACCOUNT LAYOUT - SnapTrade accounts */
+              <>
+                {/* 1. Account Information */}
+                <section>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm mr-3">1</div>
+                    Account Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <Info label="Account ID" value={data.accountInformation?.id || '—'} />
+                    <Info label="Brokerage" value={data.accountInformation?.brokerage || '—'} />
+                    <Info label="Account Type" value={data.accountInformation?.type || '—'} />
+                    <Info label="Currency" value={data.accountInformation?.currency || 'USD'} />
+                  </div>
+                </section>
+
+                {/* 2. Live Balances */}
+                <section>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm mr-3">2</div>
+                    Live Balances
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Info label="Cash" value={fmtMoney(data.accountInformation?.balancesOverview?.cash)} />
+                    <Info label="Equity" value={fmtMoney(data.accountInformation?.balancesOverview?.equity)} />
+                    <Info label="Buying Power" value={fmtMoney(data.accountInformation?.balancesOverview?.buyingPower)} />
+                  </div>
+                </section>
+              </>
+            )}
 
             {/* Credit Card Information - Specialized Layout for Teller accounts only */}
             {data.creditCardInfo && data.provider === 'teller' && (
