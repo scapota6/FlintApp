@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
-import { ensureCsrf } from '@/lib/csrf';
+import { getCsrfToken } from '@/lib/csrf';
 import { requestJSON } from '@/lib/http';
 import { 
   TrendingUp, 
@@ -95,7 +95,7 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
       }
 
       // Get CSRF token and make request using defensive JSON parsing
-      const token = await ensureCsrf();
+      const token = await getCsrfToken();
       const preview = await requestJSON('/api/trade/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': token },
@@ -150,7 +150,7 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
       }
 
       // Get CSRF token and make request using defensive JSON parsing
-      const token = await ensureCsrf();
+      const token = await getCsrfToken();
       const placed = await requestJSON('/api/trade/place', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': token },

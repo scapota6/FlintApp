@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Trash2, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
+import { postJson } from '@/lib/api';
 
 interface DisconnectButtonProps {
   accountId: string;
@@ -84,15 +84,9 @@ export default function DisconnectButton({
 
       console.log(`Disconnecting ${provider} account ${accountId} via ${endpoint}`);
       
-      const response = await apiRequest(endpoint, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
+      const response = await postJson(endpoint, body);
       
-      if (response.status === 204 || response.status === 200 || response.success) {
+      if (response.success) {
         toast({
           title: "Account Disconnected",
           description: `${accountName} has been disconnected successfully.`,

@@ -1,9 +1,9 @@
 // shared POST helper
-import { ensureCsrf, resetCsrf } from '@/lib/csrf';
+import { getCsrfToken, invalidateCsrf } from '@/lib/csrf';
 import { requestJSON } from '@/lib/http';
 
 export async function apiPost(path: string, body: any) {
-  let token = await ensureCsrf();
+  let token = await getCsrfToken();
   
   try {
     // Use the defensive requestJSON helper
@@ -18,8 +18,8 @@ export async function apiPost(path: string, body: any) {
   } catch (error: any) {
     // If server restarted or cookie rotated, token may be stale—refresh once
     if (error.message?.includes('403') || error.message?.includes('CSRF')) {
-      resetCsrf();
-      token = await ensureCsrf();
+      invalidateCsrf();
+      token = await getCsrfToken();
       
       return await requestJSON(path, {
         method: 'POST',
@@ -38,7 +38,7 @@ export async function apiPost(path: string, body: any) {
  * Helper function for making CSRF-protected PUT requests
  */
 export async function apiPut(path: string, body: any) {
-  let token = await ensureCsrf();
+  let token = await getCsrfToken();
   
   try {
     return await requestJSON(path, {
@@ -51,8 +51,8 @@ export async function apiPut(path: string, body: any) {
     });
   } catch (error: any) {
     if (error.message?.includes('403') || error.message?.includes('CSRF')) {
-      resetCsrf();
-      token = await ensureCsrf();
+      invalidateCsrf();
+      token = await getCsrfToken();
       
       return await requestJSON(path, {
         method: 'PUT',
@@ -71,7 +71,7 @@ export async function apiPut(path: string, body: any) {
  * Helper function for making CSRF-protected DELETE requests
  */
 export async function apiDelete(path: string) {
-  let token = await ensureCsrf();
+  let token = await getCsrfToken();
   
   try {
     return await requestJSON(path, {
@@ -82,8 +82,8 @@ export async function apiDelete(path: string) {
     });
   } catch (error: any) {
     if (error.message?.includes('403') || error.message?.includes('CSRF')) {
-      resetCsrf();
-      token = await ensureCsrf();
+      invalidateCsrf();
+      token = await getCsrfToken();
       
       return await requestJSON(path, {
         method: 'DELETE',

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ensureCsrf } from "@/lib/csrf";
+import { getCsrfToken } from "@/lib/csrf";
 
 export default function TellerCallback() {
   const { toast } = useToast();
@@ -52,7 +52,7 @@ export default function TellerCallback() {
 
       try {
         // Ensure CSRF token
-        await ensureCsrf();
+        await getCsrfToken();
         
         // Exchange enrollment ID for account data
         const data = await apiRequest("/api/teller/exchange-token", {

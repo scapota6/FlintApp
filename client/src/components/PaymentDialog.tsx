@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
-import { ensureCsrf } from "@/lib/csrf";
+import { getCsrfToken } from "@/lib/csrf";
 import { 
   CreditCard, 
   Building2, 
@@ -80,7 +80,7 @@ export function PaymentDialog({
   const preparePaymentMutation = useMutation({
     mutationFn: async () => {
       setPaymentStatus("preparing");
-      const csrfToken = await ensureCsrf();
+      const csrfToken = await getCsrfToken();
       return apiRequest('/api/teller/payments/prepare', {
         method: 'POST',
         headers: {
@@ -117,7 +117,7 @@ export function PaymentDialog({
         amount = parseFloat(customAmount);
       }
 
-      const csrfToken = await ensureCsrf();
+      const csrfToken = await getCsrfToken();
       return apiRequest('/api/teller/payments/create', {
         method: 'POST',
         headers: {
