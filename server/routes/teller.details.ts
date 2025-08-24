@@ -34,29 +34,46 @@ r.get("/api/teller/accounts/:id/details", ensureUser, async (req, res) => {
         currency: account.currency,
         mask: account.mask,
       },
-      balances,
-      transactions: transactions.slice(0, 50), // Latest 50 transactions
-      statements: statements.slice(0, 12), // Latest 12 statements
-      cardMeta, // Credit card specific metadata if available
-      
-      // Credit card specific fields
-      creditInfo: account.type === 'credit' || isCard ? {
-        creditLimit: balances.available ? parseFloat(balances.available) + parseFloat(balances.ledger || '0') : null,
-        availableCredit: balances.available ? parseFloat(balances.available) : null,
-        currentBalance: balances.ledger ? parseFloat(balances.ledger) : null,
-        minimumPayment: cardMeta?.minimum_payment || account.meta?.minimum_payment || null,
-        dueDate: cardMeta?.payment_due_date || account.meta?.payment_due_date || null,
-        lastPaymentDate: cardMeta?.last_payment_date || account.meta?.last_payment_date || null,
-        lastPaymentAmount: cardMeta?.last_payment_amount || account.meta?.last_payment_amount || null,
-        apr: cardMeta?.apr || account.meta?.apr || null,
+      // CREDIT CARD: show due dates & payments first
+      paymentsAndDueDates: isCard ? {
+        paymentDueDate: cardMeta?.payment_due_date ?? balances?.payment_due_date ?? null,
+        minimumPaymentDue: cardMeta?.minimum_payment_due ?? balances?.minimum_payment_due ?? null,
+        statementBalance: balances?.statement ?? null,
+        lastPaymentAmount: cardMeta?.last_payment_amount ?? null,
+        lastPaymentDate: cardMeta?.last_payment_date ?? null,
       } : null,
+      creditAvailability: isCard ? {
+        availableCredit: balances?.available_credit ?? null,
+        creditLimit: balances?.credit_limit ?? null,
+        currentBalance: balances?.current ?? null,
+      } : null,
+      balances: !isCard ? {
+        available: balances?.available ?? null,
+        current: balances?.current ?? null,
+        ledger: balances?.ledger ?? null,
+        pending: balances?.pending ?? null,
+      } : null,
+      aprAndFees: isCard ? {
+        aprPurchase: cardMeta?.apr_purchase ?? null,
+        aprCashAdvance: cardMeta?.apr_cash_advance ?? null,
+        aprBalanceTransfer: cardMeta?.apr_balance_transfer ?? null,
+        annualFee: cardMeta?.annual_fee ?? null,
+        lateFee: cardMeta?.late_fee ?? null,
+      } : null,
+      transactions: transactions.map((t: any) => ({
+        id: t.id, date: t.date, status: t.status,
+        description: t.description, merchant: t.merchant?.name || null,
+        amount: t.amount, currency: t.currency || account.currency,
+      })),
+      statements: statements.map((s: any) => ({
+        id: s.id, periodStart: s.period_start, periodEnd: s.period_end,
+        statementBalance: s.balance, dueDate: s.due_date ?? null,
+        downloadAvailable: !!s.download_url,
+      })),
+      paymentsCapability: false, // set via separate capability check (see below)
     });
-  } catch (error) {
-    console.error('[Teller] Account details error:', error);
-    res.status(500).json({ 
-      message: 'Failed to fetch account details',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+  } catch (e: any) {
+    return res.status(500).json({ message: "Failed to load Teller account details", error: e?.message || e });
   }
 });
 
