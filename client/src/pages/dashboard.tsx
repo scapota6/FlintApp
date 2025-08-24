@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import SimpleWatchlist from '@/components/watchlist/simple-watchlist';
+import RecurringSubscriptions from '@/components/subscriptions/recurring-subscriptions';
 import RealTimeHoldings from '@/components/portfolio/real-time-holdings';
 
 // import TransactionHistory from '@/components/activity/transaction-history';
@@ -131,10 +131,10 @@ export default function Dashboard() {
           <RealTimeHoldings showAccountProvider={true} maxItems={50} />
         </div>
 
-        {/* Real-Time Market Data Section */}
+        {/* Recurring Subscriptions Section */}
         <div className="mt-12">
-          <h3 className="text-xl font-semibold mb-6">Watchlist & Market Data</h3>
-          <SimpleWatchlist />
+          <h3 className="text-xl font-semibold mb-6">Recurring Subscriptions</h3>
+          <RecurringSubscriptions />
         </div>
 
         {/* Connection Options */}
