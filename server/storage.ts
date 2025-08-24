@@ -51,6 +51,19 @@ export interface IStorage {
   // Connected accounts
   getConnectedAccounts(userId: string): Promise<ConnectedAccount[]>;
   createConnectedAccount(account: InsertConnectedAccount): Promise<ConnectedAccount>;
+  upsertConnectedAccount(account: {
+    userId: string;
+    provider: 'teller' | 'snaptrade';
+    externalAccountId: string;
+    displayName: string;
+    institutionName?: string;
+    subtype?: string;
+    mask?: string;
+    currency?: string;
+    status?: string;
+    accountType?: string;
+    balance?: string;
+  }): Promise<ConnectedAccount>;
   updateAccountBalance(accountId: number, balance: string): Promise<void>;
   getConnectedAccount(accountId: number): Promise<ConnectedAccount | undefined>;
   deleteConnectedAccount(userId: string, provider: string, accountId: string): Promise<number>;
@@ -210,9 +223,9 @@ export class DatabaseStorage implements IStorage {
         balance: connectedAccounts.balance,
         currency: connectedAccounts.currency,
         isActive: connectedAccounts.isActive,
-        // status: connectedAccounts.status, -- removed: status column doesn't exist in DB
+        status: connectedAccounts.status,
         lastSynced: connectedAccounts.lastSynced,
-        // lastCheckedAt: connectedAccounts.lastCheckedAt, -- removed: column doesn't exist in DB
+        lastCheckedAt: connectedAccounts.lastCheckedAt,
         accessToken: connectedAccounts.accessToken,
         refreshToken: connectedAccounts.refreshToken,
         externalAccountId: connectedAccounts.externalAccountId,
@@ -232,6 +245,60 @@ export class DatabaseStorage implements IStorage {
       .values(account)
       .returning();
     return newAccount;
+  }
+
+  async upsertConnectedAccount(account: {
+    userId: string;
+    provider: 'teller' | 'snaptrade';
+    externalAccountId: string;
+    displayName: string;
+    institutionName?: string;
+    subtype?: string;
+    mask?: string;
+    currency?: string;
+    status?: string;
+    accountType?: string;
+    balance?: string;
+  }): Promise<ConnectedAccount> {
+    const status = account.status ?? 'connected';
+    const currency = account.currency ?? 'USD';
+    const accountType = account.accountType ?? (account.provider === 'teller' ? 'bank' : 'brokerage');
+    const balance = account.balance ?? '0.00';
+    
+    const [upsertedAccount] = await db
+      .insert(connectedAccounts)
+      .values({
+        userId: account.userId,
+        provider: account.provider,
+        externalAccountId: account.externalAccountId,
+        accountName: account.displayName,
+        institutionName: account.institutionName || 'Unknown',
+        accountNumber: account.mask || null,
+        accountType,
+        balance,
+        currency,
+        status,
+        isActive: true,
+        lastSynced: new Date(),
+        lastCheckedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .onConflictDoUpdate({
+        target: [connectedAccounts.userId, connectedAccounts.provider, connectedAccounts.externalAccountId],
+        set: {
+          accountName: account.displayName,
+          institutionName: account.institutionName || 'Unknown',
+          accountNumber: account.mask || null,
+          currency,
+          status,
+          lastCheckedAt: new Date(),
+          updatedAt: new Date()
+        }
+      })
+      .returning();
+    
+    return upsertedAccount;
   }
 
   async updateAccountBalance(accountId: number, balance: string): Promise<void> {

@@ -116,21 +116,18 @@ router.post("/save-account", isAuthenticated, async (req: any, res) => {
         accountName = `${institutionName} - ${accountName}`;
       }
       
-      await storage.createConnectedAccount({
+      await storage.upsertConnectedAccount({
         userId,
         provider: 'teller',
-        accountType,
-        accountName,
-        accountNumber: lastFour,
-        balance: String(account.balance?.available || 0),
-        currency: account.currency || 'USD',
-        institutionName,
         externalAccountId: account.id,
-        connectionId: enrollmentId || account.enrollment_id,
-        institutionId: account.institution?.id,
-        accessToken: accessToken,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        displayName: accountName,
+        institutionName,
+        subtype: account.subtype,
+        mask: lastFour,
+        currency: account.currency || 'USD',
+        status: 'connected',
+        accountType,
+        balance: String(account.balance?.available || 0),
       });
     }
     
