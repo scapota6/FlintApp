@@ -199,7 +199,28 @@ export class DatabaseStorage implements IStorage {
   // Connected accounts
   async getConnectedAccounts(userId: string): Promise<ConnectedAccount[]> {
     return await db
-      .select()
+      .select({
+        id: connectedAccounts.id,
+        userId: connectedAccounts.userId,
+        accountType: connectedAccounts.accountType,
+        provider: connectedAccounts.provider,
+        institutionName: connectedAccounts.institutionName,
+        accountName: connectedAccounts.accountName,
+        accountNumber: connectedAccounts.accountNumber,
+        balance: connectedAccounts.balance,
+        currency: connectedAccounts.currency,
+        isActive: connectedAccounts.isActive,
+        // status: connectedAccounts.status, -- removed: status column doesn't exist in DB
+        lastSynced: connectedAccounts.lastSynced,
+        lastCheckedAt: connectedAccounts.lastCheckedAt,
+        accessToken: connectedAccounts.accessToken,
+        refreshToken: connectedAccounts.refreshToken,
+        externalAccountId: connectedAccounts.externalAccountId,
+        connectionId: connectedAccounts.connectionId,
+        institutionId: connectedAccounts.institutionId,
+        createdAt: connectedAccounts.createdAt,
+        updatedAt: connectedAccounts.updatedAt,
+      })
       .from(connectedAccounts)
       .where(and(eq(connectedAccounts.userId, userId), eq(connectedAccounts.isActive, true)))
       .orderBy(asc(connectedAccounts.createdAt));
