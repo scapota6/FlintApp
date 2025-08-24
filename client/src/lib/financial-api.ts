@@ -139,15 +139,15 @@ export class FinancialAPI {
 
   static async logLogin() {
     try {
-      const response = await apiRequest("/api/log-login", { method: "POST" });
-      if (!response.ok) {
-        console.warn(`logLogin failed: ${response.status}`);
-        return { ok: false };
-      }
-      return response.json();
-    } catch (error) {
-      console.warn('logLogin error:', error);
-      return { ok: false };
+      await fetch('/api/log-login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ts: Date.now() }),
+      });
+    } catch (e) {
+      // dev-only noise: do not bubble to UI
+      console.warn('logLogin failed:', (e as Error)?.message);
     }
   }
 
