@@ -31,29 +31,24 @@ r.post("/api/connections/snaptrade/register", ensureUser, async (req, res) => {
       creds = { userSecret };
     }
 
-    // 2) Generate login link
-    const loginLink = await snaptrade.authentication.loginSnapTradeUser({
+    // 2) Generate the Connection Portal URL (login)
+    const login = await snaptrade.authentication.loginSnapTradeUser({
       userId,
       userSecret: creds.userSecret,
-      redirectURI: process.env.SNAPTRADE_REDIRECT_URI || "http://localhost:5000/snaptrade/callback",
+      redirectUri: process.env.SNAPTRADE_REDIRECT_URI!, // must match SnapTrade app config
+      // optional: brokerage: "fidelity", "schwab", etc.
     });
 
-    // 3) Return connect URL
-    const connectUrl = (loginLink as any)?.redirectURI ?? (loginLink as any)?.data?.redirectURI;
-    if (!connectUrl) {
-      return res.status(500).json({ message: "No connect URL from SnapTrade" });
-    }
+    const url = (login as any)?.redirectURI ?? (login as any)?.data?.redirectURI;
+    if (!url) return res.status(500).json({ message: "No redirectURI from SnapTrade" });
 
-    res.json({ connect: { url: connectUrl } });
-  } catch (error) {
-    console.error("[SnapTrade] Registration error", {
-      timestamp: new Date().toISOString(),
-      level: "ERROR",
-      message: "SnapTrade registration error",
-      error: (error as Error).message,
-      userId: req.user?.id,
-    });
-    res.status(500).json({ message: "Failed to register with SnapTrade" });
+    return res.json({ portalUrl: url });
+  } catch (e: any) {
+    // Common root causes:
+    // - 1076 Unable to verify signature: wrong/mismatched CONSUMER_KEY
+    // - undefined loginSnapTradeUser: wrong SDK import or old version
+    console.error("[SnapTrade] registration error", e?.response?.data || e);
+    return res.status(500).json({ message: "Failed to register with SnapTrade" });
   }
 });
 
