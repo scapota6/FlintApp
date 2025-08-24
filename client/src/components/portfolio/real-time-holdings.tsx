@@ -1,10 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { apiRequest } from '@/lib/queryClient';
 import { getUserEmailOptional } from '@/lib/userEmail';
 import { TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Holding {
   accountId: string;
@@ -36,8 +36,29 @@ export default function RealTimeHoldings({
 }: RealTimeHoldingsProps) {
   const [sortBy, setSortBy] = useState<'value' | 'gainloss' | 'symbol'>('value');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const queryClient = useQueryClient();
 
-  // Fetch user's holdings with real-time data
+  // Check SnapTrade connection status
+  const { data: dashboardData } = useQuery({
+    queryKey: ['/api/dashboard'],
+    queryFn: async () => {
+      const resp = await apiRequest("/api/dashboard");
+      if (!resp.ok) throw new Error("Failed to load dashboard");
+      return resp.json();
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const isSnapTradeConnected = dashboardData?.snapTradeStatus?.connected === true;
+
+  // Clear holdings cache when SnapTrade disconnects
+  useEffect(() => {
+    if (dashboardData?.snapTradeStatus?.connected === false) {
+      queryClient.removeQueries({ queryKey: ['/api/portfolio-holdings'] });
+    }
+  }, [dashboardData?.snapTradeStatus?.connected, queryClient]);
+
+  // Fetch user's holdings with real-time data - only when SnapTrade is connected
   const { data: holdingsData = [], isLoading, error } = useQuery<Holding[]>({
     queryKey: ['/api/portfolio-holdings'],
     queryFn: async () => {
@@ -52,7 +73,8 @@ export default function RealTimeHoldings({
       // Handle both direct array and object with holdings property
       return Array.isArray(data) ? data : (data.holdings || []);
     },
-    refetchInterval: 15000, // Update every 15 seconds for real-time pricing
+    enabled: isSnapTradeConnected, // Only fetch when SnapTrade is connected
+    refetchInterval: isSnapTradeConnected ? 15000 : false, // Update every 15 seconds for real-time pricing
     retry: 2, // Only retry twice on failure
     retryDelay: 3000, // Wait 3 seconds between retries
   });

@@ -22,10 +22,8 @@ router.get('/portfolio-holdings', async (req: any, res) => {
     console.log('[Holdings API] SnapTrade user found:', rec ? 'yes' : 'no', 'userId:', rec?.userId);
     
     if (!rec?.userSecret) {
-      return res.status(428).json({ 
-        code: 'SNAPTRADE_NOT_REGISTERED', 
-        message: 'No SnapTrade user for this userId' 
-      });
+      console.log('SnapTrade not connected — returning empty holdings');
+      return res.status(200).json({ holdings: [] });
     }
 
     try {
