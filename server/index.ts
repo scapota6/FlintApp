@@ -47,9 +47,10 @@ const app = express();
         // Frames (Stripe elements, Teller Connect iframed)
         frameSrc: [
           SELF,
+          'https://teller.io',
+          'https://cdn.teller.io',
           'https://js.stripe.com',
-          'https://hooks.stripe.com',
-          'https://cdn.teller.io'
+          'https://hooks.stripe.com'
         ],
         // XHR/WebSocket endpoints
         connectSrc: [
