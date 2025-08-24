@@ -552,6 +552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Log user login activity with SnapTrade registration check
   app.post('/api/log-login', isAuthenticated, async (req: any, res) => {
     try {
+      // Best-effort analytics logging
       const userId = req.user.claims.sub;
       
       // SnapTrade registration is now handled on-demand during connection
@@ -562,11 +563,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: 'User logged in',
         metadata: { timestamp: new Date().toISOString() }
       });
-      res.json({ success: true });
     } catch (error) {
-      console.error("Error logging activity:", error);
-      res.status(500).json({ message: "Failed to log activity" });
+      // Silently fail - analytics should never break user flows
+      console.warn("Failed to log login activity:", error);
     }
+    
+    // Always return success regardless of analytics outcome
+    res.json({ success: true });
   });
 
   // Account connection management

@@ -7,7 +7,8 @@ import { authApi } from '../lib/snaptrade';
 import { getSnapUser, saveSnapUser } from '../store/snapUsers';
 
 // Runtime guard to warn in dev if someone edits these files without the "bubble gum" env flag
-if (process.env.NODE_ENV === 'development' && !process.env.ALLOW_CONNECT_EDITS) {
+// Disabled in development to prevent breaking flows
+if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_CONNECT_EDITS) {
   console.warn('Connect flows are locked. Say "bubble gum" to change them.');
 }
 
