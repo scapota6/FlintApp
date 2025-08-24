@@ -480,7 +480,7 @@ export default function UnifiedDashboard() {
         open={!!selectedAccountId}
         onClose={() => setSelectedAccountId(null)}
         currentUserId={String(user?.id || '')}
-        provider={connectedAccounts.find(acc => acc.id === selectedAccountId)?.provider}
+        provider={connectedAccounts.find(acc => acc.id === selectedAccountId)?.provider || ''}
       />
     </div>
   );
