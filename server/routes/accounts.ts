@@ -4,7 +4,7 @@
  */
 
 import { Router } from "express";
-import { authApi, accountsApi } from "../lib/snaptrade";
+import { authApi, accountsApi, snaptradeClient } from "../lib/snaptrade";
 import crypto from "crypto";
 import { isAuthenticated } from "../replitAuth";
 import { storage } from "../storage";
@@ -51,7 +51,7 @@ router.get("/brokerages", isAuthenticated, async (req: any, res) => {
       });
       
       // Create a map of accessible account IDs from SnapTrade
-      const accessibleAccountIds = new Set(snaptradeAccounts.map(acc => acc.id));
+      const accessibleAccountIds = new Set(snaptradeAccounts.data.map((acc: any) => acc.id));
       
       for (const dbAccount of dbAccounts) {
         if (!dbAccount.externalAccountId) {
@@ -62,7 +62,7 @@ router.get("/brokerages", isAuthenticated, async (req: any, res) => {
         
         if (accessibleAccountIds.has(dbAccount.externalAccountId)) {
           // Account is accessible via SnapTrade API
-          const snapAccount = snaptradeAccounts.find(acc => acc.id === dbAccount.externalAccountId);
+          const snapAccount = snaptradeAccounts.data.find((acc: any) => acc.id === dbAccount.externalAccountId);
           if (snapAccount) {
             // Update balance with fresh data
             await storage.updateAccountBalance(
@@ -111,14 +111,14 @@ router.get("/brokerages", isAuthenticated, async (req: any, res) => {
     
     logger.info("SnapTrade accounts retrieved with connectivity validation", { 
       userId, 
-      totalInDb: dbAccounts.length,
-      validAccounts: validAccounts.length,
-      invalidAccounts: invalidAccountIds.length
+      dbAccountCount: dbAccounts.length,
+      validAccountCount: validAccounts.length,
+      invalidAccountCount: invalidAccountIds.length
     });
     
     res.json({ accounts: validAccounts });
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Error fetching brokerage accounts", { error });
     res.status(500).json({ 
       message: "Failed to fetch brokerage accounts",
@@ -150,13 +150,13 @@ router.get("/brokerages/:id/holdings", isAuthenticated, async (req: any, res) =>
       
       if (snaptradeUser?.snaptradeUserId && snaptradeUser?.userSecret) {
         try {
-          const { data: positions } = await snaptradeClient.accountInformation.getUserAccountPositions({
+          const { data: positions } = await snaptradeClient.accountsApi.getUserAccountPositions({
             userId: snaptradeUser.snaptradeUserId,
             userSecret: snaptradeUser.userSecret,
             accountId: account.externalAccountId!
           });
           
-          holdings = positions.map(position => ({
+          holdings = positions.map((position: any) => ({
             symbol: position.symbol?.symbol || 'UNKNOWN',
             qty: position.units || 0,
             avgPrice: position.average_purchase_price || 0,
@@ -165,7 +165,7 @@ router.get("/brokerages/:id/holdings", isAuthenticated, async (req: any, res) =>
             dayPnl: 0, // SnapTrade doesn't provide day P&L directly
             totalPnl: ((position.price || 0) - (position.average_purchase_price || 0)) * (position.units || 0)
           }));
-        } catch (error) {
+        } catch (error: any) {
           logger.error("Failed to fetch SnapTrade positions", { error });
         }
       }
@@ -187,7 +187,7 @@ router.get("/brokerages/:id/holdings", isAuthenticated, async (req: any, res) =>
     
     res.json({ holdings });
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Error fetching holdings", { error });
     res.status(500).json({ 
       message: "Failed to fetch holdings",
@@ -219,13 +219,13 @@ router.get("/brokerages/:id/transactions", isAuthenticated, async (req: any, res
       
       if (snaptradeUser?.snaptradeUserId && snaptradeUser?.userSecret) {
         try {
-          const { data: activities } = await snaptradeClient.transactionsAndReporting.getActivities({
+          const { data: activities } = await snaptradeClient.accountsApi.getAccountActivities({
             userId: snaptradeUser.snaptradeUserId,
             userSecret: snaptradeUser.userSecret,
             accounts: account.externalAccountId!
           });
           
-          transactions = activities.map(activity => ({
+          transactions = activities.map((activity: any) => ({
             id: activity.id || crypto.randomUUID(),
             type: activity.type || 'trade',
             symbol: activity.symbol,
@@ -234,7 +234,7 @@ router.get("/brokerages/:id/transactions", isAuthenticated, async (req: any, res
             amount: activity.amount,
             date: activity.trade_date || new Date().toISOString()
           }));
-        } catch (error) {
+        } catch (error: any) {
           logger.error("Failed to fetch SnapTrade activities", { error });
         }
       }
@@ -258,7 +258,7 @@ router.get("/brokerages/:id/transactions", isAuthenticated, async (req: any, res
     
     res.json({ transactions });
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Error fetching transactions", { error });
     res.status(500).json({ 
       message: "Failed to fetch transactions",
@@ -311,7 +311,7 @@ router.get("/banks", isAuthenticated, async (req: any, res) => {
                 String(balanceToStore)
               );
             }
-          } catch (error) {
+          } catch (error: any) {
             logger.error("Failed to fetch Teller account", { error, accountId: account.id });
           }
         }
@@ -338,7 +338,7 @@ router.get("/banks", isAuthenticated, async (req: any, res) => {
     
     res.json({ accounts: finalBankAccounts });
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Error fetching bank accounts", { error });
     res.status(500).json({ 
       message: "Failed to fetch bank accounts",
@@ -384,7 +384,7 @@ router.get("/banks/:id/transactions", isAuthenticated, async (req: any, res) => 
             date: tx.date
           }));
         }
-      } catch (error) {
+      } catch (error: any) {
         logger.error("Failed to fetch Teller transactions", { error });
       }
     }
@@ -410,7 +410,7 @@ router.get("/banks/:id/transactions", isAuthenticated, async (req: any, res) => 
     
     res.json({ transactions });
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Error fetching bank transactions", { error });
     res.status(500).json({ 
       message: "Failed to fetch transactions",
