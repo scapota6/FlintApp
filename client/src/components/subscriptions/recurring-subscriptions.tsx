@@ -43,7 +43,9 @@ export default function RecurringSubscriptions() {
   const { data, isLoading, error } = useQuery<SubscriptionData>({
     queryKey: ['/api/subscriptions'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/subscriptions');
+      const response = await fetch('/api/subscriptions', {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error('Failed to fetch subscriptions');
       return response.json();
     },

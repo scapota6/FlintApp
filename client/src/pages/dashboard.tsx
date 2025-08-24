@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import RealTimeHoldings from '@/components/portfolio/real-time-holdings';
+import RecurringSubscriptions from '@/components/subscriptions/recurring-subscriptions';
 
 // import TransactionHistory from '@/components/activity/transaction-history';
 import AssetSearch from '@/components/search/asset-search';
@@ -159,6 +160,11 @@ export default function Dashboard() {
         <div className="mt-12">
           <h3 className="text-xl font-semibold mb-6">Portfolio Holdings</h3>
           <RealTimeHoldings showAccountProvider={true} maxItems={50} />
+        </div>
+
+        {/* Recurring Subscriptions Section */}
+        <div className="mt-12">
+          <RecurringSubscriptions />
         </div>
 
 

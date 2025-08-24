@@ -491,9 +491,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasConnectedAccounts = enrichedAccounts.length > 0;
       const needsConnection = !hasConnectedAccounts || snapTradeError === 'not_connected';
       
+      // Filter out disconnected accounts (ones with needsReconnection)
+      const activeAccounts = enrichedAccounts.filter(account => !account.needsReconnection);
+      
       // Calculate percentages based on total assets (excluding liabilities)
       const totalAssets = bankBalance + investmentValue + cryptoValue;
-      const accountsWithPercentages = enrichedAccounts.map(account => {
+      const accountsWithPercentages = activeAccounts.map(account => {
         let percentOfTotal = 0;
         
         // Only calculate percentage for asset accounts (bank, investment, crypto)
@@ -522,6 +525,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           hasAccounts: hasConnectedAccounts,
           snapTradeError: snapTradeError,
           message: needsConnection ? 'Connect your accounts to see your portfolio' : null
+        },
+        // Add SnapTrade status for holdings component
+        snapTradeStatus: {
+          connected: !snapTradeError && investmentValue > 0
         }
       };
       
@@ -543,6 +550,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           hasAccounts: false,
           snapTradeError: 'fetch_failed',
           message: 'Connect your accounts to see your portfolio'
+        },
+        // Add SnapTrade status for holdings component
+        snapTradeStatus: {
+          connected: false
         }
       };
       
