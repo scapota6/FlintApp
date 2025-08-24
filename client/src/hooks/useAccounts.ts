@@ -40,10 +40,12 @@ export interface AccountsResponse {
  */
 export function useAccounts() {
   return useQuery<AccountsResponse>({
-    queryKey: ['/api/accounts'],
+    queryKey: ['/api/dashboard'],  // Use dashboard as key
     queryFn: async () => {
-      // Use dashboard endpoint which has all real connected account data
-      const dashboardResponse = await apiRequest('GET', '/api/dashboard');
+      // Use standard fetch for GET requests
+      const dashboardResponse = await fetch('/api/dashboard', {
+        credentials: 'include'
+      });
 
       if (!dashboardResponse.ok) {
         throw new Error('Failed to fetch accounts');
