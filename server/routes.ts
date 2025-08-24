@@ -420,6 +420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Fetch real investment account data from SnapTrade
       let snapTradeError = null;
+      let snapTradePositions: any[] = []; // Initialize positions array
       try {
         console.log('Fetching SnapTrade accounts for user:', userEmail);
         
