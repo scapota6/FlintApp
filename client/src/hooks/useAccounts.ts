@@ -35,49 +35,11 @@ export interface AccountsResponse {
 
 /**
  * Single source of truth for all account data
- * Replaces local caches with React Query call to GET /api/accounts
+ * Fetches from the unified GET /api/accounts endpoint
  */
 export function useAccounts() {
   return useQuery<AccountsResponse>({
     queryKey: ['/api/accounts'],
-    queryFn: async () => {
-      // Fetch from unified endpoint that combines banks and brokerages
-      const [banksResponse, brokeragesResponse] = await Promise.all([
-        apiRequest('GET', '/api/banks'),
-        apiRequest('GET', '/api/brokerages')
-      ]);
-
-      if (!banksResponse.ok || !brokeragesResponse.ok) {
-        throw new Error('Failed to fetch accounts');
-      }
-
-      const [banksData, brokeragesData] = await Promise.all([
-        banksResponse.json(),
-        brokeragesResponse.json()
-      ]);
-
-      // Combine accounts and disconnected arrays
-      const allAccounts = [
-        ...(banksData.accounts || []).map((account: any) => ({
-          ...account,
-          type: account.type || 'bank'
-        })),
-        ...(brokeragesData.accounts || []).map((account: any) => ({
-          ...account,
-          type: 'investment'
-        }))
-      ];
-
-      const allDisconnected = [
-        ...(banksData.disconnected || []),
-        ...(brokeragesData.disconnected || [])
-      ];
-
-      return {
-        accounts: allAccounts,
-        disconnected: allDisconnected.length > 0 ? allDisconnected : undefined
-      };
-    },
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,

@@ -13,6 +13,91 @@ import { logger } from "@shared/logger";
 const router = Router();
 
 /**
+ * GET /api/accounts
+ * Returns all connected accounts (banks + brokerages) for the authenticated user
+ * This is the unified endpoint that combines bank and brokerage data
+ */
+router.get("/", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    
+    // Get all connected accounts from both providers
+    const [bankAccounts, brokerageAccounts] = await Promise.all([
+      storage.getConnectedAccountsByProvider(userId, 'teller'),
+      storage.getConnectedAccountsByProvider(userId, 'snaptrade')
+    ]);
+    
+    // Filter only connected accounts
+    const connectedBankAccounts = (bankAccounts || []).filter(account => account.status === 'connected');
+    const connectedBrokerageAccounts = (brokerageAccounts || []).filter(account => account.status === 'connected');
+    
+    // Get disconnected accounts for UI warnings
+    const disconnectedBankAccounts = (bankAccounts || []).filter(account => account.status === 'disconnected');
+    const disconnectedBrokerageAccounts = (brokerageAccounts || []).filter(account => account.status === 'disconnected');
+    
+    // Combine all connected accounts
+    const allConnectedAccounts = [
+      ...connectedBankAccounts.map(account => ({
+        id: account.id,
+        provider: account.provider,
+        accountName: account.accountName || account.institutionName,
+        accountNumber: account.accountNumber,
+        balance: account.balance || 0,
+        type: account.type || 'bank',
+        institution: account.institutionName,
+        lastUpdated: account.lastUpdated || new Date().toISOString(),
+        currency: account.currency || 'USD',
+        status: account.status,
+        lastCheckedAt: account.lastCheckedAt
+      })),
+      ...connectedBrokerageAccounts.map(account => ({
+        id: account.id,
+        provider: account.provider,
+        accountName: account.accountName || account.institutionName,
+        accountNumber: account.accountNumber,
+        balance: account.balance || 0,
+        type: 'investment' as const,
+        institution: account.institutionName,
+        lastUpdated: account.lastUpdated || new Date().toISOString(),
+        currency: account.currency || 'USD',
+        status: account.status,
+        lastCheckedAt: account.lastCheckedAt
+      }))
+    ];
+    
+    // Combine all disconnected accounts
+    const allDisconnectedAccounts = [
+      ...disconnectedBankAccounts.map(account => ({
+        id: account.id,
+        name: account.accountName || account.institutionName,
+        institutionName: account.institutionName,
+        status: account.status || 'disconnected',
+        lastCheckedAt: account.lastCheckedAt || new Date().toISOString()
+      })),
+      ...disconnectedBrokerageAccounts.map(account => ({
+        id: account.id,
+        name: account.accountName || account.institutionName,
+        institutionName: account.institutionName,
+        status: account.status || 'disconnected',
+        lastCheckedAt: account.lastCheckedAt || new Date().toISOString()
+      }))
+    ];
+    
+    res.json({
+      accounts: allConnectedAccounts,
+      disconnected: allDisconnectedAccounts.length > 0 ? allDisconnectedAccounts : undefined
+    });
+    
+  } catch (error: any) {
+    logger.error("Error fetching accounts", { error });
+    res.status(500).json({ 
+      message: "Failed to load account data",
+      error: error.message 
+    });
+  }
+});
+
+/**
  * GET /api/accounts/health
  * Returns connection health status for all user accounts
  */
