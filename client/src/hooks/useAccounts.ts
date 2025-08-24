@@ -42,44 +42,42 @@ export function useAccounts() {
   return useQuery<AccountsResponse>({
     queryKey: ['/api/accounts'],
     queryFn: async () => {
-      // Fetch from correct backend endpoints
-      const [banksResponse, brokeragesResponse] = await Promise.all([
-        apiRequest('GET', '/api/banks'),
-        apiRequest('GET', '/api/accounts')
-      ]);
+      // Use dashboard endpoint which has all real connected account data
+      const dashboardResponse = await apiRequest('GET', '/api/dashboard');
 
-      if (!banksResponse.ok || !brokeragesResponse.ok) {
+      if (!dashboardResponse.ok) {
         throw new Error('Failed to fetch accounts');
       }
 
-      const [banksData, brokeragesData] = await Promise.all([
-        banksResponse.json(),
-        brokeragesResponse.json()
-      ]);
+      const dashboardData = await dashboardResponse.json();
 
-      // Combine accounts and disconnected arrays
-      const allAccounts = [
-        ...(banksData.accounts || []).map((account: any) => ({
-          ...account,
-          type: account.type || 'bank'
-        })),
-        ...(brokeragesData.brokerages || []).map((account: any) => ({
-          ...account,
-          type: 'investment'
-        }))
-      ];
-
-      const allDisconnected = [
-        ...(banksData.disconnected || []),
-        ...(brokeragesData.disconnected || [])
-      ];
+      // Extract only the connected accounts that are actually working
+      const allAccounts = (dashboardData.accounts || []).map((account: any) => ({
+        id: account.id,
+        provider: account.provider,
+        accountName: account.accountName,
+        accountNumber: account.accountNumber,
+        balance: account.balance,
+        type: account.type,
+        institution: account.institution || account.provider,
+        lastUpdated: account.lastUpdated,
+        currency: account.currency || 'USD',
+        status: 'connected', // Only connected accounts are in dashboard
+        // Extended fields for UI
+        holdings: account.holdings,
+        cash: account.cash,
+        buyingPower: account.buyingPower,
+        percentOfTotal: account.percentOfTotal,
+        availableCredit: account.availableCredit,
+        amountSpent: account.amountSpent
+      }));
 
       return {
         accounts: allAccounts,
-        disconnected: allDisconnected.length > 0 ? allDisconnected : undefined
+        disconnected: undefined // Dashboard only returns working accounts
       };
     },
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    staleTime: 12 * 60 * 60 * 1000, // 12 hours - same as dashboard
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     retry: 2

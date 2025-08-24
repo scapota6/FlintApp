@@ -10,6 +10,7 @@ import { FinancialAPI } from "@/lib/financial-api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useAccounts } from "@/hooks/useAccounts";
 import { ArrowRightLeft, Building, TrendingUp, Clock, CheckCircle, XCircle, Plus } from "lucide-react";
 import Navigation from "@/components/layout/navigation";
 import { TransferSkeleton } from "@/components/ui/skeleton-placeholder";
@@ -21,10 +22,7 @@ export default function Transfers() {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
 
   // Fetch accounts and transfers
-  const { data: accounts, isLoading: accountsLoading } = useQuery({
-    queryKey: ["/api/accounts"],
-    queryFn: FinancialAPI.getAccounts,
-  });
+  const { data: accountsData, isLoading: accountsLoading } = useAccounts();
 
   const { data: transfers, isLoading: transfersLoading, error, refetch } = useQuery({
     queryKey: ["/api/transfers"],
@@ -228,7 +226,7 @@ export default function Transfers() {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-400">Available Balance</span>
                   <span className="text-white font-semibold">
-                    {formatCurrency(accounts?.reduce((sum: number, acc: any) => sum + parseFloat(acc.balance), 0) || 0)}
+                    {formatCurrency(accountsData?.accounts?.reduce((sum: number, acc: any) => sum + parseFloat(acc.balance), 0) || 0)}
                   </span>
                 </div>
               </div>
