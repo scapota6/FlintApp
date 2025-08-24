@@ -54,8 +54,12 @@ export default function Accounts() {
     select: (data: any) => {
       // Extract accounts from dashboard response
       const accounts = data?.accounts || [];
-      // Filter for investment/brokerage accounts (SnapTrade accounts)
-      return accounts.filter((acc: any) => acc.provider === 'snaptrade' || acc.type === 'investment');
+      // Filter for investment/brokerage accounts (SnapTrade accounts) that are actually connected
+      return accounts.filter((acc: any) => 
+        (acc.provider === 'snaptrade' || acc.type === 'investment') && 
+        !acc.needsReconnection && 
+        acc.balance > 0
+      );
     },
     retry: false
   });
@@ -63,6 +67,16 @@ export default function Accounts() {
   // Fetch bank accounts
   const { data: bankData, isLoading: banksLoading, refetch: refetchBanks } = useQuery({
     queryKey: ['/api/banks'],
+    select: (data: any) => {
+      // Only return accounts that are actually connected
+      const accounts = data?.accounts || [];
+      return {
+        accounts: accounts.filter((acc: any) => 
+          acc.status === 'connected' && 
+          !acc.needsReconnection
+        )
+      };
+    },
     retry: false
   });
 
