@@ -97,3 +97,25 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+export async function apiGet<T>(url: string): Promise<T> {
+  const res = await fetch(url, { credentials: 'include' });
+  // Only throw on non-2xx:
+  if (!res.ok) {
+    // Try to parse JSON error, but don't break if it's HTML
+    let msg = `${res.status} ${res.statusText}`;
+    try {
+      const j = await res.json();
+      msg = j?.message || msg;
+    } catch {}
+    throw new Error(msg);
+  }
+  // Defensive JSON parse:
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    // If server ever responds HTML by mistake, surface a helpful hint:
+    throw new Error('Server returned non-JSON (check route order / SPA catch-all)');
+  }
+}

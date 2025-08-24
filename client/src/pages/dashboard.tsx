@@ -6,6 +6,7 @@ import AccountDetailModal from "@/components/dashboard/account-detail-modal";
 import AccountCard from "@/components/dashboard/account-card";
 import SnapTradeConnectionAlert from "@/components/dashboard/snaptrade-connection-alert";
 import { FinancialAPI } from "@/lib/financial-api";
+import { apiGet } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -15,22 +16,52 @@ import RealTimeHoldings from '@/components/portfolio/real-time-holdings';
 // import TransactionHistory from '@/components/activity/transaction-history';
 import AssetSearch from '@/components/search/asset-search';
 
+type DashboardResponse = {
+  totalBalance?: number;
+  bankBalance?: number;
+  investmentBalance?: number;
+  // make arrays optional to avoid runtime errors:
+  positions?: any[];
+  accounts?: any[];
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
-  // Fetch dashboard data with proper Teller refresh cadence
-  const { data: dashboardData, isLoading, error } = useQuery({
-    queryKey: ["teller", "accounts", "balances"],
-    queryFn: FinancialAPI.getDashboardData,
+  // Fetch dashboard data with robust error handling
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: () => apiGet<DashboardResponse>('/api/dashboard'),
+    retry: 1,              // don't loop forever on shape issues
     staleTime: 12 * 60 * 60 * 1000, // 12 hours - data considered fresh for 12 hours
     gcTime: 24 * 60 * 60 * 1000, // 24 hours - keep in cache for 24 hours
     refetchInterval: false, // Don't auto-refetch
     refetchOnWindowFocus: false, // Don't refetch on window focus
     refetchOnReconnect: true, // Refetch when connection restored
   });
+
+  const totals = {
+    total: data?.totalBalance ?? 0,
+    bank: data?.bankBalance ?? 0,
+    invest: data?.investmentBalance ?? 0,
+  };
+
+  // Render a soft empty state if arrays are missing:
+  const accounts = data?.accounts ?? [];
+  const positions = data?.positions ?? [];
+
+  // Create dashboardData object for compatibility with existing components
+  const dashboardData = {
+    ...data,
+    totalBalance: totals.total,
+    bankBalance: totals.bank,
+    investmentBalance: totals.invest,
+    accounts,
+    positions
+  };
 
   // Log user login
   useEffect(() => {
@@ -94,7 +125,7 @@ export default function Dashboard() {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="min-h-screen bg-black text-white">
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 md:pb-6">
