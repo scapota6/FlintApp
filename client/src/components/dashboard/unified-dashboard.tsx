@@ -131,7 +131,7 @@ export default function UnifiedDashboard() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button 
             className="bg-purple-600 hover:bg-purple-700 text-white"
-            onClick={() => window.location.href = '/connect'}
+            onClick={() => window.location.href = '/connections'}
             data-testid="button-connect-accounts"
           >
             <PlusCircle className="h-4 w-4 mr-2" />
