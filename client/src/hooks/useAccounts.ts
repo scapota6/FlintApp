@@ -42,10 +42,10 @@ export function useAccounts() {
   return useQuery<AccountsResponse>({
     queryKey: ['/api/accounts'],
     queryFn: async () => {
-      // Fetch from separate endpoints that the backend expects
+      // Fetch from correct backend endpoints
       const [banksResponse, brokeragesResponse] = await Promise.all([
-        apiRequest('GET', '/api/accounts/banks'),
-        apiRequest('GET', '/api/accounts/brokerages')
+        apiRequest('GET', '/api/banks'),
+        apiRequest('GET', '/api/accounts')
       ]);
 
       if (!banksResponse.ok || !brokeragesResponse.ok) {
@@ -63,7 +63,7 @@ export function useAccounts() {
           ...account,
           type: account.type || 'bank'
         })),
-        ...(brokeragesData.accounts || []).map((account: any) => ({
+        ...(brokeragesData.brokerages || []).map((account: any) => ({
           ...account,
           type: 'investment'
         }))
