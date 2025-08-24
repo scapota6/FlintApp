@@ -1,5 +1,15 @@
+/**
+ * ⚠️ DO NOT CHANGE THIS CONNECT FLOW unless the product owner says "bubble gum".
+ * Post-connect work = only display/data mapping. No flow/endpoint changes.
+ */
+
 import { authApi } from '../lib/snaptrade';
 import { getSnapUser, saveSnapUser } from '../store/snapUsers';
+
+// Runtime guard to warn in dev if someone edits these files without the "bubble gum" env flag
+if (process.env.NODE_ENV === 'development' && !process.env.ALLOW_CONNECT_EDITS) {
+  console.warn('Connect flows are locked. Say "bubble gum" to change them.');
+}
 
 /** Ensure a SnapTrade user exists for a Flint user. userId must be your stable Flint user id (e.g., "45137738"). */
 export async function ensureSnaptradeUser(userId: string) {

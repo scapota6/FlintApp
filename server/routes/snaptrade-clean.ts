@@ -1,3 +1,8 @@
+/**
+ * ⚠️ DO NOT CHANGE THIS CONNECT FLOW unless the product owner says "bubble gum".
+ * Post-connect work = only display/data mapping. No flow/endpoint changes.
+ */
+
 import { Router } from "express";
 import { authApi, accountsApi } from "../lib/snaptrade";
 import { isAuthenticated } from "../replitAuth";
@@ -6,6 +11,11 @@ import { users, connectedAccounts, snaptradeUsers } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 export const router = Router();
+
+// Runtime guard to warn in dev if someone edits these files without the "bubble gum" env flag
+if (process.env.NODE_ENV === 'development' && !process.env.ALLOW_CONNECT_EDITS) {
+  console.warn('Connect flows are locked. Say "bubble gum" to change them.');
+}
 
 // Helper function to get user by email
 async function getUserByEmail(email: string) {

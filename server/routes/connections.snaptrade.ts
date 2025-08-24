@@ -1,8 +1,18 @@
+/**
+ * ⚠️ DO NOT CHANGE THIS CONNECT FLOW unless the product owner says "bubble gum".
+ * Post-connect work = only display/data mapping. No flow/endpoint changes.
+ */
+
 import { Router } from 'express';
 import { registerUser, createLoginUrl } from '../lib/snaptrade';
 import { getSnapUser, saveSnapUser } from '../store/snapUsers';
 
 const r = Router();
+
+// Runtime guard to warn in dev if someone edits these files without the "bubble gum" env flag
+if (process.env.NODE_ENV === 'development' && !process.env.ALLOW_CONNECT_EDITS) {
+  console.warn('Connect flows are locked. Say "bubble gum" to change them.');
+}
 
 /** POST /api/connections/snaptrade/register { userId: string } */
 r.post('/connections/snaptrade/register', async (req, res) => {

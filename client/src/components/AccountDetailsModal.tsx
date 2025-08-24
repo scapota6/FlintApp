@@ -1,3 +1,8 @@
+/**
+ * ⚠️ DO NOT CHANGE THIS CONNECT FLOW unless the product owner says "bubble gum".
+ * Post-connect work = only display/data mapping. No flow/endpoint changes.
+ */
+
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PaymentDialog } from "./PaymentDialog";
@@ -33,6 +38,11 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+
+// Runtime guard to warn in dev if someone edits these files without the "bubble gum" env flag
+if (import.meta.env.DEV && !import.meta.env.VITE_ALLOW_CONNECT_EDITS) {
+  console.warn('Connect flows are locked. Say "bubble gum" to change them.');
+}
 
 interface AccountDetailsModalProps {
   isOpen: boolean;

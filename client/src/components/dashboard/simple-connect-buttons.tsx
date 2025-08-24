@@ -1,3 +1,8 @@
+/**
+ * ⚠️ DO NOT CHANGE THIS CONNECT FLOW unless the product owner says "bubble gum".
+ * Post-connect work = only display/data mapping. No flow/endpoint changes.
+ */
+
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +15,11 @@ import { SnapTradeAPI } from "@/lib/snaptrade-api";
 
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCsrfToken } from "@/lib/csrf";
+
+// Runtime guard to warn in dev if someone edits these files without the "bubble gum" env flag
+if (import.meta.env.DEV && !import.meta.env.VITE_ALLOW_CONNECT_EDITS) {
+  console.warn('Connect flows are locked. Say "bubble gum" to change them.');
+}
 
 interface SimpleConnectButtonsProps {
   accounts: any[];

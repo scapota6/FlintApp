@@ -1,3 +1,8 @@
+/**
+ * ⚠️ DO NOT CHANGE THIS CONNECT FLOW unless the product owner says "bubble gum".
+ * Post-connect work = only display/data mapping. No flow/endpoint changes.
+ */
+
 import { Router } from "express";
 import { isAuthenticated } from "../replitAuth";
 import { logger } from "@shared/logger";
@@ -5,6 +10,11 @@ import { storage } from "../storage";
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
+
+// Runtime guard to warn in dev if someone edits these files without the "bubble gum" env flag
+if (process.env.NODE_ENV === 'development' && !process.env.ALLOW_CONNECT_EDITS) {
+  console.warn('Connect flows are locked. Say "bubble gum" to change them.');
+}
 
 /**
  * POST /api/teller/connect-init
