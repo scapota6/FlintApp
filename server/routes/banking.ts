@@ -4,6 +4,61 @@ import { getUserByEmail, storage } from "../storage";
 
 const router = Router();
 
+// Main endpoint that matches frontend expectations
+router.get("/", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    
+    // Get connected bank accounts from database
+    const dbAccounts = await storage.getConnectedAccountsByProvider(userId, 'teller');
+    
+    if (!dbAccounts || dbAccounts.length === 0) {
+      return res.json({ accounts: [] });
+    }
+    
+    // Filter only connected accounts
+    const connectedAccounts = dbAccounts.filter(account => account.status === 'connected');
+    const disconnectedAccounts = dbAccounts.filter(account => account.status === 'disconnected');
+    
+    // Format accounts for frontend
+    const formattedAccounts = connectedAccounts.map(account => ({
+      id: account.id,
+      provider: account.provider,
+      accountName: account.accountName || account.institutionName,
+      accountNumber: account.accountNumber,
+      balance: account.balance || 0,
+      type: account.type || 'bank',
+      institution: account.institutionName,
+      lastUpdated: account.lastUpdated || new Date().toISOString(),
+      currency: account.currency || 'USD',
+      status: account.status,
+      lastCheckedAt: account.lastCheckedAt
+    }));
+    
+    const response = { 
+      accounts: formattedAccounts,
+      ...(disconnectedAccounts.length > 0 && {
+        disconnected: disconnectedAccounts.map(account => ({
+          id: account.id,
+          name: account.accountName || account.institutionName,
+          institutionName: account.institutionName,
+          status: account.status,
+          lastCheckedAt: account.lastCheckedAt
+        }))
+      })
+    };
+    
+    res.json(response);
+    
+  } catch (error: any) {
+    console.error('Error fetching bank accounts:', error);
+    res.status(500).json({ 
+      message: "Failed to fetch bank accounts",
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
+
 // Get bank account transactions
 router.get("/transactions/:accountId", isAuthenticated, async (req: any, res) => {
   try {

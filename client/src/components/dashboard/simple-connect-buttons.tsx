@@ -84,7 +84,7 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
   const hasBankAccount = accounts.some(acc => acc.accountType === 'bank');
   const hasBrokerageAccount = accounts.some(acc => acc.accountType === 'brokerage' || acc.accountType === 'crypto');
 
-  // Teller Connect mutation - Using JavaScript SDK as recommended
+  // Teller Connect mutation - Simplified without CSRF complications
   const tellerConnectMutation = useMutation({
     mutationFn: async () => {
       console.log('🏦 Teller Connect: Starting bank connection with SDK');
@@ -92,13 +92,11 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
       try {
         // Get Teller application ID
         console.log('🏦 Teller Connect: Getting application ID');
-        await getCsrfToken();
         const initResponse = await fetch("/api/teller/connect-init", {
           method: "POST",
           credentials: "include",
           headers: {
-            "Content-Type": "application/json",
-            "x-csrf-token": localStorage.getItem('csrfToken') || ''
+            "Content-Type": "application/json"
           }
         });
         
@@ -141,18 +139,12 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
               
               // Save the account using the access token
               try {
-                // Get fresh CSRF token
-                const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' });
-                const csrfData = await csrfResponse.json();
-                const csrfToken = csrfData.csrfToken;
-                
-                console.log('🏦 Using CSRF token for save request');
+                console.log('🏦 Saving account to backend');
                 
                 const saveResponse = await fetch('/api/teller/save-account', {
                   method: 'POST',
                   headers: {
-                    'Content-Type': 'application/json',
-                    'x-csrf-token': csrfToken,
+                    'Content-Type': 'application/json'
                   },
                   credentials: 'include',
                   body: JSON.stringify({
@@ -171,7 +163,7 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
                 console.log('🏦 Account saved:', saveData);
                 
                 // Refresh data
-                queryClient.invalidateQueries({ queryKey: ['/api/banks'] });
+                queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
                 queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
                 
                 resolve({ success: true });
