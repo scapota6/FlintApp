@@ -240,9 +240,15 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
             tellerHttpStatus: statusCode,
             reason: 'reconnect required - stale consent or wrong token/account mapping'
           });
-          return res.status(428).json({ // 428 Precondition Required is a nice fit
-            code: 'TELLER_RECONNECT_REQUIRED',
-            message: 'Please re-authenticate this account to continue.',
+          // Mark account as disconnected
+          if (dbId) {
+            await storage.updateAccountConnectionStatus(dbId, 'disconnected');
+          }
+          
+          return res.status(410).json({ // 410 Gone for disconnected accounts
+            code: 'DISCONNECTED',
+            reconnectUrl: '/connect',
+            message: 'Account connection has been lost. Please reconnect your account.',
             provider: 'teller'
           });
         }
@@ -384,10 +390,16 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
         });
         
         // Handle SnapTrade auth errors similarly
-        if (statusCode === 401 || statusCode === 403) {
-          return res.status(428).json({ 
-            code: 'SNAPTRADE_RECONNECT_REQUIRED',
-            message: 'Please re-authenticate this account to continue.',
+        if (statusCode === 401 || statusCode === 403 || statusCode === 404) {
+          // Mark account as disconnected
+          if (dbId) {
+            await storage.updateAccountConnectionStatus(dbId, 'disconnected');
+          }
+          
+          return res.status(410).json({ 
+            code: 'DISCONNECTED',
+            reconnectUrl: '/connect',
+            message: 'Account connection has been lost. Please reconnect your account.',
             provider: 'snaptrade'
           });
         }

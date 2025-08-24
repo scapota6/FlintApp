@@ -70,7 +70,9 @@ export const connectedAccounts = pgTable("connected_accounts", {
   balance: decimal("balance", { precision: 15, scale: 2 }).notNull(),
   currency: varchar("currency").default("USD"),
   isActive: boolean("is_active").default(true),
+  status: varchar("status").default("connected"), // connected, disconnected, expired
   lastSynced: timestamp("last_synced").defaultNow(),
+  lastCheckedAt: timestamp("last_checked_at"),
   accessToken: varchar("access_token"), // API access token
   refreshToken: varchar("refresh_token"), // refresh token if needed
   externalAccountId: varchar("external_account_id"), // provider's account ID

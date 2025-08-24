@@ -13,6 +13,83 @@ import { logger } from "@shared/logger";
 const router = Router();
 
 /**
+ * GET /api/accounts/health
+ * Returns connection health status for all user accounts
+ */
+router.get("/health", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    
+    // Get all user accounts regardless of active status
+    const allAccounts = await storage.getConnectedAccounts(userId);
+    
+    const healthStatuses = await Promise.all(
+      allAccounts.map(async (account) => {
+        let status: 'connected' | 'disconnected' | 'expired' = account.status as any || 'disconnected';
+        const now = new Date();
+        
+        try {
+          if (account.provider === 'snaptrade') {
+            // Verify SnapTrade connection
+            const snaptradeUser = await storage.getSnapTradeUser(userId);
+            if (snaptradeUser?.snaptradeUserId && snaptradeUser?.userSecret) {
+              const accounts = await accountsApi.listUserAccounts({
+                userId: snaptradeUser.snaptradeUserId,
+                userSecret: snaptradeUser.userSecret
+              });
+              
+              const isAccountAccessible = accounts.data.some((acc: any) => acc.id === account.externalAccountId);
+              status = isAccountAccessible ? 'connected' : 'disconnected';
+            } else {
+              status = 'disconnected';
+            }
+          } else if (account.provider === 'teller') {
+            // Verify Teller connection with lightweight call
+            if (account.accessToken && account.externalAccountId) {
+              const authHeader = `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`;
+              const response = await fetch(`https://api.teller.io/accounts/${account.externalAccountId}`, {
+                headers: {
+                  'Authorization': authHeader,
+                  'Accept': 'application/json'
+                }
+              });
+              
+              status = response.ok ? 'connected' : 'disconnected';
+            } else {
+              status = 'disconnected';
+            }
+          }
+          
+          // Update status in database
+          await storage.updateAccountConnectionStatus(account.id, status);
+          
+        } catch (error: any) {
+          console.log(`[Health Check] Account ${account.id} check failed:`, error.message);
+          status = 'disconnected';
+          await storage.updateAccountConnectionStatus(account.id, status);
+        }
+        
+        return {
+          id: account.id,
+          provider: account.provider as 'snaptrade' | 'teller',
+          status,
+          lastCheckedAt: now.toISOString()
+        };
+      })
+    );
+    
+    res.json(healthStatuses);
+    
+  } catch (error: any) {
+    logger.error("Error checking account health", { error });
+    res.status(500).json({ 
+      message: "Failed to check account health",
+      error: error.message 
+    });
+  }
+});
+
+/**
  * GET /api/brokerages
  * Returns all brokerage accounts for the authenticated user
  */
@@ -320,8 +397,17 @@ router.get("/banks", isAuthenticated, async (req: any, res) => {
     
     // Fetch updated accounts from database
     const updatedAccounts = await storage.getConnectedAccounts(userId);
-    const finalBankAccounts = updatedAccounts
-      .filter(acc => acc.accountType === 'bank' || acc.accountType === 'card')
+    // Filter accounts by connection status
+    const allBankAccounts = updatedAccounts
+      .filter(acc => acc.accountType === 'bank' || acc.accountType === 'card');
+    
+    const connectedBankAccounts = allBankAccounts
+      .filter(acc => acc.status !== 'disconnected' && acc.status !== 'expired');
+      
+    const disconnectedBankAccounts = allBankAccounts
+      .filter(acc => acc.status === 'disconnected' || acc.status === 'expired');
+
+    const finalBankAccounts = connectedBankAccounts
       .map(account => ({
         id: account.id,
         name: account.accountName,
@@ -336,7 +422,21 @@ router.get("/banks", isAuthenticated, async (req: any, res) => {
         lastSync: account.lastSynced
       }));
     
-    res.json({ accounts: finalBankAccounts });
+    // Include disconnected accounts in separate array if any exist
+    const response = { 
+      accounts: finalBankAccounts,
+      ...(disconnectedBankAccounts.length > 0 && {
+        disconnected: disconnectedBankAccounts.map(account => ({
+          id: account.id,
+          name: account.accountName,
+          institutionName: account.institutionName,
+          status: account.status,
+          lastCheckedAt: account.lastCheckedAt
+        }))
+      })
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     logger.error("Error fetching bank accounts", { error });

@@ -545,6 +545,25 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(connectedAccounts.id, accountId));
   }
+
+  async updateAccountConnectionStatus(accountId: number, status: 'connected' | 'disconnected' | 'expired'): Promise<void> {
+    await db
+      .update(connectedAccounts)
+      .set({ 
+        status,
+        lastCheckedAt: new Date(),
+        isActive: status === 'connected',
+        updatedAt: new Date()
+      })
+      .where(eq(connectedAccounts.id, accountId));
+  }
+
+  async getAccountsForHealthCheck(): Promise<ConnectedAccount[]> {
+    return db
+      .select()
+      .from(connectedAccounts)
+      .where(eq(connectedAccounts.isActive, true));
+  }
   
   async upsertTransaction(transaction: any): Promise<void> {
     // Store transaction data - would need a transactions table

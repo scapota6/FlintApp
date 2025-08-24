@@ -292,6 +292,17 @@ const app = express();
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Start services after server is up
+    setTimeout(() => {
+      try {
+        const { healthCheckService } = require("./services/health-check");
+        healthCheckService.start();
+        console.log('[Health Check] Service initialized');
+      } catch (error) {
+        console.error('[Health Check] Failed to start:', error);
+      }
+    }, 1000);
   });
   
   } catch (error) {
