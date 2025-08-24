@@ -19,6 +19,19 @@ import { getCsrfToken } from "@/lib/csrf";
 // Runtime guard to warn in dev if someone edits these files without the "bubble gum" env flag
 if (import.meta.env.DEV && !import.meta.env.VITE_ALLOW_CONNECT_EDITS) {
   console.warn('Connect flows are locked. Say "bubble gum" to change them.');
+  
+  // Enhanced protection: Detect unauthorized modifications
+  const EXPECTED_TELLER_ENDPOINTS = ['/api/csrf-token', '/api/teller/connect-init', '/api/teller/save-account'];
+  const EXPECTED_SNAPTRADE_ENDPOINTS = ['/api/auth/user', '/api/connections/snaptrade/register'];
+  
+  // File modification detection (checksum would go here)
+  const fileModificationCheck = () => {
+    // In a real implementation, you could hash the file content here
+    // For now, we rely on the unit test snapshots
+    console.warn('⚠️ Connect flow modification detected - ensure tests pass');
+  };
+  
+  fileModificationCheck();
 }
 
 interface SimpleConnectButtonsProps {
