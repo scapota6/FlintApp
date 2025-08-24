@@ -212,7 +212,7 @@ export class DatabaseStorage implements IStorage {
         isActive: connectedAccounts.isActive,
         // status: connectedAccounts.status, -- removed: status column doesn't exist in DB
         lastSynced: connectedAccounts.lastSynced,
-        lastCheckedAt: connectedAccounts.lastCheckedAt,
+        // lastCheckedAt: connectedAccounts.lastCheckedAt, -- removed: column doesn't exist in DB
         accessToken: connectedAccounts.accessToken,
         refreshToken: connectedAccounts.refreshToken,
         externalAccountId: connectedAccounts.externalAccountId,
