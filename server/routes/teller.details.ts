@@ -102,4 +102,16 @@ r.get("/api/teller/accounts/flint/:id/details", ensureUser, async (req, res) => 
   }
 });
 
+/**
+ * Alias route so existing /api/accounts/:flintId/details keeps working:
+ * it maps Flint id -> Teller account id and reuses the same logic.
+ */
+r.get("/api/accounts/:id/details", ensureUser, async (req, res) => {
+  const flintId = String(req.params.id);
+  const tellerAccId = await getTellerAccountIdForFlintId(req.user.id, flintId);
+  if (!tellerAccId) return res.status(404).json({ message: "No Teller account linked" });
+  req.params.id = tellerAccId;
+  return (r as any).handle(req, res); // reuse above handler
+});
+
 export default r;
