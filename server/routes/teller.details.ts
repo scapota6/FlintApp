@@ -20,38 +20,37 @@ r.get("/api/teller/accounts/:id/details", ensureUser, async (req, res) => {
     const transactions = await teller.transactions.list(tellerAccId, { from: since.toISOString().slice(0,10) }).catch(() => []);
     const statements = await teller.statements?.list?.(tellerAccId).catch(() => []) || [];
 
-    // Credit card specific details
-    const details = {
-      account,
-      balances,
-      transactions: transactions.slice(0, 50), // Latest 50 transactions
-      statements: statements.slice(0, 12), // Latest 12 statements
-      
-      // Credit card specific fields
-      creditInfo: account.type === 'credit' ? {
-        creditLimit: balances.available ? parseFloat(balances.available) + parseFloat(balances.ledger || '0') : null,
-        availableCredit: balances.available ? parseFloat(balances.available) : null,
-        currentBalance: balances.ledger ? parseFloat(balances.ledger) : null,
-        minimumPayment: account.meta?.minimum_payment || null,
-        dueDate: account.meta?.payment_due_date || null,
-        lastPaymentDate: account.meta?.last_payment_date || null,
-        lastPaymentAmount: account.meta?.last_payment_amount || null,
-        apr: account.meta?.apr || null,
-      } : null,
+    // Some institutions expose card-specific fields via details or a card meta endpoint:
+    const isCard = (account.subtype || "").toLowerCase() === "credit_card";
+    const cardMeta = isCard ? await teller.creditCards?.get?.(tellerAccId).catch(() => null) : null;
 
-      // Account metadata
-      accountInfo: {
+    return res.json({
+      accountOverview: {
+        tellerAccountId: account.id,
+        institution: account.institution?.name,
         name: account.name,
         type: account.type,
         subtype: account.subtype,
-        institutionName: account.institution?.name || 'Unknown',
-        accountNumber: account.last_four ? `****${account.last_four}` : account.number,
-        currency: account.currency || 'USD',
-        status: account.status || 'active',
-      }
-    };
-
-    res.json(details);
+        currency: account.currency,
+        mask: account.mask,
+      },
+      balances,
+      transactions: transactions.slice(0, 50), // Latest 50 transactions
+      statements: statements.slice(0, 12), // Latest 12 statements
+      cardMeta, // Credit card specific metadata if available
+      
+      // Credit card specific fields
+      creditInfo: account.type === 'credit' || isCard ? {
+        creditLimit: balances.available ? parseFloat(balances.available) + parseFloat(balances.ledger || '0') : null,
+        availableCredit: balances.available ? parseFloat(balances.available) : null,
+        currentBalance: balances.ledger ? parseFloat(balances.ledger) : null,
+        minimumPayment: cardMeta?.minimum_payment || account.meta?.minimum_payment || null,
+        dueDate: cardMeta?.payment_due_date || account.meta?.payment_due_date || null,
+        lastPaymentDate: cardMeta?.last_payment_date || account.meta?.last_payment_date || null,
+        lastPaymentAmount: cardMeta?.last_payment_amount || account.meta?.last_payment_amount || null,
+        apr: cardMeta?.apr || account.meta?.apr || null,
+      } : null,
+    });
   } catch (error) {
     console.error('[Teller] Account details error:', error);
     res.status(500).json({ 
