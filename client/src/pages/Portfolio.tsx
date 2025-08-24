@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAccounts, usePortfolioTotals } from '@/hooks/useAccounts';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -13,7 +14,9 @@ import {
   RefreshCw,
   Info,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  PlusCircle,
+  AlertCircle
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid, Area, AreaChart } from "recharts";
 import { queryClient } from "@/lib/queryClient";
@@ -106,21 +109,32 @@ export default function Portfolio() {
   const [selectedPeriod, setSelectedPeriod] = useState('1D');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch portfolio summary
-  const { data: summary, isLoading, error } = useQuery<PortfolioSummary>({
+  // Use unified accounts and portfolio totals
+  const { data: accountsData, isLoading, error } = useAccounts();
+  const totals = usePortfolioTotals();
+  
+  // Connected accounts only
+  const connectedAccounts = accountsData?.accounts || [];
+  const hasDisconnectedAccounts = accountsData?.disconnected && accountsData.disconnected.length > 0;
+  const isEmptyState = connectedAccounts.length === 0 && !isLoading;
+  
+  // Fetch portfolio summary for additional data
+  const { data: summary } = useQuery<PortfolioSummary>({
     queryKey: ['/api/portfolio/summary'],
+    enabled: connectedAccounts.length > 0,
     refetchInterval: 60000 // Refresh every minute
   });
 
   // Fetch portfolio history for chart
   const { data: history } = useQuery<PortfolioHistory>({
     queryKey: ['/api/portfolio/history', selectedPeriod],
-    enabled: !!summary
+    enabled: !!summary && connectedAccounts.length > 0
   });
 
   // Handle refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
     await queryClient.invalidateQueries({ queryKey: ['/api/portfolio/summary'] });
     await queryClient.invalidateQueries({ queryKey: ['/api/portfolio/history'] });
     setTimeout(() => setIsRefreshing(false), 1000);
@@ -158,15 +172,59 @@ export default function Portfolio() {
     return (
       <div className="container mx-auto p-6">
         <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Failed to load portfolio data. Please try again later.
+            Failed to load portfolio data. Please check your connection and try again.
           </AlertDescription>
         </Alert>
       </div>
     );
   }
+  
+  // Empty state when no accounts are connected
+  if (isEmptyState) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
+        <div className="container mx-auto px-4 pt-24 pb-12 max-w-7xl">
+          <div className="text-center py-12">
+            <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-gradient-to-r from-purple-500/20 to-blue-500/20 flex items-center justify-center">
+              <AlertCircle className="h-8 w-8 text-purple-400" />
+            </div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-purple-200 to-purple-400 bg-clip-text text-transparent mb-4">
+              No Portfolio Data
+            </h1>
+            <p className="text-slate-400 mb-8 max-w-md mx-auto">
+              Connect your investment accounts to see your portfolio performance and holdings.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button 
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={() => window.location.href = '/connect'}
+                data-testid="button-connect-accounts"
+              >
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Connect accounts
+              </Button>
+            </div>
+            {hasDisconnectedAccounts && (
+              <div className="mt-8 p-4 bg-orange-900/20 border border-orange-700 rounded-lg max-w-md mx-auto">
+                <AlertCircle className="h-5 w-5 text-orange-400 mx-auto mb-2" />
+                <p className="text-orange-200 text-sm">
+                  Some previously connected accounts need to be reconnected to display your complete portfolio.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const isPositive = (summary?.performance?.dayValue || 0) >= 0;
+  // Use totals from connected accounts only
+  const netWorth = totals.totalBalance;
+  const dayValue = summary?.performance?.dayValue || 0;
+  const dayPct = summary?.performance?.dayPct || 0;
+  const isPositive = dayValue >= 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
@@ -179,7 +237,7 @@ export default function Portfolio() {
                 Portfolio Overview
               </h1>
               <p className="text-slate-400 mt-2">
-                Your complete financial picture across {summary?.metadata?.accountCount || 0} accounts
+                Your complete financial picture across {totals.accountCount} connected accounts
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -216,11 +274,11 @@ export default function Portfolio() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-white">
-                {formatCurrency(summary?.totals?.netWorth || 0)}
+                {formatCurrency(netWorth)}
               </div>
               <div className={`flex items-center mt-2 text-sm ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
                 {isPositive ? <ArrowUpRight className="h-4 w-4 mr-1" /> : <ArrowDownRight className="h-4 w-4 mr-1" />}
-                <span>{formatPercent(summary?.performance?.dayPct || 0)} today</span>
+                <span>{formatPercent(dayPct)} today</span>
               </div>
             </CardContent>
         </Card>

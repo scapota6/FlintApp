@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { apiRequest } from '@/lib/queryClient';
-import { Building2, TrendingUp, DollarSign, Wallet, Eye } from 'lucide-react';
+import { useAccounts, usePortfolioTotals } from '@/hooks/useAccounts';
+import { Building2, TrendingUp, DollarSign, Wallet, Eye, PlusCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -59,20 +60,14 @@ export default function UnifiedDashboard() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const { user } = useAuth();
 
-  // Use same query key as parent component for data consistency
-  const { data: dashboardData, isLoading, error } = useQuery<DashboardData>({
-    queryKey: ["teller", "accounts", "balances"],
-    queryFn: async () => {
-      const response = await apiRequest('GET', '/api/dashboard');
-      if (!response.ok) throw new Error('Failed to fetch dashboard data');
-      return response.json();
-    },
-    staleTime: 12 * 60 * 60 * 1000, // 12 hours - matches Teller refresh cadence
-    gcTime: 24 * 60 * 60 * 1000, // 24 hours - keep in cache for 24 hours
-    refetchInterval: false, // Don't auto-refetch
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchOnReconnect: true, // Refetch when connection restored
-  });
+  // Use new unified accounts hook as single source of truth
+  const { data: accountsData, isLoading, error } = useAccounts();
+  const totals = usePortfolioTotals();
+  
+  // Only connected accounts are returned from the hook
+  const connectedAccounts = accountsData?.accounts || [];
+  const hasDisconnectedAccounts = accountsData?.disconnected && accountsData.disconnected.length > 0;
+  const isEmptyState = connectedAccounts.length === 0 && !isLoading;
 
   if (isLoading) {
     return (
@@ -108,26 +103,62 @@ export default function UnifiedDashboard() {
     );
   }
 
-  if (error || !dashboardData) {
+  if (error) {
     return (
       <Card className="flint-card">
         <CardContent className="p-6 text-center">
-          <div className="text-red-400 mb-2">Failed to load dashboard data</div>
-          <div className="text-gray-400 text-sm">Please check your API connections</div>
+          <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+          <div className="text-red-400 mb-2">Failed to load account data</div>
+          <div className="text-gray-400 text-sm">Please check your connection and try again</div>
         </CardContent>
       </Card>
     );
   }
+  
+  // Empty state when no accounts are connected
+  if (isEmptyState) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-gradient-to-r from-purple-500/20 to-blue-500/20 flex items-center justify-center">
+          <Wallet className="h-8 w-8 text-purple-400" />
+        </div>
+        <h3 className="text-xl font-semibold text-white mb-2">
+          No accounts connected
+        </h3>
+        <p className="text-gray-400 mb-6 max-w-md mx-auto">
+          Connect your bank accounts and brokerages to see your complete financial picture.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button 
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+            onClick={() => window.location.href = '/connect'}
+            data-testid="button-connect-accounts"
+          >
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Connect accounts
+          </Button>
+        </div>
+        {hasDisconnectedAccounts && (
+          <div className="mt-6 p-4 bg-orange-900/20 border border-orange-700 rounded-lg max-w-md mx-auto">
+            <AlertCircle className="h-5 w-5 text-orange-400 mx-auto mb-2" />
+            <p className="text-orange-200 text-sm">
+              Some previously connected accounts need to be reconnected.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
-  // Prepare data for charts
+  // Prepare data for charts - only use connected accounts
   const typeBreakdown = [
-    { name: 'Banking', value: dashboardData.bankBalance, color: COLORS.bank },
-    { name: 'Investments', value: dashboardData.investmentValue, color: COLORS.investment },
-    { name: 'Crypto', value: dashboardData.cryptoValue, color: COLORS.crypto },
+    { name: 'Banking', value: totals.bankBalance, color: COLORS.bank },
+    { name: 'Investments', value: totals.investmentValue, color: COLORS.investment },
+    { name: 'Crypto', value: totals.cryptoValue, color: COLORS.crypto },
   ].filter(item => item.value > 0);
 
-  // Group accounts by provider for provider view
-  const providerSummary: ProviderSummary[] = dashboardData.accounts.reduce((acc, account) => {
+  // Group connected accounts by provider for provider view
+  const providerSummary: ProviderSummary[] = connectedAccounts.reduce((acc, account) => {
     const existingProvider = acc.find(p => p.provider === account.provider);
     if (existingProvider) {
       existingProvider.totalBalance += account.balance;
@@ -138,7 +169,7 @@ export default function UnifiedDashboard() {
         institution: account.institution || account.provider,
         totalBalance: account.balance,
         accountCount: 1,
-        type: account.type,
+        type: account.type as 'bank' | 'investment' | 'crypto',
         color: PROVIDER_COLORS[acc.length % PROVIDER_COLORS.length]
       });
     }
@@ -170,16 +201,10 @@ export default function UnifiedDashboard() {
           <CardTitle className="text-center">
             <div className="text-lg text-gray-400 mb-2">Total Net Worth</div>
             <div className="text-4xl font-bold text-white">
-              {dashboardData.needsConnection ? 
-                <span className="text-gray-500">Connect accounts</span> : 
-                formatCurrency(dashboardData.totalBalance)
-              }
+              {formatCurrency(totals.totalBalance)}
             </div>
             <div className="text-sm text-gray-400 mt-2">
-              {dashboardData.needsConnection 
-                ? 'Connect your accounts to see your portfolio'
-                : `Across ${dashboardData.accounts.length} connected accounts`
-              }
+              {`Across ${totals.accountCount} connected account${totals.accountCount !== 1 ? 's' : ''}`}
             </div>
           </CardTitle>
         </CardHeader>
@@ -214,7 +239,7 @@ export default function UnifiedDashboard() {
               <CardTitle>Asset Allocation</CardTitle>
             </CardHeader>
             <CardContent>
-              {typeBreakdown.length > 0 && !dashboardData.needsConnection ? (
+              {typeBreakdown.length > 0 ? (
                 <div className="chart-container chart-glow relative overflow-hidden">
                   {/* Animated background effects */}
                   <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-green-500/5 to-blue-500/10 rounded-lg blur-2xl animate-pulse"></div>
@@ -281,9 +306,7 @@ export default function UnifiedDashboard() {
                 <div className="h-[300px] flex items-center justify-center">
                   <div className="text-center">
                     <p className="text-gray-400 mb-2">No account data available</p>
-                    {dashboardData.needsConnection && (
-                      <p className="text-sm text-gray-500">Connect a brokerage or bank to see your allocation</p>
-                    )}
+                    <p className="text-sm text-gray-500">Connect accounts to see your allocation</p>
                   </div>
                 </div>
               )}
@@ -295,7 +318,7 @@ export default function UnifiedDashboard() {
               <CardTitle>Account Types</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {typeBreakdown.length > 0 && !dashboardData.needsConnection ? (
+              {typeBreakdown.length > 0 ? (
                 typeBreakdown.map((type, index) => (
                   <div key={index} className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -310,7 +333,7 @@ export default function UnifiedDashboard() {
                         {formatCurrency(type.value)}
                       </div>
                       <div className="text-gray-400 text-sm">
-                        {((type.value / dashboardData.totalBalance) * 100).toFixed(1)}%
+                        {totals.totalBalance > 0 ? ((type.value / totals.totalBalance) * 100).toFixed(1) : 0}%
                       </div>
                     </div>
                   </div>
@@ -319,9 +342,7 @@ export default function UnifiedDashboard() {
                 <div className="h-[200px] flex items-center justify-center">
                   <div className="text-center">
                     <p className="text-gray-400 mb-2">No account data available</p>
-                    {dashboardData.needsConnection && (
-                      <p className="text-sm text-gray-500">Connect accounts to see breakdown</p>
-                    )}
+                    <p className="text-sm text-gray-500">Connect accounts to see breakdown</p>
                   </div>
                 </div>
               )}
@@ -333,7 +354,7 @@ export default function UnifiedDashboard() {
       {/* Accounts View */}
       {selectedView === 'accounts' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {dashboardData.accounts.map((account) => (
+          {connectedAccounts.map((account: any) => (
             <Card key={account.id} className="flint-card">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
@@ -381,7 +402,7 @@ export default function UnifiedDashboard() {
             </Card>
           ))}
           
-          {dashboardData.accounts.length === 0 && (
+          {connectedAccounts.length === 0 && (
             <Card className="flint-card col-span-full">
               <CardContent className="p-6 text-center">
                 <div className="text-gray-400 mb-2">No accounts connected</div>
@@ -442,7 +463,7 @@ export default function UnifiedDashboard() {
                         {formatCurrency(provider.totalBalance)}
                       </div>
                       <div className="text-gray-400 text-sm">
-                        {((provider.totalBalance / dashboardData.totalBalance) * 100).toFixed(1)}%
+                        {totals.totalBalance > 0 ? ((provider.totalBalance / totals.totalBalance) * 100).toFixed(1) : 0}%
                       </div>
                     </div>
                   </div>
@@ -459,6 +480,7 @@ export default function UnifiedDashboard() {
         open={!!selectedAccountId}
         onClose={() => setSelectedAccountId(null)}
         currentUserId={String(user?.id || '')}
+        provider={connectedAccounts.find(acc => acc.id === selectedAccountId)?.provider}
       />
     </div>
   );

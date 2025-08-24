@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/utils';
+import { trackAccountDisconnectedShown, trackReconnectClicked, trackReconnectSuccess, trackReconnectFailed } from '@/lib/analytics';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -18,7 +19,9 @@ import {
   Calendar,
   Clock,
   X,
-  Info as InfoIcon
+  Info as InfoIcon,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import OrderPreviewDialog from './OrderPreviewDialog';
@@ -392,9 +395,29 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
         headers: { 'x-user-id': currentUserId },
         credentials: 'include',
       });
+      
       if (!resp.ok) {
-        const errorData = await resp.json().catch(() => ({ message: resp.statusText }));
-        throw errorData;
+        const errorData = await resp.json().catch(() => ({ 
+          message: resp.statusText, 
+          status: resp.status 
+        }));
+        
+        // Handle 410 DISCONNECTED and 404 as disconnected states
+        if (resp.status === 410 && errorData.code === 'DISCONNECTED') {
+          trackAccountDisconnectedShown(accountId, provider || 'unknown');
+          throw { ...errorData, isDisconnected: true, status: 410 };
+        } else if (resp.status === 404) {
+          trackAccountDisconnectedShown(accountId, provider || 'unknown');
+          throw { 
+            ...errorData, 
+            isDisconnected: true, 
+            status: 404,
+            code: 'DISCONNECTED',
+            message: 'Account not found or disconnected'
+          };
+        }
+        
+        throw { ...errorData, status: resp.status };
       }
       return resp.json();
     }
@@ -405,49 +428,58 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
   const isDev = process.env.NODE_ENV === 'development';
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   
-  // Reconnection handler
+  // Universal reconnection handler for both Teller and SnapTrade
   const handleReconnectAccount = async () => {
     setIsReconnecting(true);
+    trackReconnectClicked(accountId, provider || 'unknown');
     
     try {
-      // Initialize Teller Connect in update mode
-      const response = await fetch('/api/teller/init-update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ accountId })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to initialize reconnection');
+      if (provider === 'teller') {
+        // Teller reconnection flow
+        const response = await fetch('/api/teller/init-update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ accountId })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to initialize Teller reconnection');
+        }
+        
+        const { applicationId, connectToken } = await response.json();
+        
+        // Launch Teller Connect in update mode with connectToken
+        const tellerConnect = (window as any).TellerConnect?.setup({
+          applicationId: applicationId,
+          connectToken: connectToken,
+          onSuccess: async (enrollment: any) => {
+            await refetch();
+            setIsReconnecting(false);
+            trackReconnectSuccess(accountId, 'teller');
+            toast({
+              title: "Account Reconnected",
+              description: "Your bank account has been successfully reconnected.",
+            });
+          },
+          onExit: () => {
+            setIsReconnecting(false);
+          }
+        });
+        
+        tellerConnect?.open();
+      } else {
+        // SnapTrade reconnection - redirect to connect flow
+        const connectUrl = '/connect?reconnect=true&account_id=' + encodeURIComponent(accountId);
+        window.location.href = connectUrl;
+        trackReconnectSuccess(accountId, 'snaptrade');
       }
       
-      const { applicationId, connectToken } = await response.json();
-      
-      // Launch Teller Connect in update mode with connectToken
-      const tellerConnect = (window as any).TellerConnect?.setup({
-        applicationId: applicationId,
-        connectToken: connectToken, // This enables update mode
-        onSuccess: async (enrollment: any) => {
-          // Account has been updated, refetch the details
-          await refetch();
-          setIsReconnecting(false);
-          toast({
-            title: "Account Reconnected",
-            description: "Your account has been successfully reconnected.",
-          });
-        },
-        onExit: () => {
-          setIsReconnecting(false);
-        }
-      });
-      
-      tellerConnect?.open();
-      
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to reconnect account:', error);
       setIsReconnecting(false);
+      trackReconnectFailed(accountId, provider || 'unknown', error.message);
       toast({
         title: "Reconnection Failed",
         description: "Failed to initialize account reconnection. Please try again.",
@@ -485,51 +517,109 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
         )}
 
         {isError && (
-          <div className="mx-6 mb-6 p-4 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border border-red-200 dark:border-red-700 rounded-xl">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <X className="h-5 w-5 text-red-400" />
-              </div>
-              <div className="ml-3 flex-1">
-                <p className="text-red-800 dark:text-red-200 font-medium">Failed to load account details</p>
-                <p className="text-red-600 dark:text-red-300 text-sm mt-1">
-                  {errorDetails?.code === 'TELLER_RECONNECT_REQUIRED' 
-                    ? 'Account reconnection required. Please reconnect your account.'
-                    : 'Please check your connection and try again.'}
+          <div className="mx-6 mb-6">
+            {/* Handle disconnected account state (410/404) */}
+            {errorDetails?.isDisconnected ? (
+              <div className="p-8 text-center bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 border border-orange-200 dark:border-orange-700 rounded-xl">
+                <div className="mx-auto w-16 h-16 mb-6 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-full flex items-center justify-center">
+                  <AlertCircle className="h-8 w-8 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                  This account needs to be reconnected
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                  It looks like access expired or was revoked. Reconnect to view your account details and continue managing your finances.
                 </p>
-                {errorDetails?.code === 'TELLER_RECONNECT_REQUIRED' && (
-                  <button
-                    onClick={handleReconnectAccount}
-                    disabled={isReconnecting}
-                    className="mt-3 inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium rounded-lg transition-colors text-sm"
-                  >
-                    {isReconnecting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                        Reconnecting...
-                      </>
-                    ) : (
-                      'Reconnect Account'
-                    )}
-                  </button>
-                )}
-                {isDev && (
-                  <button
-                    onClick={() => setShowErrorDetails(!showErrorDetails)}
-                    className="text-xs text-red-500 dark:text-red-400 underline mt-2"
-                  >
-                    {showErrorDetails ? 'Hide' : 'View'} error details
-                  </button>
-                )}
-                {isDev && showErrorDetails && (
-                  <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 rounded text-xs font-mono text-red-700 dark:text-red-300">
-                    <div>Code: {errorDetails?.code || 'Unknown'}</div>
-                    <div>Message: {errorDetails?.message || 'No message'}</div>
-                    {errorDetails?.accountId && <div>Account: {errorDetails.accountId}</div>}
-                  </div>
-                )}
+                <Button
+                  onClick={handleReconnectAccount}
+                  disabled={isReconnecting}
+                  className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white px-6 py-3 text-base font-medium"
+                  data-testid="button-reconnect"
+                >
+                  {isReconnecting ? (
+                    <>
+                      <RefreshCw className="animate-spin h-4 w-4 mr-2" />
+                      Reconnecting...
+                    </>
+                  ) : (
+                    'Reconnect account'
+                  )}
+                </Button>
               </div>
-            </div>
+            ) : errorDetails?.status >= 500 ? (
+              /* Network/server errors */
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-xl">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <RefreshCw className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <p className="text-blue-800 dark:text-blue-200 font-medium">Temporary issue</p>
+                    <p className="text-blue-600 dark:text-blue-300 text-sm mt-1">
+                      Please try again in a moment.
+                    </p>
+                    <Button
+                      onClick={() => refetch()}
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+                    >
+                      Try again
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Other errors including TELLER_RECONNECT_REQUIRED */
+              <div className="p-4 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border border-red-200 dark:border-red-700 rounded-xl">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <X className="h-5 w-5 text-red-400" />
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <p className="text-red-800 dark:text-red-200 font-medium">Failed to load account details</p>
+                    <p className="text-red-600 dark:text-red-300 text-sm mt-1">
+                      {errorDetails?.code === 'TELLER_RECONNECT_REQUIRED' 
+                        ? 'Account reconnection required. Please reconnect your account.'
+                        : 'Please check your connection and try again.'}
+                    </p>
+                    {errorDetails?.code === 'TELLER_RECONNECT_REQUIRED' && (
+                      <button
+                        onClick={handleReconnectAccount}
+                        disabled={isReconnecting}
+                        className="mt-3 inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium rounded-lg transition-colors text-sm"
+                        data-testid="button-reconnect"
+                      >
+                        {isReconnecting ? (
+                          <>
+                            <RefreshCw className="animate-spin h-4 w-4 mr-2" />
+                            Reconnecting...
+                          </>
+                        ) : (
+                          'Reconnect Account'
+                        )}
+                      </button>
+                    )}
+                    {isDev && (
+                      <button
+                        onClick={() => setShowErrorDetails(!showErrorDetails)}
+                        className="text-xs text-red-500 dark:text-red-400 underline mt-2"
+                      >
+                        {showErrorDetails ? 'Hide' : 'View'} error details
+                      </button>
+                    )}
+                    {isDev && showErrorDetails && (
+                      <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 rounded text-xs font-mono text-red-700 dark:text-red-300">
+                        <div>Code: {errorDetails?.code || 'Unknown'}</div>
+                        <div>Message: {errorDetails?.message || 'No message'}</div>
+                        <div>Status: {errorDetails?.status || 'Unknown'}</div>
+                        {errorDetails?.accountId && <div>Account: {errorDetails.accountId}</div>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
