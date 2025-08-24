@@ -27,9 +27,12 @@ import {
   Trash2
 } from "lucide-react";
 
+import { CONNECT_LOCKED } from '@/utils/featureFlags';
+
 // Runtime guard to warn in dev if someone edits these files without the "bubble gum" env flag
-if (import.meta.env.DEV && !import.meta.env.VITE_ALLOW_CONNECT_EDITS) {
+if (CONNECT_LOCKED) {
   console.warn('Connect flows are locked. Say "bubble gum" to change them.');
+  // Only warn, don't block in development
 }
 
 // Type definitions

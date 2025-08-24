@@ -16,23 +16,12 @@ import { SnapTradeAPI } from "@/lib/snaptrade-api";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCsrfToken } from "@/lib/csrf";
 
+import { CONNECT_LOCKED } from '@/utils/featureFlags';
+
 // Runtime guard to warn in dev if someone edits these files without the "bubble gum" env flag
-// Disabled in development to prevent breaking flows
-if (import.meta.env.PROD && !import.meta.env.VITE_ALLOW_CONNECT_EDITS) {
+if (CONNECT_LOCKED) {
   console.warn('Connect flows are locked. Say "bubble gum" to change them.');
-  
-  // Enhanced protection: Detect unauthorized modifications
-  const EXPECTED_TELLER_ENDPOINTS = ['/api/csrf-token', '/api/teller/connect-init', '/api/teller/save-account'];
-  const EXPECTED_SNAPTRADE_ENDPOINTS = ['/api/auth/user', '/api/connections/snaptrade/register'];
-  
-  // File modification detection (checksum would go here)
-  const fileModificationCheck = () => {
-    // In a real implementation, you could hash the file content here
-    // For now, we rely on the unit test snapshots
-    console.warn('⚠️ Connect flow modification detected - ensure tests pass');
-  };
-  
-  fileModificationCheck();
+  // Only warn, don't block in development
 }
 
 interface SimpleConnectButtonsProps {

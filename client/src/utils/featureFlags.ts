@@ -1,0 +1,1 @@
+export const CONNECT_LOCKED = import.meta.env.VITE_CONNECT_LOCKED === 'true';

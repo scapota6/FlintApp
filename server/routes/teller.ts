@@ -14,6 +14,7 @@ const router = Router();
 // Runtime guard to warn in dev if someone edits these files without the "bubble gum" env flag
 // Disabled in development to prevent breaking flows
 if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_CONNECT_EDITS) {
+  // Only warn, don't block connect flows in development
   console.warn('Connect flows are locked. Say "bubble gum" to change them.');
 }
 
