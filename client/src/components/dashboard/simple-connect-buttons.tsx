@@ -94,21 +94,43 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
   const hasBankAccount = accounts.some(acc => acc.accountType === 'bank');
   const hasBrokerageAccount = accounts.some(acc => acc.accountType === 'brokerage' || acc.accountType === 'crypto');
 
-  // Teller Connect mutation - Simplified without CSRF complications
+  // Teller Connect mutation - Proper CSRF implementation
   const tellerConnectMutation = useMutation({
     mutationFn: async () => {
       console.log('🏦 Teller Connect: Starting bank connection with SDK');
       
       try {
-        // Get Teller application ID
+        // Get fresh CSRF token
+        console.log('🏦 Teller Connect: Getting CSRF token');
+        const tokenRes = await fetch('/api/csrf-token', { credentials: 'include' });
+        const { csrfToken } = await tokenRes.json();
+        
+        // Get Teller application ID with CSRF protection
         console.log('🏦 Teller Connect: Getting application ID');
-        const initResponse = await fetch("/api/teller/connect-init", {
+        let initResponse = await fetch("/api/teller/connect-init", {
           method: "POST",
           credentials: "include",
           headers: {
-            "Content-Type": "application/json"
-          }
+            "Content-Type": "application/json",
+            "x-csrf-token": csrfToken
+          },
+          body: JSON.stringify({ mode: 'connect' })
         });
+        
+        // Auto-retry once with fresh token if 403 CSRF error
+        if (initResponse.status === 403) {
+          console.log('🏦 Teller Connect: CSRF error, retrying with fresh token');
+          const t2 = await fetch('/api/csrf-token', { credentials: 'include' }).then(r => r.json());
+          initResponse = await fetch("/api/teller/connect-init", {
+            method: "POST",
+            credentials: "include", 
+            headers: {
+              "Content-Type": "application/json",
+              "x-csrf-token": t2.csrfToken
+            },
+            body: JSON.stringify({ mode: 'connect' })
+          });
+        }
         
         if (!initResponse.ok) {
           const errorData = await initResponse.json();
@@ -151,10 +173,15 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
               try {
                 console.log('🏦 Saving account to backend');
                 
+                // Get fresh CSRF token for save-account call
+                const saveTokenRes = await fetch('/api/csrf-token', { credentials: 'include' });
+                const { csrfToken: saveToken } = await saveTokenRes.json();
+                
                 const saveResponse = await fetch('/api/teller/save-account', {
                   method: 'POST',
                   headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'x-csrf-token': saveToken
                   },
                   credentials: 'include',
                   body: JSON.stringify({
