@@ -507,12 +507,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const dashboardData = {
-        totalBalance: hasConnectedAccounts ? totalBalance : 0,
-        bankBalance,
-        investmentValue,
-        cryptoValue,
-        totalAssets, // Assets only (for percentage calculations)
-        accounts: accountsWithPercentages,
+        totalBalance: hasConnectedAccounts ? (totalBalance ?? 0) : 0,
+        bankBalance: bankBalance ?? 0,
+        investmentBalance: investmentValue ?? 0, // Frontend expects investmentBalance
+        cryptoValue: cryptoValue ?? 0,
+        totalAssets: totalAssets ?? 0, // Assets only (for percentage calculations)
+        accounts: accountsWithPercentages ?? [],      // never undefined
+        positions: snapTradePositions ?? [],          // never undefined
         subscriptionTier: user?.subscriptionTier || 'free',
         isAdmin: user?.isAdmin || false,
         needsConnection,
@@ -531,9 +532,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const emptyDashboardData = {
         totalBalance: 0,
         bankBalance: 0,
-        investmentValue: 0,
+        investmentBalance: 0,  // Frontend expects investmentBalance
         cryptoValue: 0,
-        accounts: [],
+        accounts: [],          // never undefined
+        positions: [],         // never undefined
         subscriptionTier: 'free',
         needsConnection: true,
         connectionStatus: {
