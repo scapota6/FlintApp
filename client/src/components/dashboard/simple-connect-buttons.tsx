@@ -255,7 +255,7 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
       if (!userResp.ok) throw new Error("Authentication required");
       const currentUser = await userResp.json();
       
-      const resp = await apiRequest("/api/snaptrade/register", {
+      const resp = await apiRequest("/api/connections/snaptrade/register", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json"
@@ -263,8 +263,9 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
         body: JSON.stringify({ userId: currentUser.id })
       });
 
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(data?.message || "Failed to start SnapTrade Connect");
+      // Handle both Response and plain JSON from apiRequest
+      const data = (typeof resp?.json === 'function') ? await resp.json() : resp;
+      if (resp?.ok === false || (resp?.status && !resp.ok)) throw new Error(data?.message || "Failed to start SnapTrade Connect");
 
       const url: string | undefined = data?.connect?.url;
       if (!url) throw new Error("No SnapTrade Connect URL returned");

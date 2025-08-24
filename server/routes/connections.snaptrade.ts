@@ -53,10 +53,10 @@ r.post('/connections/snaptrade/register', async (req, res) => {
     });
     if (!url) throw new Error('No Connection Portal URL returned');
 
-    return res.json({ connect: { url } });
+    return res.status(200).json({ connect: { url } });
   } catch (e: any) {
     console.error('SnapTrade registration error:', e?.responseBody || e?.message || e);
-    return res.status(500).json({ message: 'Failed to register with SnapTrade' });
+    return res.status(500).json({ message: 'Failed to register with SnapTrade', error: e?.message || 'Unknown error' });
   }
 });
 
