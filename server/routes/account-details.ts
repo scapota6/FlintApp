@@ -231,8 +231,16 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           provider: 'teller'
         });
         
-        // Handle specific auth error cases with 428 Precondition Required
-        if (statusCode === 401 || statusCode === 403) {
+        // Handle specific auth error cases as requested by user 
+        if (statusCode === 403) {
+          return res.status(403).json({ 
+            code: 'TELLER_AUTH_ERROR',
+            message: 'Teller auth error',
+            provider: 'teller'
+          });
+        }
+        
+        if (statusCode === 401) {
           console.log('[Account Details API] Teller auth error - reconnect required:', {
             userId,
             flintAccountId: dbId || 'unknown',
@@ -247,7 +255,7 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           
           return res.status(410).json({ // 410 Gone for disconnected accounts
             code: 'DISCONNECTED',
-            reconnectUrl: '/connect',
+            reconnectUrl: '/connections',
             message: 'Account connection has been lost. Please reconnect your account.',
             provider: 'teller'
           });
@@ -351,31 +359,117 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
         });
       }
     } else if (provider === 'snaptrade') {
-      // Get SnapTrade credentials
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      // Get SnapTrade user credentials from separate table
-      // Note: This would need a proper table definition in schema.ts
-      // For now, let's use a simpler approach by checking if we have snap trade setup
-      const snapUser = null; // TODO: Implement proper SnapTrade user lookup
-      
-      if (!snapUser) {
-        console.log('[Account Details API] SnapTrade not connected:', {
-          userId,
-          flintAccountId: dbId || 'unknown',
-          snaptradeAccountId: externalId,
-          reason: 'no SnapTrade credentials for user',
-          provider: 'snaptrade'
-        });
-        return res.status(400).json({ message: "SnapTrade not connected" });
-      }
-      
       try {
-        // For now, return a stub response since we don't have SnapTrade user lookup implemented
-        return res.status(501).json({ message: "SnapTrade account details not implemented yet" });
+        // Get SnapTrade user credentials
+        const { getSnapUser } = await import('../store/snapUsers');
+        const snapUser = await getSnapUser(userId);
+        
+        if (!snapUser) {
+          console.log('[Account Details API] SnapTrade not connected:', {
+            userId,
+            flintAccountId: dbId || 'unknown',
+            snaptradeAccountId: externalId,
+            reason: 'no SnapTrade credentials for user',
+            provider: 'snaptrade'
+          });
+          return res.status(428).json({ 
+            code: 'SNAPTRADE_NOT_REGISTERED',
+            message: 'Please register with SnapTrade to view account details.',
+            provider: 'snaptrade'
+          });
+        }
+        
+        // Fetch account details and holdings from SnapTrade
+        const [accountDetails, holdings] = await Promise.all([
+          accountsApi.listUserAccounts({
+            userId: snapUser.userId,
+            userSecret: snapUser.userSecret,
+          }),
+          accountsApi.getUserAccountPositions({
+            userId: snapUser.userId,
+            userSecret: snapUser.userSecret,
+            accountId: externalId,
+          }).catch(() => ({ data: [] })) // Gracefully handle if holdings fail
+        ]);
+        
+        // Find the specific account
+        const account = accountDetails.data?.find((acc: any) => acc.id === externalId);
+        if (!account) {
+          return res.status(404).json({ 
+            code: 'ACCOUNT_NOT_FOUND',
+            message: 'Account not found in SnapTrade',
+            accountId: externalId 
+          });
+        }
+        
+        // Update stored balance in database
+        const balance = parseFloat(account.balance?.total?.amount || '0') || 0;
+        if (dbId && balance) {
+          try {
+            await storage.updateAccountBalance(dbId, balance.toString());
+            console.log('[Account Details API] Updated stored balance:', {
+              accountId: dbId,
+              newBalance: balance,
+              lastSynced: new Date().toISOString()
+            });
+          } catch (error) {
+            console.error('[Account Details API] Failed to update balance:', error);
+          }
+        }
+        
+        console.log('[Account Details API] SnapTrade data fetched successfully:', {
+          userId,
+          flintAccountId: dbId,
+          snaptradeAccountId: externalId,
+          provider: 'snaptrade',
+          hasAccount: !!account,
+          holdingsCount: holdings.data?.length || 0,
+          httpStatus: 200
+        });
+        
+        // Normalize response format to match frontend expectations
+        res.json({
+          provider: 'snaptrade',
+          accountOverview: {
+            id: account.id,
+            name: account.name === 'Default' 
+              ? `${account.institution_name} ${account.meta?.type || 'Account'}`.trim()
+              : account.name,
+            type: 'investment',
+            subtype: account.meta?.type || 'brokerage',
+            status: account.status || 'open',
+            institution: { 
+              name: account.institution_name || 'Unknown',
+              id: account.institution_name || ''
+            },
+            currency: account.balance?.total?.currency || 'USD',
+            number: account.number || null,
+            balance: {
+              total: balance,
+              cash: parseFloat(account.balance?.cash_balance?.amount || '0') || 0,
+              equity: parseFloat(account.balance?.total?.amount || '0') || 0
+            }
+          },
+          balances: {
+            total: balance,
+            cash: parseFloat(account.balance?.cash_balance?.amount || '0') || 0,
+            equity: parseFloat(account.balance?.total?.amount || '0') || 0
+          },
+          holdings: holdings.data?.map((holding: any) => ({
+            symbol: holding.symbol?.symbol?.symbol || holding.symbol?.raw_symbol || 'Unknown',
+            description: holding.symbol?.symbol?.description || holding.symbol?.description || '',
+            quantity: holding.units || holding.fractional_units || 0,
+            averagePurchasePrice: holding.average_purchase_price || 0,
+            currentPrice: holding.price || 0,
+            marketValue: (holding.units || holding.fractional_units || 0) * (holding.price || 0),
+            unrealizedPnL: holding.open_pnl || 0,
+            currency: holding.currency?.code || 'USD',
+            type: holding.symbol?.symbol?.type?.description || holding.symbol?.type?.description || 'Stock'
+          })) || [],
+          transactions: [], // SnapTrade doesn't provide transaction history in account details
+          statements: [] // SnapTrade doesn't provide statements
+        });
+        
       } catch (error: any) {
         const statusCode = error.response?.status || error.statusCode || 500;
         const errorMessage = error.message || 'SnapTrade API error';
@@ -386,11 +480,28 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           snaptradeAccountId: externalId,
           snaptradeHttpStatus: statusCode,
           reason: errorMessage,
-          provider: 'snaptrade'
+          provider: 'snaptrade',
+          errorData: error.response?.data
         });
         
-        // Handle SnapTrade auth errors similarly
-        if (statusCode === 401 || statusCode === 403 || statusCode === 404) {
+        // Handle specific SnapTrade error cases
+        if (statusCode === 428 || error.response?.data?.code === 'SNAPTRADE_NOT_REGISTERED') {
+          return res.status(428).json({ 
+            code: 'SNAPTRADE_NOT_REGISTERED',
+            message: 'Please register with SnapTrade to view account details.',
+            provider: 'snaptrade'
+          });
+        }
+        
+        if (statusCode === 401 || statusCode === 403) {
+          return res.status(403).json({ 
+            code: 'SNAPTRADE_AUTH_ERROR',
+            message: 'SnapTrade authentication failed. Please reconnect your account.',
+            provider: 'snaptrade'
+          });
+        }
+        
+        if (statusCode === 404) {
           // Mark account as disconnected
           if (dbId) {
             await storage.updateAccountConnectionStatus(dbId, 'disconnected');
@@ -398,7 +509,7 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           
           return res.status(410).json({ 
             code: 'DISCONNECTED',
-            reconnectUrl: '/connect',
+            reconnectUrl: '/connections',
             message: 'Account connection has been lost. Please reconnect your account.',
             provider: 'snaptrade'
           });

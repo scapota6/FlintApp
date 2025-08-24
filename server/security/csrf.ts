@@ -21,7 +21,8 @@ export function installCsrf(app: Express) {
       sameSite: isProd ? 'none' : 'lax',
       secure: isProd,
       httpOnly: false, // client must read to echo in header
-    }
+    },
+    ignoreMethods: ['GET', 'HEAD', 'OPTIONS'] // Exclude GET routes from CSRF protection
   }));
 
   app.get('/api/csrf-token', (req: Request, res: Response) => {
