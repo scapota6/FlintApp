@@ -208,27 +208,22 @@ export default function SimpleConnectButtons({ accounts, userTier, isAdmin }: Si
     }
   });
 
-  // SnapTrade Connect mutation - use authenticated user ID
+  // SnapTrade Connect mutation - simplified
   const snapTradeConnectMutation = useMutation({
     mutationFn: async () => {
-      // Get authenticated user data first
+      console.log('📈 SnapTrade Connect: Starting brokerage connection');
+      
+      // Get user ID for SnapTrade registration
       const userResp = await apiRequest("/api/auth/user");
       if (!userResp.ok) throw new Error("Authentication required");
       const currentUser = await userResp.json();
       
-      // Use stable userId (currentUser.id is the stable internal identifier)
-      const userId = currentUser.id;
-      if (!userId) throw new Error("User ID not available");
-
-      console.log('📈 SnapTrade Connect: Using userId:', userId);
-      
-      const resp = await apiRequest("/api/connections/snaptrade/register", {
+      const resp = await apiRequest("/api/snaptrade/register", {
         method: "POST",
         headers: { 
-          "Content-Type": "application/json",
-          "x-user-id": currentUser.id
+          "Content-Type": "application/json"
         },
-        body: JSON.stringify({ userId: currentUser.id }),
+        body: JSON.stringify({ userId: currentUser.id })
       });
 
       const data = await resp.json().catch(() => ({}));
