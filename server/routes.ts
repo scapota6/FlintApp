@@ -1822,10 +1822,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[Account Details] SnapTrade account detected: ${accountId}`);
         
         try {
-          const { getSnapUser } = await import('./lib/snaptrade-store');
-          const snapUser = await getSnapUser(userId);
+          const { getSnapUserByEmail } = await import('./store/snapUserStore');
+          const snapUser = await getSnapUserByEmail(userId);
           
-          if (!snapUser?.userSecret) {
+          if (!snapUser?.snaptrade_user_secret) {
             return res.status(404).json({ 
               message: "SnapTrade account not found or not connected",
               provider: "snaptrade" 
@@ -1837,7 +1837,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Get account details
           const accountResponse = await accountsApi.listUserAccounts({
             userId: snapUser.userId,
-            userSecret: snapUser.userSecret,
+            userSecret: snapUser.snaptrade_user_secret,
           });
           
           const account = accountResponse.data?.find(acc => acc.id === accountId);
@@ -1853,7 +1853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             const positionsResponse = await portfolioApi.getUserHoldings({
               userId: snapUser.userId,
-              userSecret: snapUser.userSecret,
+              userSecret: snapUser.snaptrade_user_secret,
               accountId: accountId,
             });
             positions = positionsResponse.data || [];
