@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { isAuthenticated } from "../replitAuth";
-import { getUserByEmail, storage } from "../storage";
+import { storage } from "../storage";
 
 const router = Router();
 
@@ -16,36 +16,53 @@ router.get("/", isAuthenticated, async (req: any, res) => {
       return res.json({ accounts: [] });
     }
     
-    // Filter only connected accounts
-    const connectedAccounts = dbAccounts.filter(account => account.status === 'connected');
-    const disconnectedAccounts = dbAccounts.filter(account => account.status === 'disconnected');
+    // Validate account connections by checking Teller API
+    const validatedAccounts = [];
+    
+    for (const account of dbAccounts) {
+      try {
+        if (!account.accessToken) {
+          // No access token means disconnected
+          continue;
+        }
+        
+        // Test the connection by trying to fetch account info
+        const response = await fetch(`https://api.teller.io/accounts/${account.externalAccountId}`, {
+          headers: {
+            'Authorization': `Basic ${Buffer.from(account.accessToken + ":").toString("base64")}`,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const accountInfo = await response.json();
+          // Update stored balance with live data
+          account.balance = parseFloat(accountInfo.balance?.available || accountInfo.balance?.ledger || '0');
+          validatedAccounts.push(account);
+        }
+      } catch (error) {
+        console.log(`Account ${account.id} failed validation, excluding from results`);
+        // Skip failed accounts
+      }
+    }
     
     // Format accounts for frontend
-    const formattedAccounts = connectedAccounts.map(account => ({
+    const formattedAccounts = validatedAccounts.map(account => ({
       id: account.id,
       provider: account.provider,
       accountName: account.accountName || account.institutionName,
       accountNumber: account.accountNumber,
       balance: account.balance || 0,
-      type: account.type || 'bank',
+      type: account.accountType || 'bank',
       institution: account.institutionName,
-      lastUpdated: account.lastUpdated || new Date().toISOString(),
+      lastUpdated: account.lastSynced || new Date().toISOString(),
       currency: account.currency || 'USD',
       status: account.status,
       lastCheckedAt: account.lastCheckedAt
     }));
     
     const response = { 
-      accounts: formattedAccounts,
-      ...(disconnectedAccounts.length > 0 && {
-        disconnected: disconnectedAccounts.map(account => ({
-          id: account.id,
-          name: account.accountName || account.institutionName,
-          institutionName: account.institutionName,
-          status: account.status,
-          lastCheckedAt: account.lastCheckedAt
-        }))
-      })
+      accounts: formattedAccounts
     };
     
     res.json(response);
@@ -93,7 +110,7 @@ router.get("/accounts", isAuthenticated, async (req: any, res) => {
     
     try {
       // Import the getSnapUser function to access SnapTrade accounts
-      const { getSnapUser } = await import('../lib/snaptrade-store');
+      const { getSnapUser } = await import('../services/snaptradeService');
       const snapUser = await getSnapUser(userId);
       
       if (snapUser?.userSecret) {
@@ -116,7 +133,7 @@ router.get("/accounts", isAuthenticated, async (req: any, res) => {
               id: account.id,
               accountName: accountName || account.institution_name || 'Unknown Account',
               provider: 'snaptrade',
-              balance: balance.toFixed(2),
+              balance: balance.toString(),
               externalAccountId: account.id,
               institutionName: account.institution_name,
               accountType: account.meta?.type || 'DEFAULT',

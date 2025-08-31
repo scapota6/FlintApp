@@ -67,16 +67,6 @@ export default function Accounts() {
   // Fetch bank accounts
   const { data: bankData, isLoading: banksLoading, refetch: refetchBanks } = useQuery({
     queryKey: ['/api/banks'],
-    select: (data: any) => {
-      // Only return accounts that are actually connected
-      const accounts = data?.accounts || [];
-      return {
-        accounts: accounts.filter((acc: any) => 
-          acc.status === 'connected' && 
-          !acc.needsReconnection
-        )
-      };
-    },
     retry: false
   });
 
@@ -271,8 +261,8 @@ export default function Accounts() {
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => handleDisconnectAccount(account.id, 'brokerage')}
-                            disabled={disconnecting === account.id}
+                            onClick={() => handleDisconnectAccount(account.id.toString(), 'brokerage')}
+                            disabled={disconnecting === account.id.toString()}
                           >
                             <Unlink className="h-4 w-4 mr-2" />
                             Disconnect
@@ -363,8 +353,8 @@ export default function Accounts() {
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => handleDisconnectAccount(account.id, 'bank')}
-                            disabled={disconnecting === account.id}
+                            onClick={() => handleDisconnectAccount(account.id.toString(), 'bank')}
+                            disabled={disconnecting === account.id.toString()}
                           >
                             <Unlink className="h-4 w-4 mr-2" />
                             Disconnect
