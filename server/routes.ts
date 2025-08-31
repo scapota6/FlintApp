@@ -1814,7 +1814,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[Account Details] User: ${userId}, Account ID: ${accountId}`);
       
-      // First, try to get the account by local ID
+      // Check if it's a SnapTrade account ID (UUID format)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      
+      if (uuidRegex.test(accountId)) {
+        // This is a SnapTrade account - handle directly with SnapTrade API
+        console.log(`[Account Details] SnapTrade account detected: ${accountId}`);
+        
+        try {
+          const { getSnapUser } = await import('./services/snaptradeService');
+          const snapUser = await getSnapUser(userId);
+          
+          if (!snapUser?.userSecret) {
+            return res.status(404).json({ 
+              message: "SnapTrade account not found or not connected",
+              provider: "snaptrade" 
+            });
+          }
+          
+          const { accountsApi, portfolioApi } = await import('./lib/snaptrade');
+          
+          // Get account details
+          const accountResponse = await accountsApi.listUserAccounts({
+            userId: snapUser.userId,
+            userSecret: snapUser.userSecret,
+          });
+          
+          const account = accountResponse.data?.find(acc => acc.id === accountId);
+          if (!account) {
+            return res.status(404).json({ 
+              message: "SnapTrade account not found",
+              provider: "snaptrade" 
+            });
+          }
+          
+          // Get positions for this account
+          let positions = [];
+          try {
+            const positionsResponse = await portfolioApi.getUserHoldings({
+              userId: snapUser.userId,
+              userSecret: snapUser.userSecret,
+              accountId: accountId,
+            });
+            positions = positionsResponse.data || [];
+          } catch (error) {
+            console.log(`Could not fetch positions for account: ${accountId}`);
+          }
+          
+          // Return SnapTrade account details
+          return res.json({
+            provider: 'snaptrade',
+            account: {
+              id: account.id,
+              name: account.name === 'Default' 
+                ? `${account.institution_name} ${account.meta?.type || 'Account'}`.trim()
+                : account.name,
+              institution: account.institution_name,
+              accountType: account.meta?.type || 'Investment',
+              balance: account.balance?.total?.amount || 0,
+              currency: account.balance?.total?.currency || 'USD',
+              accountNumber: account.number,
+              status: account.meta?.status || 'ACTIVE',
+              lastSync: account.sync_status?.holdings?.last_successful_sync || new Date().toISOString(),
+              positions: positions
+            }
+          });
+        } catch (error) {
+          console.error('Error fetching SnapTrade account details:', error);
+          return res.status(500).json({ 
+            message: "Failed to fetch SnapTrade account details",
+            provider: "snaptrade" 
+          });
+        }
+      }
+      
+      // It's a numeric ID - try to get from database
       const account = await storage.getConnectedAccount(parseInt(accountId));
       if (!account || account.userId !== userId) {
         return res.status(404).json({ message: "Account not found" });
