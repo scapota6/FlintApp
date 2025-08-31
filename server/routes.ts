@@ -471,6 +471,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (error.status === 401 || error.message?.includes('401') || error.message?.includes('Unable to verify signature') || error.responseBody?.code === '1083' || error.responseBody?.code === '1076') {
           snapTradeError = 'auth_failed';
           
+          // Add disconnected SnapTrade accounts that need reconnection
+          const snapUser = await getSnapUser(userId);
+          if (snapUser) {
+            // Show placeholder for failed SnapTrade connection
+            enrichedAccounts.push({
+              id: `snaptrade-disconnected-${userId}`,
+              provider: 'snaptrade',
+              accountName: 'Investment Account (Disconnected)',
+              balance: 0,
+              type: 'investment' as const,
+              institution: 'SnapTrade',
+              lastUpdated: new Date().toISOString(),
+              needsReconnection: true
+            });
+          }
+          
           // Trigger repair flow - delete stale user and let them re-register
           console.log('[SnapTrade] Detected stale user credentials, triggering repair flow for:', userId);
           try {
@@ -1840,10 +1856,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Get account details
           const userSecret = snapUser.userSecret || snapUser.snaptrade_user_secret;
-          const accountResponse = await accountsApi.listUserAccounts({
-            userId: snapUser.userId,
-            userSecret: userSecret,
-          });
+          let accountResponse;
+          try {
+            accountResponse = await accountsApi.listUserAccounts({
+              userId: snapUser.userId,
+              userSecret: userSecret,
+            });
+          } catch (error) {
+            console.log(`[Account Details] SnapTrade API error:`, error);
+            return res.status(404).json({ 
+              message: "SnapTrade connection expired or invalid. Please reconnect your account.",
+              provider: "snaptrade",
+              needsReconnection: true
+            });
+          }
           
           const account = accountResponse.data?.find(acc => acc.id === accountId);
           if (!account) {
@@ -1862,8 +1888,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               accountId: accountId,
             });
             positions = positionsResponse.data || [];
+            console.log(`[Account Details] Fetched ${positions.length} positions for account: ${accountId}`);
           } catch (error) {
-            console.log(`Could not fetch positions for account: ${accountId}`);
+            console.log(`[Account Details] Could not fetch positions for account: ${accountId}`, error);
           }
           
           // Return SnapTrade account details
