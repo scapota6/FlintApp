@@ -1822,7 +1822,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[Account Details] SnapTrade account detected: ${accountId}`);
         
         try {
-          const { getSnapUser } = await import('./services/snaptradeService');
+          const { getSnapUser } = await import('./lib/snaptrade-store');
           const snapUser = await getSnapUser(userId);
           
           if (!snapUser?.userSecret) {
