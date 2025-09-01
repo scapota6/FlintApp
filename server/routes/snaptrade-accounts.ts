@@ -5,7 +5,7 @@ import { db } from '../db';
 import { users, snaptradeUsers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { mapSnapTradeError, logSnapTradeError, checkConnectionStatus, RateLimitHandler } from '../lib/snaptrade-errors';
-import type { AccountSummary, ListAccountsResponse, AccountDetails, AccountDetailsResponse, AccountBalances, AccountBalancesResponse, Position, PositionsResponse, Order, OrdersResponse, OrderSide, OrderType, TimeInForce, AccountBalance, AccountPositions, AccountOrders, AccountActivities, Activity, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID, Money } from '@shared/types';
+import type { AccountSummary, ListAccountsResponse, AccountDetails, AccountDetailsResponse, AccountBalances, AccountBalancesResponse, Position, PositionsResponse, Order, OrdersResponse, OrderSide, OrderType, TimeInForce, Activity, ActivitiesResponse, ActivityType, OptionHolding, OptionHoldingsResponse, AccountBalance, AccountPositions, AccountOrders, AccountActivities, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID, Money } from '@shared/types';
 
 const router = Router();
 
@@ -1090,18 +1090,57 @@ router.get('/accounts/:id/activities', isAuthenticated, async (req: any, res) =>
     });
     
     // Get activities with optional date filters
-    const activities = await getAccountActivities(
-      credentials.snaptradeUserId,
-      credentials.snaptradeUserSecret,
-      accountId,
-      from,
-      to
-    );
-    
-    res.json({
-      success: true,
-      activities
+    const activitiesResponse = await accountsApi.getAccountActivities({
+      userId: credentials.snaptradeUserId,
+      userSecret: credentials.snaptradeUserSecret,
+      accountId
     });
+    
+    let activities = activitiesResponse.data || [];
+    
+    // Apply date filters if provided
+    if (from || to) {
+      activities = activities.filter((activity: any) => {
+        const activityDate = new Date(activity.trade_date || activity.settlement_date);
+        if (from && activityDate < new Date(from)) return false;
+        if (to && activityDate > new Date(to)) return false;
+        return true;
+      });
+    }
+    
+    // Transform activities to normalized DTO
+    const transformedActivities: Activity[] = activities.map((activity: any) => {
+      // Map SnapTrade activity type to your enum
+      let type: ActivityType = 'trade';
+      const activityType = (activity.type || '').toLowerCase();
+      if (activityType.includes('dividend')) {
+        type = 'dividend';
+      } else if (activityType.includes('interest')) {
+        type = 'interest';
+      } else if (activityType.includes('fee') || activityType.includes('commission')) {
+        type = 'fee';
+      } else if (activityType.includes('transfer') || activityType.includes('deposit') || activityType.includes('withdrawal')) {
+        type = 'transfer';
+      }
+      
+      return {
+        id: activity.id,
+        date: (activity.trade_date || activity.settlement_date) as ISODate,
+        type,
+        description: activity.description || `${activity.type || 'Activity'} ${activity.symbol?.symbol?.symbol || ''}`.trim(),
+        amount: {
+          amount: parseFloat(activity.net_amount || activity.price || activity.quantity || '0') || 0,
+          currency: activity.currency || 'USD'
+        },
+        symbol: activity.symbol?.symbol?.symbol || activity.symbol?.raw_symbol || null
+      };
+    });
+    
+    const response: ActivitiesResponse = {
+      activities: transformedActivities
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
@@ -1112,6 +1151,80 @@ router.get('/accounts/:id/activities', isAuthenticated, async (req: any, res) =>
     });
     
     const mappedError = mapSnapTradeError(error, requestId);
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
+  }
+});
+
+/**
+ * GET /api/snaptrade/options/:accountId/holdings
+ * Get options holdings for an account (optional endpoint)
+ */
+router.get('/options/:accountId/holdings', isAuthenticated, async (req: any, res) => {
+  try {
+    const flintUser = await getFlintUserByAuth(req.user);
+    const credentials = await getSnaptradeCredentials(flintUser.id);
+    const accountId = req.params.accountId;
+    
+    console.log('[SnapTrade Options] Getting options holdings:', {
+      flintUserId: flintUser.id,
+      accountId
+    });
+    
+    // Get positions and filter for options
+    const positionsResponse = await accountsApi.getUserAccountPositions({
+      userId: credentials.snaptradeUserId,
+      userSecret: credentials.snaptradeUserSecret,
+      accountId
+    });
+    
+    const positions = positionsResponse.data || [];
+    
+    // Filter for options positions (typically have longer symbols with strike/expiry)
+    const optionsPositions = positions.filter((position: any) => {
+      const symbol = position.symbol?.symbol?.symbol || position.symbol?.raw_symbol || '';
+      // Options typically have OCC symbols with spaces and specific format
+      return symbol.length > 10 && (symbol.includes('C') || symbol.includes('P')) && /\d{6}/.test(symbol);
+    });
+    
+    // Transform options positions to normalized DTO
+    const transformedOptions: OptionHolding[] = optionsPositions.map((position: any) => ({
+      symbol: position.symbol?.symbol?.symbol || position.symbol?.raw_symbol || 'Unknown',
+      description: position.symbol?.symbol?.description || position.symbol?.description || null,
+      quantity: position.units || position.fractional_units || 0,
+      marketPrice: position.price ? {
+        amount: position.price,
+        currency: position.currency?.code || 'USD'
+      } : null,
+      marketValue: position.price ? {
+        amount: (position.units || position.fractional_units || 0) * position.price,
+        currency: position.currency?.code || 'USD'
+      } : null,
+      unrealizedPnl: position.open_pnl ? {
+        amount: position.open_pnl,
+        currency: position.currency?.code || 'USD'
+      } : null
+    }));
+    
+    const response: OptionHoldingsResponse = {
+      holdings: transformedOptions
+    };
+    
+    res.json(response);
+    
+  } catch (error: any) {
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('get_options_holdings', error, requestId, { accountId: req.params.accountId });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
     const errorResponse: ErrorResponse = {
       error: {
         code: mappedError.code,

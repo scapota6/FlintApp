@@ -147,6 +147,34 @@ export interface OrdersResponse {
   orders: Order[];
 }
 
+export type ActivityType = "trade" | "dividend" | "interest" | "fee" | "transfer";
+
+export interface Activity {
+  id: string;
+  date: ISODate;
+  type: ActivityType;
+  description: string;
+  amount: Money;             // positive credit / negative debit
+  symbol: string | null;
+}
+
+export interface ActivitiesResponse {
+  activities: Activity[];
+}
+
+export interface OptionHolding {
+  symbol: string;          // OCC symbol, e.g., "AAPL  240920C00200000"
+  description: string | null;
+  quantity: number;
+  marketPrice: Money | null;
+  marketValue: Money | null;
+  unrealizedPnl: Money | null;
+}
+
+export interface OptionHoldingsResponse {
+  holdings: OptionHolding[];
+}
+
 export interface BrokerageConnection {
   id: UUID;                           // brokerage_authorization_id
   name: string;                       // e.g., "Robinhood"
