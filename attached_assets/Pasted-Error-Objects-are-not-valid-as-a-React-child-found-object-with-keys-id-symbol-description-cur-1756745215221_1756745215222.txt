@@ -1,0 +1,32 @@
+Error: Objects are not valid as a React child (found: object with keys {id, symbol, description, currency, exchange, currencies, type, raw_symbol, logo_url, figi_code, figi_instrument}). If you meant to render a collection of children, use an array instead.
+    at div
+    at div
+    at td
+    at tr
+    at tbody
+    at table
+    at div
+    at div
+    at div
+    at section
+    at div
+    at div
+    at div
+    at AccountDetailsDialog (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/components/AccountDetailsDialog.tsx:490:48)
+    at div
+    at UnifiedDashboard (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/components/dashboard/unified-dashboard.tsx:46:43)
+    at main
+    at div
+    at Dashboard (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/pages/dashboard.tsx:33:20)
+    at Route (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=c56f6caa:206:16)
+    at Switch (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=c56f6caa:262:17)
+    at PresenceChild (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=c56f6caa:121:24)
+    at AnimatePresence (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=c56f6caa:210:26)
+    at div
+    at Router (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/App.tsx?v=J4cYo43OU1sqXglA3vwIz:51:42)
+    at div
+    at TooltipProvider (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/components/ui/tooltip.tsx:20:35)
+    at ThemeProvider (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/contexts/ThemeContext.tsx:20:33)
+    at QueryClientProvider (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=c56f6caa:2929:3)
+    at App
+    at ErrorBoundary (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/components/error-boundary.tsx?v=J4cYo43OU1sqXglA3vwIz:10:5)

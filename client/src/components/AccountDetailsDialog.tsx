@@ -1199,7 +1199,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 <List items={data.activityAndTransactions || data.transactions || []} empty="No recent activity" render={(a: any) => (
                   <div className="grid grid-cols-5 gap-2 text-gray-900 dark:text-gray-100">
                     <span className="font-medium text-gray-800 dark:text-gray-200">{a.type}</span>
-                    <span className="font-medium text-gray-800 dark:text-gray-200">{a.symbol || '—'}</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-200">{typeof a.symbol === 'object' ? a.symbol?.symbol : a.symbol || '—'}</span>
                     <span className="text-right font-medium text-gray-800 dark:text-gray-200">{fmtNum(a.quantity)}</span>
                     <span className="text-right font-medium text-gray-800 dark:text-gray-200">{fmtMoney(a.amount)}</span>
                     <span className="text-right text-gray-600 dark:text-gray-300">{fmtTime(a.timestamp)}</span>
