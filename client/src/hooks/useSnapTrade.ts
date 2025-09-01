@@ -1,13 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SnapTradeService } from "@/services/snaptrade-service";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 // Hook for fetching SnapTrade accounts
 export function useSnapTradeAccounts() {
   return useQuery({
-    queryKey: ['/api/snaptrade/accounts'],
-    queryFn: () => SnapTradeService.getAccounts(),
-    refetchInterval: 30000, // Refetch every 30 seconds
+    queryKey: ['accounts.list'],
+    queryFn: () => apiRequest('/api/snaptrade/accounts').then(r => r.json()),
+    staleTime: 6 * 60 * 60 * 1000, // 6 hours as specified
     retry: false
   });
 }
@@ -15,20 +16,57 @@ export function useSnapTradeAccounts() {
 // Hook for fetching account positions
 export function useAccountPositions(accountId: string | null) {
   return useQuery({
-    queryKey: ['/api/snaptrade/accounts', accountId, 'positions'],
-    queryFn: () => accountId ? SnapTradeService.getAccountPositions(accountId) : Promise.resolve([]),
+    queryKey: ['accounts.positions', accountId],
+    queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/positions`).then(r => r.json()) : Promise.resolve([]),
     enabled: !!accountId,
-    refetchInterval: 30000
+    staleTime: 60 * 1000 // 60s for positions/balances as specified
   });
 }
 
 // Hook for fetching account orders
-export function useAccountOrders(accountId: string | null) {
+export function useAccountOrders(accountId: string | null, status: 'open' | 'all' = 'all') {
   return useQuery({
-    queryKey: ['/api/snaptrade/accounts', accountId, 'orders'],
-    queryFn: () => accountId ? SnapTradeService.getAccountOrders(accountId) : Promise.resolve([]),
+    queryKey: ['accounts.orders', accountId, status],
+    queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/orders?status=${status}`).then(r => r.json()) : Promise.resolve([]),
     enabled: !!accountId,
-    refetchInterval: 10000 // Orders update more frequently
+    staleTime: 10 * 1000 // 10s for orders after a trade as specified
+  });
+}
+
+// Hook for account details
+export function useAccountDetails(accountId: string | null) {
+  return useQuery({
+    queryKey: ['accounts.details', accountId],
+    queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/details`).then(r => r.json()) : Promise.resolve(null),
+    enabled: !!accountId,
+    staleTime: 60 * 1000 // 60s for account details
+  });
+}
+
+// Hook for account balances
+export function useAccountBalances(accountId: string | null) {
+  return useQuery({
+    queryKey: ['accounts.balances', accountId],
+    queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/balances`).then(r => r.json()) : Promise.resolve(null),
+    enabled: !!accountId,
+    staleTime: 60 * 1000 // 60s for positions/balances as specified
+  });
+}
+
+// Hook for account activities
+export function useAccountActivities(accountId: string | null, from?: string, to?: string) {
+  return useQuery({
+    queryKey: ['accounts.activities', accountId, from, to],
+    queryFn: () => {
+      if (!accountId) return Promise.resolve([]);
+      const params = new URLSearchParams();
+      if (from) params.append('from', from);
+      if (to) params.append('to', to);
+      const query = params.toString() ? `?${params.toString()}` : '';
+      return apiRequest(`/api/snaptrade/accounts/${accountId}/activities${query}`).then(r => r.json());
+    },
+    enabled: !!accountId,
+    staleTime: 60 * 1000 // 60s for activities
   });
 }
 
@@ -56,8 +94,10 @@ export function usePlaceEquityOrder() {
         variant: "default"
       });
       
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['/api/snaptrade/accounts'] });
+      // Refresh positions & recent orders after successful trade
+      queryClient.invalidateQueries({ queryKey: ['accounts.positions'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts.orders'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts.list'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
     },
     onError: (error: Error) => {
@@ -84,7 +124,10 @@ export function usePlaceCryptoOrder() {
         variant: "default"
       });
       
-      queryClient.invalidateQueries({ queryKey: ['/api/snaptrade/accounts'] });
+      // Refresh positions & recent orders after successful trade
+      queryClient.invalidateQueries({ queryKey: ['accounts.positions'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts.orders'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts.list'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
     },
     onError: (error: Error) => {
@@ -112,7 +155,9 @@ export function useCancelOrder() {
         variant: "default"
       });
       
-      queryClient.invalidateQueries({ queryKey: ['/api/snaptrade/accounts'] });
+      // Refresh orders after cancellation
+      queryClient.invalidateQueries({ queryKey: ['accounts.orders'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts.positions'] });
     },
     onError: (error: Error) => {
       toast({
@@ -139,7 +184,7 @@ export function useConnectBrokerage() {
       });
       
       // Invalidate all SnapTrade related queries
-      queryClient.invalidateQueries({ queryKey: ['/api/snaptrade'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts.list'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
     },
     onError: (error: Error) => {
@@ -166,7 +211,7 @@ export function useSyncAccounts() {
         variant: "default"
       });
       
-      queryClient.invalidateQueries({ queryKey: ['/api/snaptrade/accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts.list'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
     },
     onError: (error: Error) => {

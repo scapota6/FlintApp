@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authApi, accountsApi } from '../lib/snaptrade';
+import { authApi, accountsApi, getUserAccountDetails, getUserAccountBalance, getUserAccountPositions, getUserAccountOrders, getAccountActivities } from '../lib/snaptrade';
 import { isAuthenticated } from '../replitAuth';
 import { db } from '../db';
 import { users, snaptradeUsers } from '@shared/schema';
@@ -602,6 +602,219 @@ router.get('/options/:accountId', isAuthenticated, async (req: any, res) => {
         error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
     }
     
+    res.status(mappedError.httpStatus).json({
+      success: false,
+      message: mappedError.userMessage,
+      error: mappedError
+    });
+  }
+});
+
+/**
+ * GET /api/snaptrade/accounts/:id/details
+ * Get detailed account information
+ */
+router.get('/accounts/:id/details', isAuthenticated, async (req: any, res) => {
+  try {
+    const flintUser = await getFlintUserByAuth(req.user);
+    const credentials = await getSnaptradeCredentials(flintUser.id);
+    const accountId = req.params.id;
+    
+    console.log('[SnapTrade Accounts] Getting account details:', {
+      flintUserId: flintUser.id,
+      accountId
+    });
+    
+    // Get detailed account information
+    const detailsResponse = await getUserAccountDetails(
+      credentials.snaptradeUserId,
+      credentials.snaptradeUserSecret,
+      accountId
+    );
+    
+    res.json({
+      success: true,
+      account: detailsResponse
+    });
+    
+  } catch (error: any) {
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('get_account_details', error, requestId, { accountId: req.params.id });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    res.status(mappedError.httpStatus).json({
+      success: false,
+      message: mappedError.userMessage,
+      error: mappedError
+    });
+  }
+});
+
+/**
+ * GET /api/snaptrade/accounts/:id/balances
+ * Get account balance information
+ */
+router.get('/accounts/:id/balances', isAuthenticated, async (req: any, res) => {
+  try {
+    const flintUser = await getFlintUserByAuth(req.user);
+    const credentials = await getSnaptradeCredentials(flintUser.id);
+    const accountId = req.params.id;
+    
+    console.log('[SnapTrade Accounts] Getting account balances:', {
+      flintUserId: flintUser.id,
+      accountId
+    });
+    
+    // Get balance information
+    const balanceResponse = await getUserAccountBalance(
+      credentials.snaptradeUserId,
+      credentials.snaptradeUserSecret,
+      accountId
+    );
+    
+    res.json({
+      success: true,
+      balances: balanceResponse
+    });
+    
+  } catch (error: any) {
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('get_account_balances', error, requestId, { accountId: req.params.id });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    res.status(mappedError.httpStatus).json({
+      success: false,
+      message: mappedError.userMessage,
+      error: mappedError
+    });
+  }
+});
+
+/**
+ * GET /api/snaptrade/accounts/:id/positions
+ * Get account positions
+ */
+router.get('/accounts/:id/positions', isAuthenticated, async (req: any, res) => {
+  try {
+    const flintUser = await getFlintUserByAuth(req.user);
+    const credentials = await getSnaptradeCredentials(flintUser.id);
+    const accountId = req.params.id;
+    
+    console.log('[SnapTrade Accounts] Getting account positions:', {
+      flintUserId: flintUser.id,
+      accountId
+    });
+    
+    // Get positions
+    const positions = await getUserAccountPositions(
+      credentials.snaptradeUserId,
+      credentials.snaptradeUserSecret,
+      accountId
+    );
+    
+    res.json({
+      success: true,
+      positions
+    });
+    
+  } catch (error: any) {
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('get_account_positions', error, requestId, { accountId: req.params.id });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    res.status(mappedError.httpStatus).json({
+      success: false,
+      message: mappedError.userMessage,
+      error: mappedError
+    });
+  }
+});
+
+/**
+ * GET /api/snaptrade/accounts/:id/orders
+ * Get account orders with optional status filter
+ */
+router.get('/accounts/:id/orders', isAuthenticated, async (req: any, res) => {
+  try {
+    const flintUser = await getFlintUserByAuth(req.user);
+    const credentials = await getSnaptradeCredentials(flintUser.id);
+    const accountId = req.params.id;
+    const status = req.query.status as string | undefined;
+    
+    console.log('[SnapTrade Accounts] Getting account orders:', {
+      flintUserId: flintUser.id,
+      accountId,
+      status
+    });
+    
+    // Get orders with optional status filter
+    const orders = await getUserAccountOrders(
+      credentials.snaptradeUserId,
+      credentials.snaptradeUserSecret,
+      accountId,
+      status?.toUpperCase() as any
+    );
+    
+    res.json({
+      success: true,
+      orders
+    });
+    
+  } catch (error: any) {
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('get_account_orders', error, requestId, { accountId: req.params.id, status: req.query.status });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    res.status(mappedError.httpStatus).json({
+      success: false,
+      message: mappedError.userMessage,
+      error: mappedError
+    });
+  }
+});
+
+/**
+ * GET /api/snaptrade/accounts/:id/activities
+ * Get account activities with optional date filters
+ */
+router.get('/accounts/:id/activities', isAuthenticated, async (req: any, res) => {
+  try {
+    const flintUser = await getFlintUserByAuth(req.user);
+    const credentials = await getSnaptradeCredentials(flintUser.id);
+    const accountId = req.params.id;
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
+    
+    console.log('[SnapTrade Accounts] Getting account activities:', {
+      flintUserId: flintUser.id,
+      accountId,
+      from,
+      to
+    });
+    
+    // Get activities with optional date filters
+    const activities = await getAccountActivities(
+      credentials.snaptradeUserId,
+      credentials.snaptradeUserSecret,
+      accountId,
+      from,
+      to
+    );
+    
+    res.json({
+      success: true,
+      activities
+    });
+    
+  } catch (error: any) {
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('get_account_activities', error, requestId, { 
+      accountId: req.params.id, 
+      from: req.query.from, 
+      to: req.query.to 
+    });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
     res.status(mappedError.httpStatus).json({
       success: false,
       message: mappedError.userMessage,

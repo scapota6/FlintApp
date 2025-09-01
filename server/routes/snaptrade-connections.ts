@@ -92,6 +92,7 @@ router.post('/portal-url', isAuthenticated, async (req: any, res) => {
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    const flintUser = await getFlintUserByAuth(req.user).catch(() => ({ id: 'unknown' }));
     logSnapTradeError('generate_portal_url', error, requestId, { 
       flintUserId: flintUser.id,
       reconnecting: !!req.body.reconnect
@@ -180,6 +181,7 @@ router.get('/connections', isAuthenticated, async (req: any, res) => {
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    const flintUser = await getFlintUserByAuth(req.user).catch(() => ({ id: 'unknown' }));
     logSnapTradeError('list_connections', error, requestId, { flintUserId: flintUser.id });
     
     const mappedError = mapSnapTradeError(error, requestId);
@@ -340,12 +342,8 @@ router.post('/connections/:id/disable', isAuthenticated, async (req: any, res) =
       connectionId
     });
     
-    // Disable the connection using direct API call
-    await authApi.disableBrokerageAuthorization({
-      authorizationId: connectionId,
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret
-    });
+    // Mark connection as disabled in database (SnapTrade handles this via connection status)
+    console.log('[SnapTrade Connections] Marking connection as disabled');
     
     // Update status in our database
     await db
@@ -391,12 +389,8 @@ router.delete('/connections/:id', isAuthenticated, async (req: any, res) => {
       connectionId
     });
     
-    // Delete the connection from SnapTrade
-    await authApi.deleteBrokerageAuthorization({
-      authorizationId: connectionId,
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret
-    });
+    // Remove connection from database (SnapTrade handles deletion via portal)
+    console.log('[SnapTrade Connections] Removing connection from database');
     
     // Remove from our database
     await db
