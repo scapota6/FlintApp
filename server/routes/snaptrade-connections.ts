@@ -5,7 +5,7 @@ import { db } from '../db';
 import { users, snaptradeUsers, snaptradeConnections } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { mapSnapTradeError, logSnapTradeError, checkConnectionStatus, RateLimitHandler } from '../lib/snaptrade-errors';
-import type { BrokerageConnection, ConnectionRedirectUrl, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID } from '@shared/types';
+import type { BrokerageConnection, PortalUrlRequest, PortalUrlResponse, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID } from '@shared/types';
 
 const router = Router();
 
@@ -45,7 +45,7 @@ router.post('/portal-url', isAuthenticated, async (req: any, res) => {
     const flintUser = await getFlintUserByAuth(req.user);
     const credentials = await getSnaptradeCredentials(flintUser.id);
     
-    const { reconnect } = req.body; // Optional: brokerage_authorization_id for reconnecting
+    const { reconnectAuthorizationId, redirectUriOverride }: PortalUrlRequest = req.body;
     
     console.log('[SnapTrade Connections] Generating portal URL for user:', {
       flintUserId: flintUser.id,
@@ -60,23 +60,26 @@ router.post('/portal-url', isAuthenticated, async (req: any, res) => {
       redirectUri: process.env.SNAPTRADE_REDIRECT_URI!
     };
     
+    // Use provided redirect URI or default
+    const redirectUri = redirectUriOverride || process.env.SNAPTRADE_REDIRECT_URI!;
+    
     // If reconnecting a broken connection, include the authorization ID
-    if (reconnect) {
-      loginParams.brokerageAuthorizations = reconnect;
-      console.log('[SnapTrade Connections] Reconnecting authorization:', reconnect);
+    if (reconnectAuthorizationId) {
+      loginParams.brokerageAuthorizations = reconnectAuthorizationId;
+      console.log('[SnapTrade Connections] Reconnecting authorization:', reconnectAuthorizationId);
     }
     
-    const portalUrl = reconnect ? 
+    const portalUrl = reconnectAuthorizationId ? 
       await createReconnectLoginUrl({
         userId: credentials.snaptradeUserId,
         userSecret: credentials.snaptradeUserSecret,
-        redirect: process.env.SNAPTRADE_REDIRECT_URI!,
-        authorizationId: reconnect
+        redirect: redirectUri,
+        authorizationId: reconnectAuthorizationId
       }) :
       await createLoginUrl({
         userId: credentials.snaptradeUserId,
         userSecret: credentials.snaptradeUserSecret,
-        redirect: process.env.SNAPTRADE_REDIRECT_URI!
+        redirect: redirectUri
       });
     
     if (!portalUrl) {
@@ -85,9 +88,8 @@ router.post('/portal-url', isAuthenticated, async (req: any, res) => {
     
     console.log('[SnapTrade Connections] Portal URL generated successfully');
     
-    const response: ConnectionRedirectUrl = {
-      redirectUrl: portalUrl,
-      sessionId: null
+    const response: PortalUrlResponse = {
+      url: portalUrl
     };
     
     res.json(response);
@@ -97,7 +99,7 @@ router.post('/portal-url', isAuthenticated, async (req: any, res) => {
     const flintUser = await getFlintUserByAuth(req.user).catch(() => ({ id: 'unknown' }));
     logSnapTradeError('generate_portal_url', error, requestId, { 
       flintUserId: flintUser.id,
-      reconnecting: !!req.body.reconnect
+      reconnecting: !!reconnectAuthorizationId
     });
     
     const mappedError = mapSnapTradeError(error, requestId);

@@ -52,6 +52,15 @@ export interface BrokerageConnection {
   meta?: Record<string, any> | null;
 }
 
+export interface PortalUrlRequest {
+  reconnectAuthorizationId?: UUID | null; // SnapTrade brokerage_authorization.id
+  redirectUriOverride?: string | null;    // normally omitted
+}
+
+export interface PortalUrlResponse {
+  url: string;
+}
+
 export interface ConnectionRedirectUrl {
   redirectUrl: string;
   sessionId?: string | null;
