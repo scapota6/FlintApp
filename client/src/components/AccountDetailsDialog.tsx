@@ -1088,9 +1088,11 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                                 <tr key={index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors duration-150">
                                   <td className="p-3 text-gray-900 dark:text-white font-medium">
                                     <div>
-                                      <div className="font-semibold">{position.symbol?.symbol || position.symbol || position.ticker || '—'}</div>
+                                      <div className="font-semibold">
+                                        {typeof position.symbol === 'object' ? position.symbol?.symbol : position.symbol || position.ticker || '—'}
+                                      </div>
                                       <div className="text-xs text-gray-500 dark:text-gray-400">
-                                        {position.symbol?.description || position.name || ''}
+                                        {typeof position.symbol === 'object' ? position.symbol?.description : position.name || ''}
                                       </div>
                                     </div>
                                   </td>
