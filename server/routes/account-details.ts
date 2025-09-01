@@ -139,39 +139,39 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
         let creditCardInfo = null;
         if (account.type === 'credit' || account.subtype === 'credit_card') {
           console.log('[Credit Card Debug] Raw data:', JSON.stringify({
-            account_balance: account.balance,
+            account_balance: (account as any).balance,
             fetched_balances: balances,
-            account_details: account.details,
+            account_details: (account as any).details,
             type: account.type,
             subtype: account.subtype
           }, null, 2));
           
           // Use fetched balances first, fallback to account balances
-          const currentBalance = balances?.current ?? account.balance?.current ?? null;
-          const availableBalance = balances?.available ?? account.balance?.available ?? null;
-          const statementBalance = (balances as any)?.statement ?? (account.balance as any)?.statement ?? null;
-          const creditLimit = balances?.credit_limit ?? (account.balance as any)?.limit ?? null;
+          const currentBalance = (balances as any)?.current ?? (account as any).balance?.current ?? null;
+          const availableBalance = balances?.available ?? (account as any).balance?.available ?? null;
+          const statementBalance = (balances as any)?.statement ?? (account as any).balance?.statement ?? null;
+          const creditLimit = (balances as any)?.credit_limit ?? (account as any).balance?.limit ?? null;
           
           creditCardInfo = {
             // Payment & Due Date Information (all nullable - UI shows "—")
-            paymentDueDate: account.details?.payment_due_date ?? account.details?.due_date ?? null,
-            minimumDue: account.details?.minimum_payment_due ?? account.details?.minimum_due ?? null,
+            paymentDueDate: (account as any).details?.payment_due_date ?? (account as any).details?.due_date ?? null,
+            minimumDue: (account as any).details?.minimum_payment_due ?? (account as any).details?.minimum_due ?? null,
             statementBalance: statementBalance ?? (currentBalance ? Math.abs(currentBalance) : null),
             lastPayment: {
-              date: account.details?.last_payment_date ?? null,
-              amount: account.details?.last_payment_amount ?? null
+              date: (account as any).details?.last_payment_date ?? null,
+              amount: (account as any).details?.last_payment_amount ?? null
             },
             
             // Credit Availability
-            availableCredit: availableBalance ?? account.details?.available_credit ?? null,
-            creditLimit: creditLimit ?? account.details?.credit_limit ?? null,
+            availableCredit: availableBalance ?? (account as any).details?.available_credit ?? null,
+            creditLimit: creditLimit ?? (account as any).details?.credit_limit ?? null,
             currentBalance: currentBalance ? Math.abs(currentBalance) : null,
             
             // APR & Fees (all nullable)
-            apr: account.details?.apr ?? account.details?.interest_rate ?? null,
-            cashAdvanceApr: account.details?.cash_advance_apr ?? null,
-            annualFee: account.details?.annual_fee ?? null,
-            lateFee: account.details?.late_fee ?? null,
+            apr: (account as any).details?.apr ?? (account as any).details?.interest_rate ?? null,
+            cashAdvanceApr: (account as any).details?.cash_advance_apr ?? null,
+            annualFee: (account as any).details?.annual_fee ?? null,
+            lateFee: (account as any).details?.late_fee ?? null,
             
             // Account identifiers
             lastFour: account.last_four ?? null,
@@ -202,11 +202,11 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           },
           balances: {
             // Use fetched balances with fallbacks
-            available: balances?.available ?? account.balance?.available ?? null,
-            current: balances?.current ?? account.balance?.current ?? null,
-            ledger: balances?.ledger ?? account.balance?.ledger ?? null,
-            statement: balances?.statement ?? null,
-            credit_limit: balances?.credit_limit ?? null
+            available: balances?.available ?? (account as any).balance?.available ?? null,
+            current: (balances as any)?.current ?? (account as any).balance?.current ?? null,
+            ledger: balances?.ledger ?? (account as any).balance?.ledger ?? null,
+            statement: (balances as any)?.statement ?? null,
+            credit_limit: (balances as any)?.credit_limit ?? null
           },
           accountDetails: accountDetails,
           creditCardInfo,
@@ -379,21 +379,60 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           });
         }
         
-        // Fetch account details and holdings from SnapTrade
-        const [accountDetails, holdings] = await Promise.all([
+        console.log('[Account Details] User:', userId, 'Account ID:', externalId);
+        console.log('[Account Details] SnapTrade account detected:', externalId);
+        console.log('[Account Details] Looking up SnapTrade user for:', userId);
+        console.log('[Account Details] Found SnapTrade user:', {
+          userId: snapUser.userId,
+          userSecret: snapUser.userSecret
+        });
+        
+        // Fetch comprehensive account data using multiple SnapTrade APIs
+        const [accountsList, accountDetails, accountBalance, positions, orders, activities] = await Promise.all([
+          // 1. List user accounts to get basic account info
           accountsApi.listUserAccounts({
             userId: snapUser.userId,
             userSecret: snapUser.userSecret,
-          }),
+          }).catch(() => ({ data: [] })),
+          
+          // 2. Get detailed account information
+          accountsApi.getUserAccountDetails({
+            userId: snapUser.userId,
+            userSecret: snapUser.userSecret,
+            accountId: externalId,
+          }).catch(() => null),
+          
+          // 3. Get detailed balance information
+          accountsApi.getUserAccountBalance({
+            userId: snapUser.userId,
+            userSecret: snapUser.userSecret,
+            accountId: externalId,
+          }).catch(() => null),
+          
+          // 4. Get positions/holdings
           accountsApi.getUserAccountPositions({
             userId: snapUser.userId,
             userSecret: snapUser.userSecret,
             accountId: externalId,
-          }).catch(() => ({ data: [] })) // Gracefully handle if holdings fail
+          }).catch(() => ({ data: [] })),
+          
+          // 5. Get pending orders
+          accountsApi.getUserAccountOrders({
+            userId: snapUser.userId,
+            userSecret: snapUser.userSecret,
+            accountId: externalId,
+          }).catch(() => ({ data: [] })),
+          
+          // 6. Get recent activities/transactions
+          accountsApi.getAccountActivities({
+            userId: snapUser.userId,
+            userSecret: snapUser.userSecret,
+            accountId: externalId,
+          }).catch(() => ({ data: [] }))
         ]);
         
-        // Find the specific account
-        const account = accountDetails.data?.find((acc: any) => acc.id === externalId);
+        // Find the specific account from the accounts list
+        const account = accountsList.data?.find((acc: any) => acc.id === externalId);
         if (!account) {
           return res.status(404).json({ 
             code: 'ACCOUNT_NOT_FOUND',
@@ -402,14 +441,26 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           });
         }
         
+        console.log('Using fine-grained getUserAccountPositions API (recommended by SnapTrade)');
+        console.log('[Account Details] Fetched', positions.data?.length || 0, 'positions for account:', externalId);
+        
+        // Extract balance information from multiple sources
+        const totalBalance = parseFloat((accountBalance?.data as any)?.total?.amount || (account as any).balance?.total?.amount || '0') || 0;
+        const cashBalance = parseFloat((accountBalance?.data as any)?.cash?.amount || (account as any).balance?.cash_balance?.amount || '0') || 0;
+        const equityBalance = totalBalance - cashBalance;
+        
+        // Extract buying power from account details or balance
+        const buyingPower = parseFloat((accountBalance?.data as any)?.buying_power?.amount || 
+                                      (accountDetails?.data as any)?.buying_power?.amount || 
+                                      (accountDetails?.data as any)?.max_buying_power?.amount || '0') || null;
+        
         // Update stored balance in database
-        const balance = parseFloat(account.balance?.total?.amount || '0') || 0;
-        if (dbId && balance) {
+        if (dbId && totalBalance) {
           try {
-            await storage.updateAccountBalance(dbId, balance.toString());
+            await storage.updateAccountBalance(dbId, totalBalance.toString());
             console.log('[Account Details API] Updated stored balance:', {
               accountId: dbId,
-              newBalance: balance,
+              newBalance: totalBalance,
               lastSynced: new Date().toISOString()
             });
           } catch (error) {
@@ -423,54 +474,73 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
           snaptradeAccountId: externalId,
           provider: 'snaptrade',
           hasAccount: !!account,
-          holdingsCount: holdings.data?.length || 0,
+          hasAccountDetails: !!accountDetails?.data,
+          hasAccountBalance: !!accountBalance?.data,
+          holdingsCount: positions.data?.length || 0,
+          ordersCount: orders.data?.length || 0,
+          activitiesCount: activities.data?.length || 0,
           httpStatus: 200
         });
         
-        // Normalize response format to match frontend expectations
-        const cashBalance = parseFloat(account.balance?.cash_balance?.amount || '0') || 0;
-        const equityBalance = balance - cashBalance; // Equity is total minus cash
-        
+        // Transform data to match AccountDetails interface expected by frontend
         res.json({
           provider: 'snaptrade',
-          accountOverview: {
-            id: account.id,
+          accountInformation: {
+            id: account.id || externalId,
             name: account.name === 'Default' 
-              ? `${account.institution_name} ${account.meta?.type || 'Account'}`.trim()
+              ? `${account.institution_name} ${account.meta?.type || account.raw_type || 'Account'}`.trim()
               : account.name,
-            type: 'investment',
-            subtype: account.meta?.type || 'brokerage',
-            status: account.status || 'open',
-            institution: { 
-              name: account.institution_name || 'Unknown',
-              id: account.institution_name || ''
-            },
-            currency: account.balance?.total?.currency || 'USD',
-            number: account.number || null,
-            balance: {
-              total: balance,
+            number: account.number || account.account_number || null,
+            brokerage: account.institution_name || 'Unknown Brokerage',
+            type: account.meta?.brokerage_account_type || account.meta?.type || account.raw_type || 'Investment',
+            status: account.status || 'Active',
+            currency: (account as any).balance?.total?.currency || (accountBalance?.data as any)?.currency || 'USD',
+            balancesOverview: {
               cash: cashBalance,
-              equity: equityBalance
+              equity: equityBalance,
+              buyingPower: buyingPower
             }
           },
-          balances: {
-            total: balance,
-            cash: cashBalance,
-            equity: equityBalance
+          balancesAndHoldings: {
+            balances: {
+              cashAvailableToTrade: cashBalance,
+              totalEquityValue: equityBalance,
+              buyingPowerOrMargin: buyingPower
+            },
+            holdings: positions.data?.map((holding: any) => ({
+              symbol: holding.symbol?.symbol?.symbol || holding.symbol?.raw_symbol || holding.symbol?.symbol || 'Unknown',
+              name: holding.symbol?.symbol?.description || holding.symbol?.description || '',
+              quantity: holding.units || holding.fractional_units || 0,
+              costBasis: holding.average_purchase_price || 0,
+              marketValue: (holding.units || holding.fractional_units || 0) * (holding.price || 0),
+              currentPrice: holding.price || 0,
+              unrealized: holding.open_pnl || 0
+            })) || []
           },
-          holdings: holdings.data?.map((holding: any) => ({
-            symbol: holding.symbol?.symbol?.symbol || holding.symbol?.raw_symbol || holding.symbol?.symbol || 'Unknown',
-            description: holding.symbol?.symbol?.description || holding.symbol?.description || '',
-            quantity: holding.units || holding.fractional_units || 0,
-            averagePurchasePrice: holding.average_purchase_price || 0,
-            currentPrice: holding.price || 0,
-            marketValue: (holding.units || holding.fractional_units || 0) * (holding.price || 0),
-            unrealizedPnL: holding.open_pnl || 0,
-            currency: holding.currency?.code || 'USD',
-            type: holding.symbol?.symbol?.type?.description || holding.symbol?.type?.description || 'Stock'
+          positionsAndOrders: {
+            activePositions: positions.data || [],
+            pendingOrders: orders.data || [],
+            orderHistory: []
+          },
+          tradingActions: {
+            canPlaceOrders: true,
+            canCancelOrders: true,
+            canGetConfirmations: true
+          },
+          activityAndTransactions: activities.data?.map((activity: any) => ({
+            type: activity.type || activity.activity_type || 'Unknown',
+            symbol: activity.symbol?.symbol?.symbol || activity.symbol?.raw_symbol || activity.symbol || null,
+            amount: activity.net_amount || activity.price || null,
+            quantity: activity.quantity || activity.units || null,
+            timestamp: activity.trade_date || activity.settlement_date || activity.created_date || null,
+            description: activity.description || `${activity.type || 'Activity'}: ${activity.symbol?.symbol?.symbol || activity.symbol || ''}`
           })) || [],
-          transactions: [], // SnapTrade doesn't provide transaction history in account details
-          statements: [] // SnapTrade doesn't provide statements
+          metadata: {
+            fetched_at: new Date().toISOString(),
+            last_sync: account.sync_status || null,
+            cash_restrictions: account.cash_restrictions || [],
+            account_created: account.created_date || null
+          }
         });
         
       } catch (error: any) {
