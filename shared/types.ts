@@ -84,6 +84,31 @@ export interface ListAccountsResponse {
   accounts: AccountSummary[];
 }
 
+export interface AccountDetails {
+  id: UUID;
+  institution: string;
+  name: string | null;
+  numberMasked: string | null;
+  type: string | null;
+  status: "open" | "closed" | "archived" | "unknown";
+  currency: string;
+}
+
+export interface AccountDetailsResponse {
+  account: AccountDetails;
+}
+
+export interface AccountBalances {
+  total: Money | null;         // total account equity
+  cash: Money | null;          // cash available
+  buyingPower: Money | null;   // if margin
+  maintenanceExcess: Money | null | undefined;
+}
+
+export interface AccountBalancesResponse {
+  balances: AccountBalances;
+}
+
 export interface BrokerageConnection {
   id: UUID;                           // brokerage_authorization_id
   name: string;                       // e.g., "Robinhood"
