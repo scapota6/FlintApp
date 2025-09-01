@@ -46,7 +46,7 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Separate table for SnapTrade credentials with unique constraint
+// SnapTrade users table with enhanced fields per specification
 export const snaptradeUsers = pgTable('snaptrade_users', {
   id: serial('id').primaryKey(),
   flintUserId: varchar('flint_user_id').notNull().references(() => users.id),
@@ -54,18 +54,19 @@ export const snaptradeUsers = pgTable('snaptrade_users', {
   snaptradeUserSecret: varchar('snaptrade_user_secret').notNull(),
   connectedAt: timestamp('connected_at').defaultNow(),
   lastSyncAt: timestamp('last_sync_at'),
+  rotatedAt: timestamp('rotated_at'), // new field per specification
 }, (table) => ({
-  uniqueFlintUser: unique().on(table.flintUserId), // Ensure only one SnapTrade user per Flint user
+  uniqueFlintUser: unique().on(table.flintUserId),
 }));
 
-// SnapTrade brokerage authorizations/connections table
+// SnapTrade connections table with enhanced fields per specification
 export const snaptradeConnections = pgTable('snaptrade_connections', {
-  id: serial('id').primaryKey(),
+  id: serial('id').primaryKey(), // keeping existing ID structure
   flintUserId: varchar('flint_user_id').notNull().references(() => users.id),
-  brokerageAuthorizationId: varchar('brokerage_authorization_id').notNull().unique(),
+  brokerageAuthorizationId: varchar('brokerage_authorization_id').notNull().unique(), // the actual UUID from SnapTrade
   brokerageName: varchar('brokerage_name').notNull(),
   brokerageType: varchar('brokerage_type'),
-  status: varchar('status').notNull().default('active'), // active, disabled, expired
+  status: varchar('status').notNull().default('active'),
   disabled: boolean('disabled').default(false),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -97,6 +98,21 @@ export const connectedAccounts = pgTable("connected_accounts", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// SnapTrade accounts table per specification
+export const snaptradeAccounts = pgTable('snaptrade_accounts', {
+  id: varchar('id').primaryKey(), // account UUID
+  brokerageAuthorization: varchar('brokerage_authorization').notNull().references(() => snaptradeConnections.id),
+  institutionName: varchar('institution_name').notNull(),
+  numberMasked: varchar('number_masked'),
+  rawType: varchar('raw_type'),
+  status: varchar('status'),
+  currency: varchar('currency').default('USD'),
+  lastHoldingsSyncAt: timestamp('last_holdings_sync_at'),
+  totalBalanceAmount: decimal('total_balance_amount', { precision: 15, scale: 2 }),
+}, (table) => ({
+  brokerageIndex: index('snaptrade_accounts_brokerage_idx').on(table.brokerageAuthorization),
+}));
 
 // Holdings (stocks, crypto, etc.)
 export const holdings = pgTable("holdings", {

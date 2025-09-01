@@ -209,21 +209,48 @@ export function logSnapTradeError(
   requestId?: string,
   context?: Record<string, any>
 ): void {
+  // Extract X-Request-ID from SnapTrade response headers per docs.snaptrade.com
+  const snaptradeRequestId = error.response?.headers?.['x-request-id'] || 
+                            error.headers?.['x-request-id'] ||
+                            error.responseHeaders?.['x-request-id'];
+  
+  // Extract rate limit headers for burst detection per docs.snaptrade.com
+  const rateLimitRemaining = error.response?.headers?.['x-ratelimit-remaining'] ||
+                           error.headers?.['x-ratelimit-remaining'] ||
+                           error.responseHeaders?.['x-ratelimit-remaining'];
+  
+  const rateLimitReset = error.response?.headers?.['x-ratelimit-reset'] ||
+                        error.headers?.['x-ratelimit-reset'] ||
+                        error.responseHeaders?.['x-ratelimit-reset'];
+
   const logEntry = {
     timestamp: new Date().toISOString(),
     operation,
     requestId,
+    snaptradeRequestId, // X-Request-ID from SnapTrade for correlation
     error: {
       code: error.responseBody?.code || error.code || error.status,
       message: error.responseBody?.message || error.message,
       status: error.status
     },
+    rateLimitRemaining, // For burst detection
+    rateLimitReset,
     context
   };
 
   console.error(`[SnapTrade] ${operation} failed:`, logEntry);
   
-  // Extract and log request ID for correlation with SnapTrade support
+  // Enhanced logging for rate limit monitoring per docs.snaptrade.com
+  if (rateLimitRemaining) {
+    console.warn(`[SnapTrade Rate Limit] Operation: ${operation}, Remaining: ${rateLimitRemaining}, Reset: ${rateLimitReset}`);
+    
+    // Alert on low remaining requests to detect bursts
+    if (parseInt(rateLimitRemaining) < 10) {
+      console.error(`[SnapTrade Rate Limit ALERT] Operation: ${operation} - Only ${rateLimitRemaining} requests remaining!`);
+    }
+  }
+  
+  // Log SnapTrade Request ID for support correlation
   if (requestId) {
     console.error(`[SnapTrade] Correlation ID for support: ${requestId}`);
   }
