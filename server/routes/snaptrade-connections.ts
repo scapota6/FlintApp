@@ -5,7 +5,7 @@ import { db } from '../db';
 import { users, snaptradeUsers, snaptradeConnections } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { mapSnapTradeError, logSnapTradeError, checkConnectionStatus, RateLimitHandler } from '../lib/snaptrade-errors';
-import type { BrokerageConnection, PortalUrlRequest, PortalUrlResponse, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID } from '@shared/types';
+import type { Connection, ListConnectionsResponse, PortalUrlRequest, PortalUrlResponse, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID } from '@shared/types';
 
 const router = Router();
 
@@ -109,11 +109,15 @@ router.post('/portal-url', isAuthenticated, async (req: any, res) => {
         error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
     }
     
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -166,22 +170,21 @@ router.get('/connections', isAuthenticated, async (req: any, res) => {
     
     console.log('[SnapTrade Connections] Synced', connections.length, 'connections to database');
     
-    res.json({
-      success: true,
-      connections: connections.map((conn: any) => {
-        const connectionStatus = checkConnectionStatus(conn);
-        return {
-          id: conn.id,
-          name: conn.name,
-          type: conn.type,
-          disabled: !!conn.disabled,
-          created: conn.created,
-          updated: conn.updated,
-          needsReconnect: connectionStatus.needsReconnect,
-          reconnectUrl: connectionStatus.reconnectUrl
-        };
-      })
-    });
+    // Transform to normalized DTO format
+    const transformedConnections: Connection[] = connections.map((conn: any) => ({
+      id: conn.id as UUID,
+      brokerageName: conn.name || 'Unknown',
+      disabled: !!conn.disabled,
+      createdAt: conn.created || null,
+      updatedAt: conn.updated || null,
+      lastSyncAt: conn.updated || null // SnapTrade doesn't provide separate lastSync
+    }));
+    
+    const response: ListConnectionsResponse = {
+      connections: transformedConnections
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
@@ -204,11 +207,15 @@ router.get('/connections', isAuthenticated, async (req: any, res) => {
       return;
     }
     
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 

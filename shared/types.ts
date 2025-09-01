@@ -40,6 +40,19 @@ export interface SnapTradeUserRegistration {
 }
 
 // Connection Management
+export interface Connection {
+  id: UUID;                      // brokerage_authorization.id
+  brokerageName: string;
+  disabled: boolean;
+  createdAt: ISODate | null;
+  updatedAt: ISODate | null;
+  lastSyncAt: ISODate | null;
+}
+
+export interface ListConnectionsResponse {
+  connections: Connection[];
+}
+
 export interface BrokerageConnection {
   id: UUID;                           // brokerage_authorization_id
   name: string;                       // e.g., "Robinhood"
