@@ -142,6 +142,12 @@ function groupTransactionsByMerchant(transactions: any[]): Map<string, any[]> {
   
   for (const transaction of transactions) {
     const key = getMerchantKey(transaction);
+    
+    // Skip transactions that don't match subscription patterns (empty key)
+    if (!key || key.trim() === '') {
+      continue;
+    }
+    
     if (!groups.has(key)) {
       groups.set(key, []);
     }
@@ -156,21 +162,70 @@ function getMerchantKey(transaction: any): string {
   const description = transaction.description || '';
   const merchant = transaction.merchant_name || '';
   
-  // Use merchant name if available, otherwise clean up description
-  if (merchant) {
-    return merchant.toLowerCase().trim();
+  // FILTER OUT non-subscription transaction types
+  const exclusionPatterns = [
+    /^wire transfer/i,
+    /^incoming wire/i,
+    /^outgoing wire/i,
+    /^deposit/i,
+    /^atm withdrawal/i,
+    /^check #\d+/i,
+    /^debit card purchase/i,
+    /^mobile deposit/i,
+    /gas station|exxon|shell|chevron|bp |mobil|texaco|sunoco/i,
+    /grocery|walmart|target|kroger|safeway|whole foods/i,
+    /restaurant|mcdonalds|burger|pizza|starbucks|coffee/i,
+    /amazon\.com purchases|amazon marketplace/i, // but allow "amazon prime"
+    /uber|lyft|taxi/i,
+    /parking|toll/i,
+    /cash advance|balance transfer/i
+  ];
+  
+  // Check if this transaction should be excluded from subscription detection
+  const fullText = `${description} ${merchant}`.toLowerCase();
+  for (const pattern of exclusionPatterns) {
+    if (pattern.test(fullText)) {
+      return ''; // Empty key means exclude this transaction
+    }
   }
   
-  // Clean up common transaction prefixes/suffixes
-  const cleaned = description
-    .toLowerCase()
-    .replace(/^(payment to|autopay|recurring|monthly|subscription)/gi, '')
-    .replace(/(payment|autopay|recurring)$/gi, '')
-    .replace(/\d{4}$/g, '') // Remove trailing numbers
-    .replace(/[*#]/g, '') // Remove special characters
-    .trim();
-    
-  return cleaned || description.toLowerCase();
+  // Use merchant name if available, otherwise clean up description
+  let cleanKey = '';
+  if (merchant) {
+    cleanKey = merchant.toLowerCase().trim();
+  } else {
+    // Clean up common transaction prefixes/suffixes
+    cleanKey = description
+      .toLowerCase()
+      .replace(/^(payment to|autopay|recurring|monthly|subscription)/gi, '')
+      .replace(/(payment|autopay|recurring)$/gi, '')
+      .replace(/\d{4}$/g, '') // Remove trailing numbers
+      .replace(/[*#]/g, '') // Remove special characters
+      .trim();
+  }
+  
+  // ONLY ALLOW known subscription-like patterns
+  const subscriptionPatterns = [
+    /netflix|hulu|disney|spotify|apple music|youtube premium/i,
+    /adobe|microsoft 365|office|google workspace/i,
+    /amazon prime|prime membership/i,
+    /phone|verizon|at&t|t-mobile|sprint/i,
+    /internet|comcast|xfinity|spectrum|cox|optimum/i,
+    /electric|gas utility|water|sewer|waste management/i,
+    /insurance|progressive|geico|state farm|allstate/i,
+    /gym|fitness|planet fitness|la fitness/i,
+    /subscription|monthly|recurring|auto-pay/i,
+    /rent|mortgage|loan payment/i
+  ];
+  
+  // Only return the key if it matches known subscription patterns
+  for (const pattern of subscriptionPatterns) {
+    if (pattern.test(fullText)) {
+      return cleanKey || description.toLowerCase();
+    }
+  }
+  
+  return ''; // Exclude if doesn't match subscription patterns
 }
 
 function getMerchantDisplayName(merchantKey: string): string {

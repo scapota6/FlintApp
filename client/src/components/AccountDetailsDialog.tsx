@@ -867,10 +867,10 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     Account Information
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <Info label="Account ID" value={data.accountInformation?.id || '—'} />
-                    <Info label="Brokerage" value={data.accountInformation?.brokerage || '—'} />
-                    <Info label="Account Type" value={data.accountInformation?.type || '—'} />
-                    <Info label="Currency" value={data.accountInformation?.currency || 'USD'} />
+                    <Info label="Account ID" value={data.accountOverview?.number || data.accountOverview?.id?.slice(-6) || '—'} />
+                    <Info label="Brokerage" value={data.accountOverview?.institution?.name || '—'} />
+                    <Info label="Account Type" value={data.accountOverview?.subtype || data.accountOverview?.type || '—'} />
+                    <Info label="Currency" value={data.accountOverview?.currency || 'USD'} />
                   </div>
                 </section>
 
@@ -881,9 +881,9 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     Live Balances
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <Info label="Cash" value={fmtMoney(data.accountInformation?.balancesOverview?.cash)} />
-                    <Info label="Equity" value={fmtMoney(data.accountInformation?.balancesOverview?.equity)} />
-                    <Info label="Buying Power" value={fmtMoney(data.accountInformation?.balancesOverview?.buyingPower)} />
+                    <Info label="Cash" value={fmtMoney(data.balances?.cash || data.accountOverview?.balance?.cash)} />
+                    <Info label="Equity" value={fmtMoney(data.balances?.equity || data.accountOverview?.balance?.equity)} />
+                    <Info label="Buying Power" value={fmtMoney(data.balances?.total || data.accountOverview?.balance?.total)} />
                   </div>
                 </section>
               </>
@@ -1127,54 +1127,62 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 Holdings & Positions
               </h3>
               
-              {/* Display positions from the API response */}
-              {data.positions && data.positions.length > 0 ? (
+              {/* Display holdings from the API response */}
+              {data.holdings && data.holdings.length > 0 ? (
                 <div className="space-y-4 mb-6">
-                  {data.positions.map((positionAccount: any, accountIndex: number) => (
-                    <div key={accountIndex}>
-                      {positionAccount.positions && positionAccount.positions.length > 0 && (
-                        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-                          <table className="w-full text-sm">
-                            <thead className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/30 dark:to-red-900/30">
-                              <tr>
-                                <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Symbol</th>
-                                <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Quantity</th>
-                                <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Price</th>
-                                <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Value</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {positionAccount.positions.map((position: any, index: number) => (
-                                <tr key={index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors duration-150">
-                                  <td className="p-3 text-gray-900 dark:text-white font-medium">
-                                    <div>
-                                      <div className="font-semibold">
-                                        {extractSymbol(position.symbol || position.ticker)}
-                                      </div>
-                                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                                        {extractSymbolDescription(position.symbol, position.name)}
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="p-3 text-right text-gray-900 dark:text-white font-medium">
-                                    {fmtNum(position.units || position.quantity || 0)}
-                                  </td>
-                                  <td className="p-3 text-right text-gray-900 dark:text-white">
-                                    {fmtMoney(position.price || 0)}
-                                  </td>
-                                  <td className="p-3 text-right">
-                                    <span className="font-bold text-green-600 dark:text-green-400">
-                                      {fmtMoney((position.units || position.quantity || 0) * (position.price || 0))}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/30 dark:to-red-900/30">
+                        <tr>
+                          <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Symbol</th>
+                          <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Description</th>
+                          <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Quantity</th>
+                          <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Current Price</th>
+                          <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Market Value</th>
+                          <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">P&L</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.holdings.map((holding: any, index: number) => (
+                          <tr key={index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors duration-150">
+                            <td className="p-3 text-gray-900 dark:text-white font-medium">
+                              <div className="font-semibold">
+                                {holding.symbol || '—'}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {holding.type || ''}
+                              </div>
+                            </td>
+                            <td className="p-3 text-gray-900 dark:text-white">
+                              <div className="text-sm">
+                                {holding.description || '—'}
+                              </div>
+                            </td>
+                            <td className="p-3 text-right text-gray-900 dark:text-white font-medium">
+                              {fmtNum(holding.quantity || 0)}
+                            </td>
+                            <td className="p-3 text-right text-gray-900 dark:text-white">
+                              {fmtMoney(holding.currentPrice || 0)}
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className="font-bold text-green-600 dark:text-green-400">
+                                {fmtMoney(holding.marketValue || 0)}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className={`font-medium ${
+                                (holding.unrealizedPnL || 0) >= 0 
+                                  ? 'text-green-600 dark:text-green-400' 
+                                  : 'text-red-600 dark:text-red-400'
+                              }`}>
+                                {fmtMoney(holding.unrealizedPnL || 0)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ) : (
                 <div className="p-6 bg-gray-50 dark:bg-gray-900/20 rounded-lg border border-gray-200 dark:border-gray-700 text-center mb-6">
@@ -1218,35 +1226,21 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
               </div>
             </section>
 
-            {/* 4. Trading Actions */}
+            {/* 4. Trading Actions - COMING SOON for MVP */}
             <section>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm mr-3">4</div>
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center text-white font-bold text-sm mr-3">4</div>
                 Trading Actions
               </h3>
-              <div className="flex flex-wrap gap-3">
-                <button 
-                  onClick={() => setOrderDialogOpen(true)}
-                  className="rounded-xl border border-purple-200 dark:border-purple-700 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 px-4 py-2 hover:from-purple-100 hover:to-blue-100 dark:hover:from-purple-800/50 dark:hover:to-blue-800/50 text-purple-700 dark:text-purple-300 font-medium transition-all duration-200 shadow-sm hover:shadow-md"
-                >
-                  🛒 Place Order
-                </button>
-                <button 
-                  onClick={() => setOrderStatusDialogOpen(true)}
-                  className="rounded-xl border border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/30 dark:to-yellow-900/30 px-4 py-2 hover:from-orange-100 hover:to-yellow-100 dark:hover:from-orange-800/50 dark:hover:to-yellow-800/50 text-orange-700 dark:text-orange-300 font-medium transition-all duration-200 shadow-sm hover:shadow-md"
-                >
-                  ❌ Cancel Orders
-                </button>
-                <button 
-                  onClick={() => setOrderStatusDialogOpen(true)}
-                  className="rounded-xl border border-blue-200 dark:border-blue-700 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 px-4 py-2 hover:from-blue-100 hover:to-cyan-100 dark:hover:from-blue-800/50 dark:hover:to-cyan-800/50 text-blue-700 dark:text-blue-300 font-medium transition-all duration-200 shadow-sm hover:shadow-md"
-                >
-                  📊 Manage Orders
-                </button>
+              <div className="p-6 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/20 dark:to-slate-800/20 rounded-xl border border-gray-200 dark:border-gray-700 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 flex items-center justify-center">
+                  <span className="text-2xl">🚀</span>
+                </div>
+                <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">COMING SOON</h4>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  Trading functionality will be available in a future release. Focus on transfers and payments for now.
+                </p>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 italic bg-purple-50 dark:bg-purple-950/20 p-2 rounded-lg border border-purple-200 dark:border-purple-800">
-                🚀 Complete trading system: Preview → placeForceOrder → cancelOrder with capability checking
-              </p>
             </section>
 
             {/* 5. Activity and Transactions */}
