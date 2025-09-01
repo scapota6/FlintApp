@@ -5,6 +5,7 @@ import { db } from '../db';
 import { users, snaptradeUsers, snaptradeConnections } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { mapSnapTradeError, logSnapTradeError, checkConnectionStatus, RateLimitHandler } from '../lib/snaptrade-errors';
+import type { BrokerageConnection, ConnectionRedirectUrl, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID } from '@shared/types';
 
 const router = Router();
 
@@ -84,11 +85,12 @@ router.post('/portal-url', isAuthenticated, async (req: any, res) => {
     
     console.log('[SnapTrade Connections] Portal URL generated successfully');
     
-    res.json({
-      success: true,
-      portalUrl,
-      expiresIn: '5 minutes'
-    });
+    const response: ConnectionRedirectUrl = {
+      redirectUrl: portalUrl,
+      sessionId: null
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;

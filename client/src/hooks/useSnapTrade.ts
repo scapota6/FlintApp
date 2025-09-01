@@ -2,10 +2,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SnapTradeService } from "@/services/snaptrade-service";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import type { AccountSummary, AccountDetails, AccountBalance, AccountPositions, AccountOrders, AccountActivities, ListResponse, DetailsResponse, ErrorResponse } from "@shared/types";
 
 // Hook for fetching SnapTrade accounts
 export function useSnapTradeAccounts() {
-  return useQuery({
+  return useQuery<ListResponse<AccountSummary>, ErrorResponse>({
     queryKey: ['accounts.list'],
     queryFn: () => apiRequest('/api/snaptrade/accounts').then(r => r.json()),
     staleTime: 6 * 60 * 60 * 1000, // 6 hours as specified
@@ -15,9 +16,9 @@ export function useSnapTradeAccounts() {
 
 // Hook for fetching account positions
 export function useAccountPositions(accountId: string | null) {
-  return useQuery({
+  return useQuery<DetailsResponse<AccountPositions>, ErrorResponse>({
     queryKey: ['accounts.positions', accountId],
-    queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/positions`).then(r => r.json()) : Promise.resolve([]),
+    queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/positions`).then(r => r.json()) : Promise.resolve({ data: { accountId: '', positions: [], lastUpdated: null }, lastUpdated: null }),
     enabled: !!accountId,
     staleTime: 60 * 1000 // 60s for positions/balances as specified
   });
@@ -25,9 +26,9 @@ export function useAccountPositions(accountId: string | null) {
 
 // Hook for fetching account orders
 export function useAccountOrders(accountId: string | null, status: 'open' | 'all' = 'all') {
-  return useQuery({
+  return useQuery<DetailsResponse<AccountOrders>, ErrorResponse>({
     queryKey: ['accounts.orders', accountId, status],
-    queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/orders?status=${status}`).then(r => r.json()) : Promise.resolve([]),
+    queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/orders?status=${status}`).then(r => r.json()) : Promise.resolve({ data: { accountId: '', orders: [], lastUpdated: null }, lastUpdated: null }),
     enabled: !!accountId,
     staleTime: 10 * 1000 // 10s for orders after a trade as specified
   });
@@ -35,9 +36,9 @@ export function useAccountOrders(accountId: string | null, status: 'open' | 'all
 
 // Hook for account details
 export function useAccountDetails(accountId: string | null) {
-  return useQuery({
+  return useQuery<DetailsResponse<AccountDetails>, ErrorResponse>({
     queryKey: ['accounts.details', accountId],
-    queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/details`).then(r => r.json()) : Promise.resolve(null),
+    queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/details`).then(r => r.json()) : Promise.resolve({ data: null, lastUpdated: null }),
     enabled: !!accountId,
     staleTime: 60 * 1000 // 60s for account details
   });
@@ -45,9 +46,9 @@ export function useAccountDetails(accountId: string | null) {
 
 // Hook for account balances
 export function useAccountBalances(accountId: string | null) {
-  return useQuery({
+  return useQuery<DetailsResponse<AccountBalance>, ErrorResponse>({
     queryKey: ['accounts.balances', accountId],
-    queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/balances`).then(r => r.json()) : Promise.resolve(null),
+    queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/balances`).then(r => r.json()) : Promise.resolve({ data: null, lastUpdated: null }),
     enabled: !!accountId,
     staleTime: 60 * 1000 // 60s for positions/balances as specified
   });
@@ -55,10 +56,10 @@ export function useAccountBalances(accountId: string | null) {
 
 // Hook for account activities
 export function useAccountActivities(accountId: string | null, from?: string, to?: string) {
-  return useQuery({
+  return useQuery<DetailsResponse<AccountActivities>, ErrorResponse>({
     queryKey: ['accounts.activities', accountId, from, to],
     queryFn: () => {
-      if (!accountId) return Promise.resolve([]);
+      if (!accountId) return Promise.resolve({ data: { accountId: '', activities: [], lastUpdated: null }, lastUpdated: null });
       const params = new URLSearchParams();
       if (from) params.append('from', from);
       if (to) params.append('to', to);

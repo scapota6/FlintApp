@@ -5,6 +5,7 @@ import { db } from '../db';
 import { users, snaptradeUsers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { mapSnapTradeError, logSnapTradeError, checkConnectionStatus, RateLimitHandler } from '../lib/snaptrade-errors';
+import type { AccountSummary, AccountDetails, AccountBalance, AccountPositions, AccountOrders, AccountActivities, Position, Order, Activity, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID, Money } from '@shared/types';
 
 const router = Router();
 
@@ -60,54 +61,39 @@ router.get('/accounts', isAuthenticated, async (req: any, res) => {
     
     console.log('[SnapTrade Accounts] Fetched', accounts.length, 'accounts');
     
-    // Transform accounts for frontend consumption
-    const transformedAccounts = accounts.map((account: any) => ({
-      id: account.id,
-      brokerage: account.institution_name,
+    // Transform accounts to normalized DTO
+    const transformedAccounts: AccountSummary[] = accounts.map((account: any) => ({
+      id: account.id as UUID,
+      brokerageAuthId: account.brokerage_authorization as UUID,
+      institutionName: account.institution_name,
       name: account.name === 'Default' 
         ? `${account.institution_name} ${account.meta?.type || account.raw_type || 'Account'}`.trim()
         : account.name,
-      number: account.number || account.account_number,
-      syncStatus: {
-        holdings: account.sync_status?.holdings,
-        transactions: account.sync_status?.transactions
-      },
-      totalBalance: parseFloat(account.balance?.total?.amount || '0') || 0,
+      numberMasked: account.number || account.account_number || null,
+      accountType: account.meta?.brokerage_account_type || account.meta?.type || account.raw_type || null,
+      status: account.status || null,
       currency: account.balance?.total?.currency || 'USD',
-      type: account.meta?.brokerage_account_type || account.meta?.type || account.raw_type,
-      status: account.status || 'active',
-      institutionName: account.institution_name,
-      createdDate: account.created_date,
-      lastSynced: account.sync_status?.holdings?.last_successful_sync || account.sync_status?.transactions?.last_successful_sync
+      balance: account.balance?.total ? {
+        amount: parseFloat(account.balance.total.amount) || 0,
+        currency: account.balance.total.currency || 'USD'
+      } : null,
+      lastSyncAt: account.sync_status?.holdings?.last_successful_sync || 
+                  account.sync_status?.transactions?.last_successful_sync || null
     }));
     
-    res.json({
-      success: true,
-      accounts: transformedAccounts,
-      totalAccounts: transformedAccounts.length,
-      totalBalance: transformedAccounts.reduce((sum, acc) => sum + acc.totalBalance, 0)
-    });
+    const response: ListResponse<AccountSummary> = {
+      data: transformedAccounts,
+      total: transformedAccounts.length,
+      lastUpdated: new Date().toISOString() as ISODate
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
     logSnapTradeError('list_accounts', error, requestId, { flintUserId: req.user?.claims?.sub });
     
     const mappedError = mapSnapTradeError(error, requestId);
-    
-    // Handle rate limiting with backoff
-    if (mappedError.code === '429') {
-      const remaining = RateLimitHandler.getRemainingRequests(error.headers);
-      const reset = RateLimitHandler.getResetTime(error.headers);
-      
-      res.status(429).json({
-        success: false,
-        message: mappedError.userMessage,
-        error: mappedError,
-        retryAfter: reset,
-        remaining
-      });
-      return;
-    }
     
     // Handle authentication errors with automatic cleanup
     if (['1076', '428', '409'].includes(mappedError.code)) {
@@ -120,12 +106,15 @@ router.get('/accounts', isAuthenticated, async (req: any, res) => {
       }
     }
     
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError,
-      accounts: []
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -154,29 +143,55 @@ router.get('/accounts/:accountId/details', isAuthenticated, async (req: any, res
     
     const account = accountDetails.data;
     if (!account) {
-      return res.status(404).json({
-        success: false,
-        message: 'Account not found'
-      });
+      const errorResponse: ErrorResponse = {
+        error: {
+          code: 'ACCOUNT_NOT_FOUND',
+          message: 'Account not found',
+          requestId: req.headers['x-request-id'] || null
+        }
+      };
+      return res.status(404).json(errorResponse);
     }
     
-    res.json({
-      success: true,
-      accountDetails: {
-        id: account.id,
-        institutionName: account.institution_name,
-        name: account.name === 'Default' 
-          ? `${account.institution_name} ${account.meta?.type || account.raw_type || 'Account'}`.trim()
-          : account.name,
-        number: account.number || account.account_number,
-        status: account.status || 'active',
-        rawType: account.raw_type,
-        type: account.meta?.brokerage_account_type || account.meta?.type,
-        currency: account.balance?.total?.currency || 'USD',
-        createdDate: account.created_date,
-        syncStatus: account.sync_status
-      }
-    });
+    const accountDetailsDto: AccountDetails = {
+      id: account.id as UUID,
+      brokerageAuthId: account.brokerage_authorization as UUID,
+      institutionName: account.institution_name,
+      name: account.name === 'Default' 
+        ? `${account.institution_name} ${account.meta?.type || account.raw_type || 'Account'}`.trim()
+        : account.name,
+      numberMasked: account.number || account.account_number || null,
+      accountType: account.meta?.brokerage_account_type || account.meta?.type || account.raw_type || null,
+      status: account.status || null,
+      currency: account.balance?.total?.currency || 'USD',
+      balance: account.balance?.total ? {
+        amount: parseFloat(account.balance.total.amount) || 0,
+        currency: account.balance.total.currency || 'USD'
+      } : null,
+      createdDate: account.created_date || null,
+      cashRestrictions: account.cash_restrictions || null,
+      meta: account.meta || null,
+      syncStatus: account.sync_status ? {
+        holdings: account.sync_status.holdings ? {
+          lastSuccessfulSync: account.sync_status.holdings.last_successful_sync || null,
+          initialSyncCompleted: account.sync_status.holdings.initial_sync_completed || null
+        } : null,
+        transactions: account.sync_status.transactions ? {
+          lastSuccessfulSync: account.sync_status.transactions.last_successful_sync || null,
+          firstTransactionDate: account.sync_status.transactions.first_transaction_date || null,
+          initialSyncCompleted: account.sync_status.transactions.initial_sync_completed || null
+        } : null
+      } : null,
+      lastSyncAt: account.sync_status?.holdings?.last_successful_sync || 
+                  account.sync_status?.transactions?.last_successful_sync || null
+    };
+    
+    const response: DetailsResponse<AccountDetails> = {
+      data: accountDetailsDto,
+      lastUpdated: new Date().toISOString() as ISODate
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
@@ -189,11 +204,15 @@ router.get('/accounts/:accountId/details', isAuthenticated, async (req: any, res
         error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
     }
     
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -221,31 +240,44 @@ router.get('/accounts/:accountId/balances', isAuthenticated, async (req: any, re
     
     const balances = balanceResponse.data;
     if (!balances) {
-      return res.status(404).json({
-        success: false,
-        message: 'Account balances not found'
-      });
+      const errorResponse: ErrorResponse = {
+        error: {
+          code: 'ACCOUNT_BALANCES_NOT_FOUND',
+          message: 'Account balances not found',
+          requestId: req.headers['x-request-id'] || null
+        }
+      };
+      return res.status(404).json(errorResponse);
     }
     
-    // Extract balance information
-    const totalBalance = parseFloat((balances as any).total?.amount || '0') || 0;
-    const cashBalance = parseFloat((balances as any).cash?.amount || '0') || 0;
-    const equityBalance = totalBalance - cashBalance;
-    const buyingPower = parseFloat((balances as any).buying_power?.amount || '0') || null;
+    // Transform to normalized DTO
+    const accountBalance: AccountBalance = {
+      accountId: accountId as UUID,
+      total: (balances as any).total ? {
+        amount: parseFloat((balances as any).total.amount) || 0,
+        currency: (balances as any).total.currency || 'USD'
+      } : null,
+      cash: (balances as any).cash ? {
+        amount: parseFloat((balances as any).cash.amount) || 0,
+        currency: (balances as any).cash.currency || 'USD'
+      } : null,
+      buying_power: (balances as any).buying_power ? {
+        amount: parseFloat((balances as any).buying_power.amount) || 0,
+        currency: (balances as any).buying_power.currency || 'USD'
+      } : null,
+      withdrawable: (balances as any).withdrawable ? {
+        amount: parseFloat((balances as any).withdrawable.amount) || 0,
+        currency: (balances as any).withdrawable.currency || 'USD'
+      } : null,
+      lastUpdated: new Date().toISOString() as ISODate
+    };
     
-    res.json({
-      success: true,
-      balances: {
-        total: totalBalance,
-        cash: cashBalance,
-        equity: equityBalance,
-        buyingPower: buyingPower,
-        currency: (balances as any).currency || 'USD',
-        cashAvailableToTrade: cashBalance,
-        totalEquityValue: equityBalance,
-        buyingPowerOrMargin: buyingPower
-      }
-    });
+    const response: DetailsResponse<AccountBalance> = {
+      data: accountBalance,
+      lastUpdated: new Date().toISOString() as ISODate
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
@@ -258,11 +290,15 @@ router.get('/accounts/:accountId/balances', isAuthenticated, async (req: any, re
         error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
     }
     
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -292,25 +328,43 @@ router.get('/accounts/:accountId/positions', isAuthenticated, async (req: any, r
     
     console.log('[SnapTrade Accounts] Fetched', positions.length, 'positions for account:', accountId);
     
-    // Transform positions for frontend table
-    const transformedPositions = positions.map((position: any) => ({
+    // Transform positions to normalized DTO
+    const transformedPositions: Position[] = positions.map((position: any) => ({
       symbol: position.symbol?.symbol?.symbol || position.symbol?.raw_symbol || position.symbol?.symbol || 'Unknown',
-      name: position.symbol?.symbol?.description || position.symbol?.description || '',
+      description: position.symbol?.symbol?.description || position.symbol?.description || null,
       quantity: position.units || position.fractional_units || 0,
-      averagePrice: position.average_purchase_price || 0, // Cost basis
-      currentPrice: position.price || 0,
-      marketValue: (position.units || position.fractional_units || 0) * (position.price || 0),
-      unrealizedPnL: position.open_pnl || 0,
+      averagePrice: position.average_purchase_price || null,
+      currentPrice: position.price || null,
+      marketValue: position.price ? {
+        amount: (position.units || position.fractional_units || 0) * position.price,
+        currency: position.currency?.code || 'USD'
+      } : null,
+      costBasis: position.average_purchase_price ? {
+        amount: (position.units || position.fractional_units || 0) * position.average_purchase_price,
+        currency: position.currency?.code || 'USD'
+      } : null,
+      unrealizedPnL: position.open_pnl ? {
+        amount: position.open_pnl,
+        currency: position.currency?.code || 'USD'
+      } : null,
+      unrealizedPnLPercent: position.open_pnl && position.average_purchase_price ? 
+        (position.open_pnl / ((position.units || position.fractional_units || 0) * position.average_purchase_price)) * 100 : null,
       currency: position.currency?.code || 'USD',
-      type: position.symbol?.symbol?.type?.description || position.symbol?.type?.description || 'Stock'
+      lastUpdated: new Date().toISOString() as ISODate
     }));
     
-    res.json({
-      success: true,
+    const accountPositions: AccountPositions = {
+      accountId: accountId as UUID,
       positions: transformedPositions,
-      totalPositions: transformedPositions.length,
-      totalMarketValue: transformedPositions.reduce((sum, pos) => sum + pos.marketValue, 0)
-    });
+      lastUpdated: new Date().toISOString() as ISODate
+    };
+    
+    const response: DetailsResponse<AccountPositions> = {
+      data: accountPositions,
+      lastUpdated: new Date().toISOString() as ISODate
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
@@ -323,11 +377,15 @@ router.get('/accounts/:accountId/positions', isAuthenticated, async (req: any, r
         error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
     }
     
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -357,26 +415,50 @@ router.get('/accounts/:accountId/orders', isAuthenticated, async (req: any, res)
     
     console.log('[SnapTrade Accounts] Fetched', orders.length, 'orders for account:', accountId);
     
-    // Transform orders for frontend
-    const transformedOrders = orders.map((order: any) => ({
-      id: order.id,
+    // Transform orders to normalized DTO
+    const transformedOrders: Order[] = orders.map((order: any) => ({
+      id: order.id as UUID,
+      accountId: accountId as UUID,
       symbol: order.symbol?.symbol?.symbol || order.symbol?.raw_symbol || 'Unknown',
-      side: order.action, // buy/sell
-      quantity: order.quantity,
-      orderType: order.order_type,
-      price: order.price,
-      timeInForce: order.time_in_force,
-      status: order.status,
-      filledQuantity: order.filled_quantity || 0,
-      createdAt: order.created_at,
-      updatedAt: order.updated_at
+      side: (order.action || '').toUpperCase() === 'BUY' ? 'BUY' : 'SELL',
+      type: (order.order_type || '').toUpperCase().includes('MARKET') ? 'MARKET' : 
+            (order.order_type || '').toUpperCase().includes('LIMIT') ? 'LIMIT' : 
+            (order.order_type || '').toUpperCase().includes('STOP_LIMIT') ? 'STOP_LIMIT' :
+            (order.order_type || '').toUpperCase().includes('STOP') ? 'STOP' : 'MARKET',
+      quantity: order.quantity || 0,
+      price: order.price || null,
+      stopPrice: order.stop_price || null,
+      status: (order.status || '').toUpperCase().includes('PENDING') ? 'PENDING' :
+              (order.status || '').toUpperCase().includes('FILLED') ? 'FILLED' :
+              (order.status || '').toUpperCase().includes('CANCELLED') ? 'CANCELLED' :
+              (order.status || '').toUpperCase().includes('REJECTED') ? 'REJECTED' :
+              (order.status || '').toUpperCase().includes('EXPIRED') ? 'EXPIRED' : 'PENDING',
+      timeInForce: (order.time_in_force || '').toUpperCase().includes('GTC') ? 'GTC' :
+                   (order.time_in_force || '').toUpperCase().includes('IOC') ? 'IOC' :
+                   (order.time_in_force || '').toUpperCase().includes('FOK') ? 'FOK' : 'DAY',
+      filledQuantity: order.filled_quantity || null,
+      avgFillPrice: order.fill_price || order.average_fill_price || null,
+      fees: order.commission ? {
+        amount: parseFloat(order.commission) || 0,
+        currency: order.currency || 'USD'
+      } : null,
+      placedAt: order.created_at as ISODate,
+      filledAt: order.filled_at || null,
+      cancelledAt: order.cancelled_at || null
     }));
     
-    res.json({
-      success: true,
+    const accountOrders: AccountOrders = {
+      accountId: accountId as UUID,
       orders: transformedOrders,
-      totalOrders: transformedOrders.length
-    });
+      lastUpdated: new Date().toISOString() as ISODate
+    };
+    
+    const response: DetailsResponse<AccountOrders> = {
+      data: accountOrders,
+      lastUpdated: new Date().toISOString() as ISODate
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
@@ -389,11 +471,15 @@ router.get('/accounts/:accountId/orders', isAuthenticated, async (req: any, res)
         error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
     }
     
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -434,24 +520,49 @@ router.get('/accounts/:accountId/recent-orders', isAuthenticated, async (req: an
       })
       .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     
-    const transformedOrders = recentOrders.map((order: any) => ({
-      id: order.id,
+    const transformedOrders: Order[] = recentOrders.map((order: any) => ({
+      id: order.id as UUID,
+      accountId: accountId as UUID,
       symbol: order.symbol?.symbol?.symbol || order.symbol?.raw_symbol || 'Unknown',
-      side: order.action,
-      quantity: order.quantity,
-      orderType: order.order_type,
-      price: order.price,
-      status: order.status,
-      filledQuantity: order.filled_quantity || 0,
-      createdAt: order.created_at,
-      updatedAt: order.updated_at
+      side: (order.action || '').toUpperCase() === 'BUY' ? 'BUY' : 'SELL',
+      type: (order.order_type || '').toUpperCase().includes('MARKET') ? 'MARKET' : 
+            (order.order_type || '').toUpperCase().includes('LIMIT') ? 'LIMIT' : 
+            (order.order_type || '').toUpperCase().includes('STOP_LIMIT') ? 'STOP_LIMIT' :
+            (order.order_type || '').toUpperCase().includes('STOP') ? 'STOP' : 'MARKET',
+      quantity: order.quantity || 0,
+      price: order.price || null,
+      stopPrice: order.stop_price || null,
+      status: (order.status || '').toUpperCase().includes('PENDING') ? 'PENDING' :
+              (order.status || '').toUpperCase().includes('FILLED') ? 'FILLED' :
+              (order.status || '').toUpperCase().includes('CANCELLED') ? 'CANCELLED' :
+              (order.status || '').toUpperCase().includes('REJECTED') ? 'REJECTED' :
+              (order.status || '').toUpperCase().includes('EXPIRED') ? 'EXPIRED' : 'PENDING',
+      timeInForce: (order.time_in_force || '').toUpperCase().includes('GTC') ? 'GTC' :
+                   (order.time_in_force || '').toUpperCase().includes('IOC') ? 'IOC' :
+                   (order.time_in_force || '').toUpperCase().includes('FOK') ? 'FOK' : 'DAY',
+      filledQuantity: order.filled_quantity || null,
+      avgFillPrice: order.fill_price || order.average_fill_price || null,
+      fees: order.commission ? {
+        amount: parseFloat(order.commission) || 0,
+        currency: order.currency || 'USD'
+      } : null,
+      placedAt: order.created_at as ISODate,
+      filledAt: order.filled_at || null,
+      cancelledAt: order.cancelled_at || null
     }));
     
-    res.json({
-      success: true,
+    const accountOrders: AccountOrders = {
+      accountId: accountId as UUID,
       orders: transformedOrders,
-      totalOrders: transformedOrders.length
-    });
+      lastUpdated: new Date().toISOString() as ISODate
+    };
+    
+    const response: DetailsResponse<AccountOrders> = {
+      data: accountOrders,
+      lastUpdated: new Date().toISOString() as ISODate
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
@@ -464,11 +575,15 @@ router.get('/accounts/:accountId/recent-orders', isAuthenticated, async (req: an
         error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
     }
     
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -498,26 +613,43 @@ router.get('/accounts/:accountId/activities', isAuthenticated, async (req: any, 
     
     console.log('[SnapTrade Accounts] Fetched', activities.length, 'activities for account:', accountId);
     
-    // Transform activities for frontend
-    const transformedActivities = activities.map((activity: any) => ({
-      id: activity.id,
-      type: activity.type || activity.activity_type,
-      description: activity.description,
-      symbol: activity.symbol?.symbol?.symbol || activity.symbol?.raw_symbol || activity.symbol,
-      quantity: activity.quantity || activity.units,
-      amount: activity.net_amount || activity.price,
-      fee: activity.fee,
-      tradeDate: activity.trade_date,
-      settlementDate: activity.settlement_date,
-      createdDate: activity.created_date,
-      currency: activity.currency?.code || 'USD'
+    // Transform activities to normalized DTO
+    const transformedActivities: Activity[] = activities.map((activity: any) => ({
+      id: activity.id as UUID,
+      accountId: accountId as UUID,
+      type: (activity.type || activity.activity_type || '').toUpperCase().includes('TRADE') ? 'TRADE' :
+            (activity.type || activity.activity_type || '').toUpperCase().includes('DEPOSIT') ? 'DEPOSIT' :
+            (activity.type || activity.activity_type || '').toUpperCase().includes('WITHDRAWAL') ? 'WITHDRAWAL' :
+            (activity.type || activity.activity_type || '').toUpperCase().includes('DIVIDEND') ? 'DIVIDEND' :
+            (activity.type || activity.activity_type || '').toUpperCase().includes('FEE') ? 'FEE' : 'OTHER',
+      symbol: activity.symbol?.symbol?.symbol || activity.symbol?.raw_symbol || activity.symbol || null,
+      quantity: activity.quantity || activity.units || null,
+      price: activity.price || null,
+      amount: activity.net_amount || activity.amount ? {
+        amount: parseFloat(activity.net_amount || activity.amount) || 0,
+        currency: activity.currency?.code || 'USD'
+      } : null,
+      fees: activity.fee ? {
+        amount: parseFloat(activity.fee) || 0,
+        currency: activity.currency?.code || 'USD'
+      } : null,
+      description: activity.description || '',
+      date: activity.trade_date || activity.settlement_date || activity.created_date as ISODate,
+      settleDate: activity.settlement_date || null
     }));
     
-    res.json({
-      success: true,
+    const accountActivities: AccountActivities = {
+      accountId: accountId as UUID,
       activities: transformedActivities,
-      totalActivities: transformedActivities.length
-    });
+      lastUpdated: new Date().toISOString() as ISODate
+    };
+    
+    const response: DetailsResponse<AccountActivities> = {
+      data: accountActivities,
+      lastUpdated: new Date().toISOString() as ISODate
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
@@ -530,11 +662,15 @@ router.get('/accounts/:accountId/activities', isAuthenticated, async (req: any, 
         error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
     }
     
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -602,11 +738,15 @@ router.get('/options/:accountId', isAuthenticated, async (req: any, res) => {
         error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
     }
     
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -642,11 +782,15 @@ router.get('/accounts/:id/details', isAuthenticated, async (req: any, res) => {
     logSnapTradeError('get_account_details', error, requestId, { accountId: req.params.id });
     
     const mappedError = mapSnapTradeError(error, requestId);
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -682,11 +826,15 @@ router.get('/accounts/:id/balances', isAuthenticated, async (req: any, res) => {
     logSnapTradeError('get_account_balances', error, requestId, { accountId: req.params.id });
     
     const mappedError = mapSnapTradeError(error, requestId);
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -722,11 +870,15 @@ router.get('/accounts/:id/positions', isAuthenticated, async (req: any, res) => 
     logSnapTradeError('get_account_positions', error, requestId, { accountId: req.params.id });
     
     const mappedError = mapSnapTradeError(error, requestId);
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -765,11 +917,15 @@ router.get('/accounts/:id/orders', isAuthenticated, async (req: any, res) => {
     logSnapTradeError('get_account_orders', error, requestId, { accountId: req.params.id, status: req.query.status });
     
     const mappedError = mapSnapTradeError(error, requestId);
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -815,11 +971,15 @@ router.get('/accounts/:id/activities', isAuthenticated, async (req: any, res) =>
     });
     
     const mappedError = mapSnapTradeError(error, requestId);
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId: requestId
+      }
+    };
+    
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
