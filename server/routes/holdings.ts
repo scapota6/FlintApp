@@ -83,6 +83,12 @@ router.get('/portfolio-holdings', async (req: any, res) => {
               profitLossPercent: avgPrice ? ((currentPrice - avgPrice) / avgPrice) * 100 : 0,
               currency: pos.symbol?.symbol?.currency?.code || pos.universal_symbol?.currency?.code || pos.currency?.code || 'USD',
               type: pos.symbol?.symbol?.type?.description || pos.universal_symbol?.type || pos.type || 'stock',
+              // Ensure all nullable fields are explicitly null instead of undefined
+              costBasisPerShare: avgPrice || null,
+              lastUpdated: pos.last_updated || null,
+              exchange: pos.exchange || null,
+              sector: pos.sector || null,
+              marketCap: pos.market_cap || null
             };
           });
         })
@@ -115,9 +121,26 @@ router.get('/portfolio-holdings', async (req: any, res) => {
       }
       throw e;
     }
-  } catch (e:any) {
-    console.error('Holdings error:', e?.responseBody || e?.message || e);
-    return res.status(500).json({ message: 'Failed to fetch holdings' });
+  } catch (e: any) {
+    const requestId = e.response?.headers?.['x-request-id'] || `req-${Date.now()}`;
+    
+    console.error('Holdings error:', {
+      path: req.originalUrl,
+      responseData: e.response?.data,
+      responseHeaders: e.response?.headers,
+      status: e.response?.status,
+      message: e.message,
+      snaptradeRequestId: requestId
+    });
+    
+    const status = e.response?.status || 500;
+    return res.status(status).json({
+      error: {
+        message: e.message || 'Failed to fetch holdings',
+        code: e.response?.data?.code || 'HOLDINGS_FETCH_ERROR',
+        requestId: requestId
+      }
+    });
   }
 });
 
