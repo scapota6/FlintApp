@@ -1063,11 +1063,65 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 {/* 3. Positions and Orders - BROKERAGE ONLY */}
                 <section>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm mr-3">3</div>
-                Positions and Orders
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm mr-3">📊</div>
+                Holdings & Positions
               </h3>
+              
+              {/* Display positions from the API response */}
+              {data.positions && data.positions.length > 0 ? (
+                <div className="space-y-4 mb-6">
+                  {data.positions.map((positionAccount: any, accountIndex: number) => (
+                    <div key={accountIndex}>
+                      {positionAccount.positions && positionAccount.positions.length > 0 && (
+                        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/30 dark:to-red-900/30">
+                              <tr>
+                                <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Symbol</th>
+                                <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Quantity</th>
+                                <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Price</th>
+                                <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Value</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {positionAccount.positions.map((position: any, index: number) => (
+                                <tr key={index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors duration-150">
+                                  <td className="p-3 text-gray-900 dark:text-white font-medium">
+                                    <div>
+                                      <div className="font-semibold">{position.symbol?.symbol || position.symbol || position.ticker || '—'}</div>
+                                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                                        {position.symbol?.description || position.name || ''}
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-right text-gray-900 dark:text-white font-medium">
+                                    {fmtNum(position.units || position.quantity || 0)}
+                                  </td>
+                                  <td className="p-3 text-right text-gray-900 dark:text-white">
+                                    {fmtMoney(position.price || 0)}
+                                  </td>
+                                  <td className="p-3 text-right">
+                                    <span className="font-bold text-green-600 dark:text-green-400">
+                                      {fmtMoney((position.units || position.quantity || 0) * (position.price || 0))}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 bg-gray-50 dark:bg-gray-900/20 rounded-lg border border-gray-200 dark:border-gray-700 text-center mb-6">
+                  <p className="text-gray-600 dark:text-gray-400">No holdings found in this account</p>
+                </div>
+              )}
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card title="Active Positions">
+                <Card title="Active Positions (Legacy)">
                   <List items={data.positionsAndOrders?.activePositions || []} empty="No active positions" render={(p: any) => (
                     <div className="flex justify-between">
                       <span>{p.symbol || p.ticker || p.instrument?.symbol || '—'}</span>
