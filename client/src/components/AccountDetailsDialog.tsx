@@ -34,13 +34,24 @@ const extractSymbol = (symbolObj: any): string => {
   // If it's already a string, return it
   if (typeof symbolObj === 'string') return symbolObj;
   
-  // If it's a SnapTrade symbol object, extract the symbol property
+  // If it's a SnapTrade symbol object (which can be nested)
   if (typeof symbolObj === 'object') {
     try {
-      const extracted = symbolObj.symbol || symbolObj.ticker || symbolObj.raw_symbol;
-      // Ensure what we're returning is actually a string, not another object
+      // Handle nested structure: position.symbol.symbol (SnapTrade API pattern)
+      if (symbolObj.symbol) {
+        if (typeof symbolObj.symbol === 'string') {
+          return symbolObj.symbol;
+        }
+        // Handle deeper nesting if symbol.symbol is another object
+        if (typeof symbolObj.symbol === 'object' && symbolObj.symbol.symbol) {
+          return symbolObj.symbol.symbol;
+        }
+      }
+      
+      // Fallback to other common properties
+      const extracted = symbolObj.ticker || symbolObj.raw_symbol;
       if (typeof extracted === 'string') return extracted;
-      if (extracted && typeof extracted === 'object' && extracted.symbol) return extracted.symbol;
+      
       return '—';
     } catch (e) {
       console.warn('Error extracting symbol:', e, symbolObj);
@@ -55,12 +66,18 @@ const extractSymbol = (symbolObj: any): string => {
 const extractSymbolDescription = (symbolObj: any, fallback?: string): string => {
   if (!symbolObj) return fallback || '';
   
-  // If it's a SnapTrade symbol object, extract the description
+  // If it's a SnapTrade symbol object (which can be nested)
   if (typeof symbolObj === 'object') {
     try {
+      // Handle nested structure: position.symbol.description (SnapTrade API pattern)
+      if (symbolObj.symbol && typeof symbolObj.symbol === 'object') {
+        const description = symbolObj.symbol.description || symbolObj.symbol.name;
+        if (typeof description === 'string') return description;
+      }
+      
+      // Direct properties
       const description = symbolObj.description || symbolObj.name || fallback || '';
-      // Ensure we return a string
-      return typeof description === 'string' ? description : '';
+      return typeof description === 'string' ? description : fallback || '';
     } catch (e) {
       console.warn('Error extracting symbol description:', e, symbolObj);
       return fallback || '';
@@ -1127,13 +1144,8 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                               </tr>
                             </thead>
                             <tbody>
-                              {positionAccount.positions.map((position: any, index: number) => {
-                                // Debug log to see what we're actually getting
-                                if (position.symbol && typeof position.symbol === 'object') {
-                                  console.log('DEBUG: Symbol object structure:', JSON.stringify(position.symbol, null, 2));
-                                }
-                                return (
-                                  <tr key={index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors duration-150">
+                              {positionAccount.positions.map((position: any, index: number) => (
+                                <tr key={index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors duration-150">
                                   <td className="p-3 text-gray-900 dark:text-white font-medium">
                                     <div>
                                       <div className="font-semibold">
@@ -1143,21 +1155,20 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                                         {extractSymbolDescription(position.symbol, position.name)}
                                       </div>
                                     </div>
-                                    </td>
-                                    <td className="p-3 text-right text-gray-900 dark:text-white font-medium">
-                                      {fmtNum(position.units || position.quantity || 0)}
-                                    </td>
-                                    <td className="p-3 text-right text-gray-900 dark:text-white">
-                                      {fmtMoney(position.price || 0)}
-                                    </td>
-                                    <td className="p-3 text-right">
-                                      <span className="font-bold text-green-600 dark:text-green-400">
-                                        {fmtMoney((position.units || position.quantity || 0) * (position.price || 0))}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
+                                  </td>
+                                  <td className="p-3 text-right text-gray-900 dark:text-white font-medium">
+                                    {fmtNum(position.units || position.quantity || 0)}
+                                  </td>
+                                  <td className="p-3 text-right text-gray-900 dark:text-white">
+                                    {fmtMoney(position.price || 0)}
+                                  </td>
+                                  <td className="p-3 text-right">
+                                    <span className="font-bold text-green-600 dark:text-green-400">
+                                      {fmtMoney((position.units || position.quantity || 0) * (position.price || 0))}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
                             </tbody>
                           </table>
                         </div>

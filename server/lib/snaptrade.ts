@@ -491,3 +491,246 @@ export function normalizePreview(result: any) {
   return { tradeId, impact };
 }
 
+// ===== COMPREHENSIVE SNAPTRADE API METHODS FOLLOWING OFFICIAL DOCUMENTATION =====
+
+/**
+ * API Status - Check whether the API is operational and verify timestamps
+ * Following: https://docs.snaptrade.com/reference/API%20Status/ApiStatus_check
+ */
+export async function checkApiStatus() {
+  try {
+    const response = await snaptrade.apiStatus.check();
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade checkApiStatus error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Authentication - List all registered SnapTrade users
+ * Following: https://docs.snaptrade.com/reference/Authentication/Authentication_listSnapTradeUsers
+ */
+export async function listSnapTradeUsers() {
+  try {
+    const response = await authApi.listSnapTradeUsers();
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade listSnapTradeUsers error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Authentication - Delete a SnapTrade user
+ * Following: https://docs.snaptrade.com/reference/Authentication/Authentication_deleteSnapTradeUser
+ */
+export async function deleteSnapTradeUser(userId: string) {
+  try {
+    const response = await authApi.deleteSnapTradeUser({ userId });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade deleteSnapTradeUser error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Authentication - Reset user secret for a SnapTrade user
+ * Following: https://docs.snaptrade.com/reference/Authentication/Authentication_resetSnapTradeUserSecret
+ */
+export async function resetSnapTradeUserSecret(userId: string, userSecret: string) {
+  try {
+    const response = await authApi.resetSnapTradeUserSecret({ userId, userSecret });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade resetSnapTradeUserSecret error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Account Information - Get user account details
+ * Following: https://docs.snaptrade.com/reference/Account%20Information/AccountInformation_getUserAccountDetails
+ */
+export async function getUserAccountDetails(userId: string, userSecret: string, accountId: string) {
+  try {
+    const response = await accountsApi.getUserAccountDetails({ userId, userSecret, accountId });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade getUserAccountDetails error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Account Information - Get user account balance
+ * Following: https://docs.snaptrade.com/reference/Account%20Information/AccountInformation_getUserAccountBalance
+ */
+export async function getUserAccountBalance(userId: string, userSecret: string, accountId: string) {
+  try {
+    const response = await accountsApi.getUserAccountBalance({ userId, userSecret, accountId });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade getUserAccountBalance error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Account Information - Get user account positions (preferred over getUserHoldings)
+ * Following: https://docs.snaptrade.com/reference/Account%20Information/AccountInformation_getUserAccountPositions
+ */
+export async function getUserAccountPositions(userId: string, userSecret: string, accountId: string) {
+  try {
+    const response = await accountsApi.getUserAccountPositions({ userId, userSecret, accountId });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade getUserAccountPositions error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Account Information - Get user account orders
+ * Following: https://docs.snaptrade.com/reference/Account%20Information/AccountInformation_getUserAccountOrders
+ */
+export async function getUserAccountOrders(userId: string, userSecret: string, accountId: string, status?: 'OPEN' | 'EXECUTED' | 'CANCELLED' | 'PARTIAL_FILL' | 'PENDING_CANCEL' | 'FAILED') {
+  try {
+    const params: any = { userId, userSecret, accountId };
+    if (status) params.status = status;
+    
+    const response = await accountsApi.getUserAccountOrders(params);
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade getUserAccountOrders error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Account Information - Get recent orders for user account
+ * Following: https://docs.snaptrade.com/reference/Account%20Information/AccountInformation_getUserAccountRecentOrders
+ */
+export async function getUserAccountRecentOrders(userId: string, userSecret: string, accountId: string) {
+  try {
+    const response = await accountsApi.getUserAccountRecentOrders({ userId, userSecret, accountId });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade getUserAccountRecentOrders error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Account Information - Get account activities (transactions, dividends, etc.)
+ * Following: https://docs.snaptrade.com/reference/Account%20Information/AccountInformation_getAccountActivities
+ */
+export async function getAccountActivities(userId: string, userSecret: string, accountId: string, startDate?: string, endDate?: string, type?: string) {
+  try {
+    const params: any = { userId, userSecret, accountId };
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (type) params.type = type;
+    
+    const response = await accountsApi.getAccountActivities(params);
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade getAccountActivities error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Reference Data - Get partner info
+ * Following: https://docs.snaptrade.com/reference/Reference%20Data/ReferenceData_getPartnerInfo
+ */
+export async function getPartnerInfo() {
+  try {
+    const response = await snaptrade.referenceData.getPartnerInfo();
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade getPartnerInfo error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Reference Data - Symbol search within user account
+ * Following: https://docs.snaptrade.com/reference/Reference%20Data/ReferenceData_symbolSearchUserAccount
+ */
+export async function symbolSearchUserAccount(userId: string, userSecret: string, accountId: string, substring: string) {
+  try {
+    const response = await snaptrade.referenceData.symbolSearchUserAccount({ 
+      userId, 
+      userSecret, 
+      accountId, 
+      substring 
+    });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade symbolSearchUserAccount error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Reference Data - List all brokerage instruments
+ * Following: https://docs.snaptrade.com/reference/Reference%20Data/ReferenceData_listAllBrokerageInstruments
+ */
+export async function listAllBrokerageInstruments(size?: number, page?: number) {
+  try {
+    const params: any = {};
+    if (size) params.size = size;
+    if (page) params.page = page;
+    
+    const response = await snaptrade.referenceData.listAllBrokerageInstruments(params);
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade listAllBrokerageInstruments error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Reference Data - Get security types
+ * Following: https://docs.snaptrade.com/reference/Reference%20Data/ReferenceData_getSecurityTypes
+ */
+export async function getSecurityTypes() {
+  try {
+    const response = await snaptrade.referenceData.getSecurityTypes();
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade getSecurityTypes error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Reference Data - Search symbols
+ * Following: https://docs.snaptrade.com/reference/Reference%20Data/ReferenceData_getSymbols
+ */
+export async function getSymbols(substring: string) {
+  try {
+    const response = await snaptrade.referenceData.getSymbols({ substring });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade getSymbols error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Reference Data - Get symbols by ticker
+ * Following: https://docs.snaptrade.com/reference/Reference%20Data/ReferenceData_getSymbolsByTicker
+ */
+export async function getSymbolsByTicker(query: string) {
+  try {
+    const response = await snaptrade.referenceData.getSymbolsByTicker({ query });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade getSymbolsByTicker error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
