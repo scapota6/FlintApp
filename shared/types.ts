@@ -109,6 +109,44 @@ export interface AccountBalancesResponse {
   balances: AccountBalances;
 }
 
+export interface Position {
+  symbol: string;            // e.g., "AAPL"
+  description: string | null;
+  quantity: number;          // positive long / negative short
+  avgPrice: Money | null;    // cost basis per share
+  marketPrice: Money | null;
+  marketValue: Money | null; // quantity * marketPrice
+  unrealizedPnl: Money | null;
+  currency: string;          // trading currency
+}
+
+export interface PositionsResponse {
+  accountId: UUID;
+  positions: Position[];
+  asOf: ISODate | null;
+}
+
+export type OrderSide = "buy" | "sell";
+export type OrderType = "market" | "limit" | "stop" | "stop_limit";
+export type TimeInForce = "day" | "gtc" | "fok" | "ioc";
+
+export interface Order {
+  id: string;
+  placedAt: ISODate | null;
+  status: "open" | "filled" | "cancelled" | "rejected" | "partial_filled" | "unknown";
+  side: OrderSide;
+  type: OrderType;
+  timeInForce: TimeInForce | null;
+  symbol: string;
+  quantity: number;
+  limitPrice: Money | null;
+  averageFillPrice: Money | null;
+}
+
+export interface OrdersResponse {
+  orders: Order[];
+}
+
 export interface BrokerageConnection {
   id: UUID;                           // brokerage_authorization_id
   name: string;                       // e.g., "Robinhood"

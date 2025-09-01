@@ -5,7 +5,7 @@ import { db } from '../db';
 import { users, snaptradeUsers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { mapSnapTradeError, logSnapTradeError, checkConnectionStatus, RateLimitHandler } from '../lib/snaptrade-errors';
-import type { AccountSummary, ListAccountsResponse, AccountDetails, AccountDetailsResponse, AccountBalances, AccountBalancesResponse, AccountBalance, AccountPositions, AccountOrders, AccountActivities, Position, Order, Activity, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID, Money } from '@shared/types';
+import type { AccountSummary, ListAccountsResponse, AccountDetails, AccountDetailsResponse, AccountBalances, AccountBalancesResponse, Position, PositionsResponse, Order, OrdersResponse, OrderSide, OrderType, TimeInForce, AccountBalance, AccountPositions, AccountOrders, AccountActivities, Activity, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID, Money } from '@shared/types';
 
 const router = Router();
 
@@ -335,35 +335,29 @@ router.get('/accounts/:accountId/positions', isAuthenticated, async (req: any, r
       symbol: position.symbol?.symbol?.symbol || position.symbol?.raw_symbol || position.symbol?.symbol || 'Unknown',
       description: position.symbol?.symbol?.description || position.symbol?.description || null,
       quantity: position.units || position.fractional_units || 0,
-      averagePrice: position.average_purchase_price || null,
-      currentPrice: position.price || null,
+      avgPrice: position.average_purchase_price ? {
+        amount: position.average_purchase_price,
+        currency: position.currency?.code || 'USD'
+      } : null,
+      marketPrice: position.price ? {
+        amount: position.price,
+        currency: position.currency?.code || 'USD'
+      } : null,
       marketValue: position.price ? {
         amount: (position.units || position.fractional_units || 0) * position.price,
         currency: position.currency?.code || 'USD'
       } : null,
-      costBasis: position.average_purchase_price ? {
-        amount: (position.units || position.fractional_units || 0) * position.average_purchase_price,
-        currency: position.currency?.code || 'USD'
-      } : null,
-      unrealizedPnL: position.open_pnl ? {
+      unrealizedPnl: position.open_pnl ? {
         amount: position.open_pnl,
         currency: position.currency?.code || 'USD'
       } : null,
-      unrealizedPnLPercent: position.open_pnl && position.average_purchase_price ? 
-        (position.open_pnl / ((position.units || position.fractional_units || 0) * position.average_purchase_price)) * 100 : null,
-      currency: position.currency?.code || 'USD',
-      lastUpdated: new Date().toISOString() as ISODate
+      currency: position.currency?.code || 'USD'
     }));
     
-    const accountPositions: AccountPositions = {
+    const response: PositionsResponse = {
       accountId: accountId as UUID,
       positions: transformedPositions,
-      lastUpdated: new Date().toISOString() as ISODate
-    };
-    
-    const response: DetailsResponse<AccountPositions> = {
-      data: accountPositions,
-      lastUpdated: new Date().toISOString() as ISODate
+      asOf: new Date().toISOString() as ISODate
     };
     
     res.json(response);
@@ -417,47 +411,72 @@ router.get('/accounts/:accountId/orders', isAuthenticated, async (req: any, res)
     
     console.log('[SnapTrade Accounts] Fetched', orders.length, 'orders for account:', accountId);
     
-    // Transform orders to normalized DTO
-    const transformedOrders: Order[] = orders.map((order: any) => ({
-      id: order.id as UUID,
-      accountId: accountId as UUID,
-      symbol: order.symbol?.symbol?.symbol || order.symbol?.raw_symbol || 'Unknown',
-      side: (order.action || '').toUpperCase() === 'BUY' ? 'BUY' : 'SELL',
-      type: (order.order_type || '').toUpperCase().includes('MARKET') ? 'MARKET' : 
-            (order.order_type || '').toUpperCase().includes('LIMIT') ? 'LIMIT' : 
-            (order.order_type || '').toUpperCase().includes('STOP_LIMIT') ? 'STOP_LIMIT' :
-            (order.order_type || '').toUpperCase().includes('STOP') ? 'STOP' : 'MARKET',
-      quantity: order.quantity || 0,
-      price: order.price || null,
-      stopPrice: order.stop_price || null,
-      status: (order.status || '').toUpperCase().includes('PENDING') ? 'PENDING' :
-              (order.status || '').toUpperCase().includes('FILLED') ? 'FILLED' :
-              (order.status || '').toUpperCase().includes('CANCELLED') ? 'CANCELLED' :
-              (order.status || '').toUpperCase().includes('REJECTED') ? 'REJECTED' :
-              (order.status || '').toUpperCase().includes('EXPIRED') ? 'EXPIRED' : 'PENDING',
-      timeInForce: (order.time_in_force || '').toUpperCase().includes('GTC') ? 'GTC' :
-                   (order.time_in_force || '').toUpperCase().includes('IOC') ? 'IOC' :
-                   (order.time_in_force || '').toUpperCase().includes('FOK') ? 'FOK' : 'DAY',
-      filledQuantity: order.filled_quantity || null,
-      avgFillPrice: order.fill_price || order.average_fill_price || null,
-      fees: order.commission ? {
-        amount: parseFloat(order.commission) || 0,
-        currency: order.currency || 'USD'
-      } : null,
-      placedAt: order.created_at as ISODate,
-      filledAt: order.filled_at || null,
-      cancelledAt: order.cancelled_at || null
-    }));
+    // Transform orders to normalized DTO  
+    const transformedOrders: Order[] = orders.map((order: any) => {
+      // Map SnapTrade side to your enum
+      const side: OrderSide = (order.action || '').toLowerCase() === 'buy' ? 'buy' : 'sell';
+      
+      // Map SnapTrade order type to your enum
+      let type: OrderType = 'market';
+      const orderTypeStr = (order.order_type || '').toLowerCase();
+      if (orderTypeStr.includes('limit') && orderTypeStr.includes('stop')) {
+        type = 'stop_limit';
+      } else if (orderTypeStr.includes('limit')) {
+        type = 'limit';
+      } else if (orderTypeStr.includes('stop')) {
+        type = 'stop';
+      }
+      
+      // Map SnapTrade status to your enum
+      let status: Order['status'] = 'unknown';
+      const statusStr = (order.status || '').toLowerCase();
+      if (statusStr.includes('pending') || statusStr.includes('open')) {
+        status = 'open';
+      } else if (statusStr.includes('filled') || statusStr.includes('executed')) {
+        status = 'filled';
+      } else if (statusStr.includes('cancelled')) {
+        status = 'cancelled';
+      } else if (statusStr.includes('rejected')) {
+        status = 'rejected';
+      } else if (statusStr.includes('partial')) {
+        status = 'partial_filled';
+      }
+      
+      // Map time in force
+      let timeInForce: TimeInForce | null = null;
+      const tifStr = (order.time_in_force || '').toLowerCase();
+      if (tifStr.includes('gtc')) {
+        timeInForce = 'gtc';
+      } else if (tifStr.includes('ioc')) {
+        timeInForce = 'ioc';
+      } else if (tifStr.includes('fok')) {
+        timeInForce = 'fok';
+      } else if (tifStr.includes('day')) {
+        timeInForce = 'day';
+      }
+      
+      return {
+        id: order.id,
+        placedAt: order.created_at || null,
+        status,
+        side,
+        type,
+        timeInForce,
+        symbol: order.symbol?.symbol?.symbol || order.symbol?.raw_symbol || 'Unknown',
+        quantity: order.quantity || 0,
+        limitPrice: order.price ? {
+          amount: order.price,
+          currency: order.currency || 'USD'
+        } : null,
+        averageFillPrice: order.fill_price || order.average_fill_price ? {
+          amount: order.fill_price || order.average_fill_price,
+          currency: order.currency || 'USD'
+        } : null
+      };
+    });
     
-    const accountOrders: AccountOrders = {
-      accountId: accountId as UUID,
-      orders: transformedOrders,
-      lastUpdated: new Date().toISOString() as ISODate
-    };
-    
-    const response: DetailsResponse<AccountOrders> = {
-      data: accountOrders,
-      lastUpdated: new Date().toISOString() as ISODate
+    const response: OrdersResponse = {
+      orders: transformedOrders
     };
     
     res.json(response);
@@ -855,17 +874,46 @@ router.get('/accounts/:id/positions', isAuthenticated, async (req: any, res) => 
       accountId
     });
     
-    // Get positions
-    const positions = await getUserAccountPositions(
-      credentials.snaptradeUserId,
-      credentials.snaptradeUserSecret,
+    // Get positions using fine-grained API
+    const positionsResponse = await accountsApi.getUserAccountPositions({
+      userId: credentials.snaptradeUserId,
+      userSecret: credentials.snaptradeUserSecret,
       accountId
-    );
-    
-    res.json({
-      success: true,
-      positions
     });
+    
+    const positions = positionsResponse.data || [];
+    
+    // Transform positions to normalized DTO
+    const transformedPositions: Position[] = positions.map((position: any) => ({
+      symbol: position.symbol?.symbol?.symbol || position.symbol?.raw_symbol || position.symbol?.symbol || 'Unknown',
+      description: position.symbol?.symbol?.description || position.symbol?.description || null,
+      quantity: position.units || position.fractional_units || 0,
+      avgPrice: position.average_purchase_price ? {
+        amount: position.average_purchase_price,
+        currency: position.currency?.code || 'USD'
+      } : null,
+      marketPrice: position.price ? {
+        amount: position.price,
+        currency: position.currency?.code || 'USD'
+      } : null,
+      marketValue: position.price ? {
+        amount: (position.units || position.fractional_units || 0) * position.price,
+        currency: position.currency?.code || 'USD'
+      } : null,
+      unrealizedPnl: position.open_pnl ? {
+        amount: position.open_pnl,
+        currency: position.currency?.code || 'USD'
+      } : null,
+      currency: position.currency?.code || 'USD'
+    }));
+    
+    const response: PositionsResponse = {
+      accountId: accountId as UUID,
+      positions: transformedPositions,
+      asOf: new Date().toISOString() as ISODate
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
@@ -894,25 +942,116 @@ router.get('/accounts/:id/orders', isAuthenticated, async (req: any, res) => {
     const credentials = await getSnaptradeCredentials(flintUser.id);
     const accountId = req.params.id;
     const status = req.query.status as string | undefined;
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
     
     console.log('[SnapTrade Accounts] Getting account orders:', {
       flintUserId: flintUser.id,
       accountId,
-      status
+      status,
+      from,
+      to
     });
     
     // Get orders with optional status filter
-    const orders = await getUserAccountOrders(
-      credentials.snaptradeUserId,
-      credentials.snaptradeUserSecret,
-      accountId,
-      status?.toUpperCase() as any
-    );
-    
-    res.json({
-      success: true,
-      orders
+    const ordersResponse = await accountsApi.getUserAccountOrders({
+      userId: credentials.snaptradeUserId,
+      userSecret: credentials.snaptradeUserSecret,
+      accountId
     });
+    
+    let orders = ordersResponse.data || [];
+    
+    // Apply status filter if provided
+    if (status && status !== 'all') {
+      orders = orders.filter((order: any) => {
+        const orderStatus = (order.status || '').toLowerCase();
+        if (status === 'open') {
+          return orderStatus.includes('pending') || orderStatus.includes('open');
+        }
+        return orderStatus.includes(status.toLowerCase());
+      });
+    }
+    
+    // Apply date filters if provided
+    if (from || to) {
+      orders = orders.filter((order: any) => {
+        const orderDate = new Date(order.created_at);
+        if (from && orderDate < new Date(from)) return false;
+        if (to && orderDate > new Date(to)) return false;
+        return true;
+      });
+    }
+    
+    // Transform orders to normalized DTO  
+    const transformedOrders: Order[] = orders.map((order: any) => {
+      // Map SnapTrade side to your enum
+      const side: OrderSide = (order.action || '').toLowerCase() === 'buy' ? 'buy' : 'sell';
+      
+      // Map SnapTrade order type to your enum
+      let type: OrderType = 'market';
+      const orderTypeStr = (order.order_type || '').toLowerCase();
+      if (orderTypeStr.includes('limit') && orderTypeStr.includes('stop')) {
+        type = 'stop_limit';
+      } else if (orderTypeStr.includes('limit')) {
+        type = 'limit';
+      } else if (orderTypeStr.includes('stop')) {
+        type = 'stop';
+      }
+      
+      // Map SnapTrade status to your enum
+      let orderStatus: Order['status'] = 'unknown';
+      const statusStr = (order.status || '').toLowerCase();
+      if (statusStr.includes('pending') || statusStr.includes('open')) {
+        orderStatus = 'open';
+      } else if (statusStr.includes('filled') || statusStr.includes('executed')) {
+        orderStatus = 'filled';
+      } else if (statusStr.includes('cancelled')) {
+        orderStatus = 'cancelled';
+      } else if (statusStr.includes('rejected')) {
+        orderStatus = 'rejected';
+      } else if (statusStr.includes('partial')) {
+        orderStatus = 'partial_filled';
+      }
+      
+      // Map time in force
+      let timeInForce: TimeInForce | null = null;
+      const tifStr = (order.time_in_force || '').toLowerCase();
+      if (tifStr.includes('gtc')) {
+        timeInForce = 'gtc';
+      } else if (tifStr.includes('ioc')) {
+        timeInForce = 'ioc';
+      } else if (tifStr.includes('fok')) {
+        timeInForce = 'fok';
+      } else if (tifStr.includes('day')) {
+        timeInForce = 'day';
+      }
+      
+      return {
+        id: order.id,
+        placedAt: order.created_at || null,
+        status: orderStatus,
+        side,
+        type,
+        timeInForce,
+        symbol: order.symbol?.symbol?.symbol || order.symbol?.raw_symbol || 'Unknown',
+        quantity: order.quantity || 0,
+        limitPrice: order.price ? {
+          amount: order.price,
+          currency: order.currency || 'USD'
+        } : null,
+        averageFillPrice: order.fill_price || order.average_fill_price ? {
+          amount: order.fill_price || order.average_fill_price,
+          currency: order.currency || 'USD'
+        } : null
+      };
+    });
+    
+    const response: OrdersResponse = {
+      orders: transformedOrders
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
