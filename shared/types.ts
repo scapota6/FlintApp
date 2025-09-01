@@ -12,11 +12,20 @@ export interface Money {
   currency: string;
 }
 
+// Known error codes the frontend should handle
+export type KnownErrorCode =
+  | "SNAPTRADE_NOT_REGISTERED"   // 428 → call /users/register then retry
+  | "SNAPTRADE_USER_MISMATCH"    // 409 → clear stored userSecret and re-register
+  | "SIGNATURE_INVALID"          // 401 (SnapTrade 1076) → server keys/clock/SDK
+  | "RATE_LIMITED"               // 429 → show "Please try again in a moment"
+  | "CONNECTION_DISABLED"        // 409 → show Reconnect CTA
+  | "UNKNOWN";
+
 // Standard error envelope for all 4xx/5xx responses
 export interface ApiError {
-  code: string;               // e.g., "SNAPTRADE_NOT_REGISTERED"
-  message: string;            // human-friendly
-  requestId?: string | null;  // X-Request-ID from SnapTrade
+  code: KnownErrorCode | string; // Known codes + any additional ones
+  message: string;               // human-friendly
+  requestId?: string | null;     // X-Request-ID from SnapTrade
 }
 
 export interface ErrorResponse {

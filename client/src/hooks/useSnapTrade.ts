@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SnapTradeService } from "@/services/snaptrade-service";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { handleSnapTradeError, getErrorToastMessage, retryWithBackoff } from "@/lib/snaptrade-errors";
 import type { AccountSummary, AccountDetails, AccountBalance, AccountPositions, AccountOrders, AccountActivities, ListResponse, DetailsResponse, ErrorResponse } from "@shared/types";
 
 // Hook for fetching SnapTrade accounts
@@ -9,8 +10,8 @@ export function useSnapTradeAccounts() {
   return useQuery<ListResponse<AccountSummary>, ErrorResponse>({
     queryKey: ['accounts.list'],
     queryFn: () => apiRequest('/api/snaptrade/accounts').then(r => r.json()),
-    staleTime: 6 * 60 * 60 * 1000, // 6 hours as specified
-    retry: false
+    staleTime: 60 * 1000, // 60s for GET endpoints
+    retry: 1 // retry once
   });
 }
 
@@ -20,7 +21,8 @@ export function useAccountPositions(accountId: string | null) {
     queryKey: ['accounts.positions', accountId],
     queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/positions`).then(r => r.json()) : Promise.resolve({ data: { accountId: '', positions: [], lastUpdated: null }, lastUpdated: null }),
     enabled: !!accountId,
-    staleTime: 60 * 1000 // 60s for positions/balances as specified
+    staleTime: 60 * 1000, // 60s for GET endpoints
+    retry: 1 // retry once
   });
 }
 
@@ -30,7 +32,8 @@ export function useAccountOrders(accountId: string | null, status: 'open' | 'all
     queryKey: ['accounts.orders', accountId, status],
     queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/orders?status=${status}`).then(r => r.json()) : Promise.resolve({ data: { accountId: '', orders: [], lastUpdated: null }, lastUpdated: null }),
     enabled: !!accountId,
-    staleTime: 10 * 1000 // 10s for orders after a trade as specified
+    staleTime: 10 * 1000, // 10s for orders after a trade
+    retry: 1 // retry once
   });
 }
 
@@ -40,7 +43,8 @@ export function useAccountDetails(accountId: string | null) {
     queryKey: ['accounts.details', accountId],
     queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/details`).then(r => r.json()) : Promise.resolve({ data: null, lastUpdated: null }),
     enabled: !!accountId,
-    staleTime: 60 * 1000 // 60s for account details
+    staleTime: 60 * 1000, // 60s for GET endpoints
+    retry: 1 // retry once
   });
 }
 
@@ -50,7 +54,8 @@ export function useAccountBalances(accountId: string | null) {
     queryKey: ['accounts.balances', accountId],
     queryFn: () => accountId ? apiRequest(`/api/snaptrade/accounts/${accountId}/balances`).then(r => r.json()) : Promise.resolve({ data: null, lastUpdated: null }),
     enabled: !!accountId,
-    staleTime: 60 * 1000 // 60s for positions/balances as specified
+    staleTime: 60 * 1000, // 60s for GET endpoints
+    retry: 1 // retry once
   });
 }
 
@@ -67,7 +72,8 @@ export function useAccountActivities(accountId: string | null, from?: string, to
       return apiRequest(`/api/snaptrade/accounts/${accountId}/activities${query}`).then(r => r.json());
     },
     enabled: !!accountId,
-    staleTime: 60 * 1000 // 60s for activities
+    staleTime: 60 * 1000, // 60s for GET endpoints
+    retry: 1 // retry once
   });
 }
 
@@ -95,18 +101,25 @@ export function usePlaceEquityOrder() {
         variant: "default"
       });
       
-      // Refresh positions & recent orders after successful trade
-      queryClient.invalidateQueries({ queryKey: ['accounts.positions'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts.orders'] });
+      // Refetch orders (10s stale) and positions after successful trade
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['accounts.orders'] });
+        queryClient.invalidateQueries({ queryKey: ['accounts.positions'] });
+      }, 1000); // 1s delay for order processing
+      
       queryClient.invalidateQueries({ queryKey: ['accounts.list'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Order Failed",
-        description: error.message,
-        variant: "destructive"
-      });
+    onError: (error: Error | ErrorResponse) => {
+      const toastMessage = getErrorToastMessage(error);
+      toast(toastMessage);
+      
+      // Handle specific error scenarios
+      const errorResult = handleSnapTradeError(error);
+      if (errorResult.shouldRegister) {
+        console.log('[SnapTrade] User needs to register/reconnect');
+        // TODO: Trigger registration flow
+      }
     }
   });
 }
@@ -125,18 +138,25 @@ export function usePlaceCryptoOrder() {
         variant: "default"
       });
       
-      // Refresh positions & recent orders after successful trade
-      queryClient.invalidateQueries({ queryKey: ['accounts.positions'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts.orders'] });
+      // Refetch orders (10s stale) and positions after successful trade
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['accounts.orders'] });
+        queryClient.invalidateQueries({ queryKey: ['accounts.positions'] });
+      }, 1000); // 1s delay for order processing
+      
       queryClient.invalidateQueries({ queryKey: ['accounts.list'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Crypto Order Failed",
-        description: error.message,
-        variant: "destructive"
-      });
+    onError: (error: Error | ErrorResponse) => {
+      const toastMessage = getErrorToastMessage(error);
+      toast(toastMessage);
+      
+      // Handle specific error scenarios
+      const errorResult = handleSnapTradeError(error);
+      if (errorResult.shouldRegister) {
+        console.log('[SnapTrade] User needs to register/reconnect');
+        // TODO: Trigger registration flow
+      }
     }
   });
 }
@@ -160,12 +180,9 @@ export function useCancelOrder() {
       queryClient.invalidateQueries({ queryKey: ['accounts.orders'] });
       queryClient.invalidateQueries({ queryKey: ['accounts.positions'] });
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Cancellation Failed",
-        description: error.message,
-        variant: "destructive"
-      });
+    onError: (error: Error | ErrorResponse) => {
+      const toastMessage = getErrorToastMessage(error);
+      toast(toastMessage);
     }
   });
 }
@@ -188,12 +205,9 @@ export function useConnectBrokerage() {
       queryClient.invalidateQueries({ queryKey: ['accounts.list'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Connection Failed",
-        description: error.message,
-        variant: "destructive"
-      });
+    onError: (error: Error | ErrorResponse) => {
+      const toastMessage = getErrorToastMessage(error);
+      toast(toastMessage);
     }
   });
 }
@@ -215,12 +229,9 @@ export function useSyncAccounts() {
       queryClient.invalidateQueries({ queryKey: ['accounts.list'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Sync Failed",
-        description: error.message,
-        variant: "destructive"
-      });
+    onError: (error: Error | ErrorResponse) => {
+      const toastMessage = getErrorToastMessage(error);
+      toast(toastMessage);
     }
   });
 }

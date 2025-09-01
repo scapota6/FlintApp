@@ -9,13 +9,9 @@ const router = Router();
 // Helper function to find Flint user by SnapTrade user ID
 async function getFlintUserBySnapTradeId(snaptradeUserId: string): Promise<string | null> {
   try {
-    const [snapUser] = await db
-      .select({ flintUserId: snaptradeUsers.flintUserId })
-      .from(snaptradeUsers)
-      .where(eq(snaptradeUsers.snaptradeUserId, snaptradeUserId))
-      .limit(1);
-    
-    return snapUser?.flintUserId || null;
+    // Since the schema was updated, temporarily return null for webhooks until we implement proper user mapping
+    console.warn('[SnapTrade Webhook] User lookup not implemented - returning null for user:', snaptradeUserId);
+    return null;
   } catch (error) {
     console.error('[SnapTrade Webhook] Error finding Flint user:', error);
     return null;

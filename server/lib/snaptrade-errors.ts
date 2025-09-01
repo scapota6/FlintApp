@@ -33,7 +33,7 @@ export function mapSnapTradeError(error: any, requestId?: string): SnapTradeErro
     case 401:
       if (errorMessage.includes('Unable to verify signature')) {
         return {
-          code: '1076',
+          code: 'SIGNATURE_INVALID',
           message: 'Authentication signature verification failed',
           action: 'register',
           userMessage: 'Connection expired. Please reconnect your brokerage account.',
@@ -41,7 +41,7 @@ export function mapSnapTradeError(error: any, requestId?: string): SnapTradeErro
         };
       }
       return {
-        code: '401',
+        code: 'SIGNATURE_INVALID',
         message: 'Authentication failed',
         action: 'register',
         userMessage: 'Authentication expired. Please reconnect your account.',
@@ -51,7 +51,7 @@ export function mapSnapTradeError(error: any, requestId?: string): SnapTradeErro
     case '428':
     case 'SNAPTRADE_NOT_REGISTERED':
       return {
-        code: '428',
+        code: 'SNAPTRADE_NOT_REGISTERED',
         message: 'User not registered with SnapTrade',
         action: 'register',
         userMessage: 'Account setup required. Please connect your brokerage account.',
@@ -61,7 +61,7 @@ export function mapSnapTradeError(error: any, requestId?: string): SnapTradeErro
     case '409':
     case 'SNAPTRADE_USER_MISMATCH':
       return {
-        code: '409',
+        code: 'SNAPTRADE_USER_MISMATCH',
         message: 'User credentials mismatch',
         action: 'register',
         userMessage: 'Account mismatch detected. Please reconnect your brokerage account.',
@@ -69,18 +69,26 @@ export function mapSnapTradeError(error: any, requestId?: string): SnapTradeErro
       };
 
     case '429':
-      const retryAfter = error.headers?.['retry-after'] || error.headers?.['x-ratelimit-reset'];
       return {
-        code: '429',
+        code: 'RATE_LIMITED',
         message: 'Rate limit exceeded',
         action: 'backoff',
-        userMessage: 'Too many requests. Please wait a moment and try again.',
+        userMessage: 'Please try again in a moment',
         httpStatus: 429
       };
 
     case '403':
+      if (errorMessage.includes('disabled') || errorMessage.includes('connection')) {
+        return {
+          code: 'CONNECTION_DISABLED',
+          message: 'Connection disabled',
+          action: 'reconnect',
+          userMessage: 'Connection disabled. Please reconnect your brokerage account.',
+          httpStatus: 409
+        };
+      }
       return {
-        code: '403',
+        code: 'UNKNOWN',
         message: 'Insufficient permissions',
         action: 'reconnect',
         userMessage: 'Account permissions changed. Please reconnect your brokerage account.',
@@ -89,7 +97,7 @@ export function mapSnapTradeError(error: any, requestId?: string): SnapTradeErro
 
     case '404':
       return {
-        code: '404',
+        code: 'UNKNOWN',
         message: 'Resource not found',
         action: 'retry',
         userMessage: 'Account or data not found. Please try again or reconnect.',
@@ -100,7 +108,7 @@ export function mapSnapTradeError(error: any, requestId?: string): SnapTradeErro
     case '502':
     case '503':
       return {
-        code: errorCode,
+        code: 'UNKNOWN',
         message: 'SnapTrade service unavailable',
         action: 'retry',
         userMessage: 'Service temporarily unavailable. Please try again in a moment.',
@@ -109,7 +117,7 @@ export function mapSnapTradeError(error: any, requestId?: string): SnapTradeErro
 
     default:
       return {
-        code: errorCode || 'unknown',
+        code: 'UNKNOWN',
         message: errorMessage,
         action: 'retry',
         userMessage: 'Something went wrong. Please try again or contact support.',
