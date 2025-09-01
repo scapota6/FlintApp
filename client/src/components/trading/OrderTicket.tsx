@@ -74,10 +74,18 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
   // Use the account ID from props
   const selectedAccountId = propAccountId || '';
 
-  // Fetch connected brokerage accounts for balance display
+  // Fetch connected brokerage accounts from SnapTrade for balance display
   const { data: accounts, isLoading: accountsLoading } = useQuery<BrokerageAccount[]>({
-    queryKey: ['/api/accounts'],
-    select: (data: any) => data.brokerages || []
+    queryKey: ['/api/snaptrade/accounts'],
+    select: (data: any) => {
+      return data?.accounts?.map((account: any) => ({
+        id: account.id,
+        accountName: account.name,
+        provider: 'snaptrade',
+        balance: account.balance?.total?.amount?.toString() || '0',
+        externalAccountId: account.id
+      })) || [];
+    }
   });
 
   // Set limit price to current price when switching to limit order
@@ -96,7 +104,7 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
 
       // Get CSRF token and make request using defensive JSON parsing
       const token = await getCsrfToken();
-      const preview = await requestJSON('/api/trade/preview', {
+      const preview = await requestJSON('/api/snaptrade/trading/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': token },
         body: JSON.stringify({
@@ -151,7 +159,7 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
 
       // Get CSRF token and make request using defensive JSON parsing
       const token = await getCsrfToken();
-      const placed = await requestJSON('/api/trade/place', {
+      const placed = await requestJSON('/api/snaptrade/trading/place', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': token },
         body: JSON.stringify(
@@ -184,9 +192,10 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
       setImpact(null);
       
       // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['/api/trade/orders'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/portfolio-holdings'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/snaptrade/accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/snaptrade/accounts', selectedAccountId, 'orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/snaptrade/accounts', selectedAccountId, 'positions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
       
       if (onOrderPlaced) {
         onOrderPlaced();

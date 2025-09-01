@@ -32,10 +32,18 @@ export default function Trading() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
-  // Fetch connected brokerage accounts
+  // Fetch connected brokerage accounts from SnapTrade
   const { data: accounts, isLoading: accountsLoading } = useQuery<BrokerageAccount[]>({
-    queryKey: ['/api/accounts'],
-    select: (data: any) => data.brokerages || []
+    queryKey: ['/api/snaptrade/accounts'],
+    select: (data: any) => {
+      return data?.accounts?.map((account: any) => ({
+        id: account.id,
+        accountName: account.name,
+        provider: 'snaptrade',
+        balance: account.balance?.total?.amount?.toString() || '0',
+        externalAccountId: account.id
+      })) || [];
+    }
   });
 
   // Set default account when loaded
@@ -43,19 +51,27 @@ export default function Trading() {
     setSelectedAccountId(accounts[0].id);
   }
 
-  // Handle symbol search
+  // Handle symbol search using new SnapTrade endpoint
   const handleSearch = async () => {
     if (searchInput.length < 2) return;
 
     try {
-      const response = await fetch(`/api/market/search?query=${searchInput}`, {
+      const response = await fetch(`/api/snaptrade/symbols/${searchInput.toUpperCase()}?accountId=${selectedAccountId}`, {
         credentials: 'include'
       });
       
       if (response.ok) {
-        const results = await response.json();
-        setSearchResults(results);
-        setShowSearchResults(true);
+        const result = await response.json();
+        if (result.success && result.symbol) {
+          setSearchResults([{
+            symbol: result.symbol.symbol,
+            description: result.symbol.description,
+            exchange: result.symbol.exchange,
+            type: result.symbol.type,
+            id: result.symbol.id
+          }]);
+          setShowSearchResults(true);
+        }
       }
     } catch (error) {
       console.error('Search failed:', error);

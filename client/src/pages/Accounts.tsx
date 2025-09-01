@@ -19,14 +19,25 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { AccountDetailsModal } from "@/components/AccountDetailsModal";
+import { BrokerageAccountModal } from "@/components/BrokerageAccountModal";
 
 interface BrokerageAccount {
-  id: number;
+  id: string;
   name: string;
+  brokerage: string;
+  accountNumber: string;
+  type: string;
   currency: string;
   balance: number;
-  buyingPower: number;
-  lastSync: string;
+  status: string;
+  syncStatus: {
+    holdingsCompleted: boolean;
+    holdingsLastSync?: string;
+    transactionsCompleted: boolean;
+    transactionsLastSync?: string;
+  };
+  institutionName: string;
+  lastSynced?: string;
 }
 
 interface BankAccount {
@@ -47,19 +58,35 @@ export default function Accounts() {
     accountName: string;
     accountType: 'bank' | 'card';
   } | null>(null);
+  
+  const [selectedBrokerageAccount, setSelectedBrokerageAccount] = useState<{
+    accountId: string;
+    accountName: string;
+  } | null>(null);
 
-  // Fetch brokerage accounts from SnapTrade
+  // Fetch brokerage accounts directly from SnapTrade API
   const { data: brokerageData, isLoading: brokeragesLoading, refetch: refetchBrokerages } = useQuery({
-    queryKey: ['/api/dashboard'],
+    queryKey: ['/api/snaptrade/accounts'],
     select: (data: any) => {
-      // Extract accounts from dashboard response
-      const accountsList = data?.accounts || [];
-      // Filter for investment/brokerage accounts (SnapTrade accounts) that are actually connected
-      return accountsList.filter((acc: any) => 
-        (acc.provider === 'snaptrade' || acc.type === 'investment') && 
-        !acc.needsReconnection && 
-        acc.balance > 0
-      );
+      // Transform SnapTrade accounts response for display
+      return data?.accounts?.map((account: any) => ({
+        id: account.id,
+        name: account.name,
+        brokerage: account.institution_name,
+        accountNumber: account.number ? `****${account.number.slice(-4)}` : 'N/A',
+        type: account.raw_type || account.meta?.type || 'Investment',
+        balance: account.balance?.total?.amount || 0,
+        currency: account.balance?.total?.currency || 'USD',
+        status: account.status || 'open',
+        syncStatus: {
+          holdingsCompleted: account.sync_status?.holdings?.initial_sync_completed || false,
+          holdingsLastSync: account.sync_status?.holdings?.last_successful_sync,
+          transactionsCompleted: account.sync_status?.transactions?.initial_sync_completed || false,
+          transactionsLastSync: account.sync_status?.transactions?.last_successful_sync
+        },
+        institutionName: account.institution_name,
+        lastSynced: account.sync_status?.holdings?.last_successful_sync || account.sync_status?.transactions?.last_successful_sync
+      })) || [];
     },
     retry: false
   });
@@ -128,23 +155,8 @@ export default function Accounts() {
 
   const isLoading = brokeragesLoading || banksLoading;
   
-  // Map SnapTrade accounts to BrokerageAccount interface
-  const brokerageAccounts: BrokerageAccount[] = (brokerageData || []).map((account: any) => {
-    // Fix Coinbase name display
-    let displayName = account.accountName || account.institution || 'Investment Account';
-    if (displayName === 'Default' && account.institution === 'Coinbase') {
-      displayName = 'Coinbase';
-    }
-    
-    return {
-      id: account.id,
-      name: displayName,
-      currency: 'USD',
-      balance: account.balance || 0,
-      buyingPower: account.buyingPower || (account.balance * 0.5) || 0,
-      lastSync: account.lastUpdated || new Date().toISOString(),
-    };
-  });
+  // brokerageData is already properly transformed in the useQuery select
+  const brokerageAccounts: BrokerageAccount[] = brokerageData || [];
   
   const bankAccounts: BankAccount[] = bankData?.accounts || [];
   const hasNoAccounts = !isLoading && brokerageAccounts.length === 0 && bankAccounts.length === 0;
@@ -242,46 +254,77 @@ export default function Accounts() {
                   <Card key={account.id} className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:bg-slate-800/70 transition-colors">
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            <Building2 className="h-5 w-5" />
-                            {account.name}
-                          </CardTitle>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Last synced {formatDistanceToNow(new Date(account.lastSync), { addSuffix: true })}
-                          </p>
+                        <div className="flex items-start gap-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">
+                              {account.brokerage.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg text-white">
+                              {account.brokerage}
+                            </CardTitle>
+                            <p className="text-sm text-slate-400">
+                              {account.accountNumber} • {account.type}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant={account.status === 'open' ? 'default' : 'secondary'} className="text-xs">
+                                {account.status || 'open'}
+                              </Badge>
+                              {account.syncStatus.holdingsCompleted ? (
+                                <Badge variant="outline" className="text-xs text-green-400 border-green-400">
+                                  ✓ Synced
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs text-yellow-400 border-yellow-400">
+                                  Syncing...
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
                         </div>
                         <div className="flex gap-2">
-                          <Link href={`/accounts/brokerage/${account.id}`}>
-                            <Button size="sm" variant="outline">
-                              <Eye className="h-4 w-4 mr-2" />
-                              View
-                            </Button>
-                          </Link>
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => handleDisconnectAccount(account.id.toString(), 'brokerage')}
-                            disabled={disconnecting === account.id.toString()}
+                            className="border-purple-500/50 text-purple-400 hover:bg-purple-500/20"
+                            onClick={() => setSelectedBrokerageAccount({
+                              accountId: account.id,
+                              accountName: account.name
+                            })}
+                            data-testid={`button-details-${account.id}`}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            Details
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleDisconnectAccount(account.id, 'brokerage')}
+                            disabled={disconnecting === account.id}
+                            className="text-red-400 border-red-500/50 hover:bg-red-500/20"
+                            data-testid={`button-remove-${account.id}`}
                           >
                             <Unlink className="h-4 w-4 mr-2" />
-                            Disconnect
+                            Remove
                           </Button>
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="flex justify-between items-center">
                         <div>
-                          <p className="text-sm text-muted-foreground">Balance</p>
-                          <p className="text-xl font-semibold">
+                          <p className="text-sm text-slate-400">Total Balance</p>
+                          <p className="text-2xl font-bold text-white">
                             {formatCurrency(account.balance, account.currency)}
                           </p>
                         </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Buying Power</p>
-                          <p className="text-xl font-semibold">
-                            {formatCurrency(account.buyingPower, account.currency)}
+                        <div className="text-right">
+                          <p className="text-sm text-slate-400">
+                            Last synced {account.lastSynced ? 
+                              formatDistanceToNow(new Date(account.lastSynced), { addSuffix: true }) : 
+                              'Never'
+                            }
                           </p>
                         </div>
                       </div>
@@ -392,6 +435,16 @@ export default function Accounts() {
           accountId={selectedAccountDetails.accountId}
           accountName={selectedAccountDetails.accountName}
           accountType={selectedAccountDetails.accountType}
+        />
+      )}
+      
+      {/* Brokerage Account Details Modal */}
+      {selectedBrokerageAccount && (
+        <BrokerageAccountModal
+          isOpen={!!selectedBrokerageAccount}
+          onClose={() => setSelectedBrokerageAccount(null)}
+          accountId={selectedBrokerageAccount.accountId}
+          accountName={selectedBrokerageAccount.accountName}
         />
       )}
     </div>
