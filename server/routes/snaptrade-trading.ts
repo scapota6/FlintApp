@@ -5,7 +5,7 @@ import { db } from '../db';
 import { users, snaptradeUsers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { mapSnapTradeError, logSnapTradeError, RateLimitHandler } from '../lib/snaptrade-errors';
-import type { SymbolInfo, SymbolSearchResponse, ImpactRequest, ImpactResponse, ImpactSummaryLine, ErrorResponse, ISODate, UUID, Money } from '@shared/types';
+import type { SymbolInfo, SymbolSearchResponse, ImpactRequest, ImpactResponse, ImpactSummaryLine, PlaceOrderRequest, PlaceOrderResponse, ErrorResponse, ISODate, UUID, Money } from '@shared/types';
 
 const router = Router();
 
@@ -241,26 +241,32 @@ router.post('/trades/place', isAuthenticated, async (req: any, res) => {
     const flintUser = await getFlintUserByAuth(req.user);
     const credentials = await getSnaptradeCredentials(flintUser.id);
     
-    const { impactId, accountId } = req.body;
+    // Validate request body matches PlaceOrderRequest interface
+    const placeOrderRequest: PlaceOrderRequest = {
+      impactId: req.body.impactId
+    };
     
-    if (!impactId) {
-      return res.status(400).json({
-        success: false,
-        message: 'impact_id is required from preview step'
-      });
+    if (!placeOrderRequest.impactId) {
+      const errorResponse: ErrorResponse = {
+        error: {
+          code: 'MISSING_IMPACT_ID',
+          message: 'impactId is required from impact preview step',
+          requestId: req.headers['x-request-id'] || null
+        }
+      };
+      return res.status(400).json(errorResponse);
     }
     
     console.log('[SnapTrade Trading] Placing order:', {
       flintUserId: flintUser.id,
-      impactId,
-      accountId
+      impactId: placeOrderRequest.impactId
     });
     
     // Place the order using the impact ID
     const orderResponse = await tradingApi.placeOrder({
       userId: credentials.snaptradeUserId,
       userSecret: credentials.snaptradeUserSecret,
-      tradeId: impactId // Use impact_id from preview
+      tradeId: placeOrderRequest.impactId // Use impact_id from preview
     });
     
     const placedOrder = orderResponse.data;
@@ -298,31 +304,29 @@ router.post('/trades/place', isAuthenticated, async (req: any, res) => {
       console.warn('[SnapTrade Trading] Failed to refresh account data after trade:', refreshError);
     }
     
-    res.json({
-      success: true,
-      order: {
-        id: placedOrder?.id,
-        status: placedOrder?.status,
-        symbol: placedOrder?.symbol,
-        side: placedOrder?.action,
-        quantity: placedOrder?.units,
-        orderType: placedOrder?.order_type,
-        price: placedOrder?.price,
-        timeInForce: placedOrder?.time_in_force,
-        filledQuantity: placedOrder?.filled_units || 0,
-        createdAt: placedOrder?.created_at,
-        updatedAt: placedOrder?.updated_at
-      },
-      message: 'Order placed successfully'
-    });
+    // Map SnapTrade status to your enum
+    const statusMap: Record<string, PlaceOrderResponse['status']> = {
+      'NEW': 'submitted',
+      'FILLED': 'filled',
+      'PARTIALLY_FILLED': 'partial_filled',
+      'REPLACED': 'replaced',
+      'REJECTED': 'rejected',
+      'PENDING': 'submitted',
+      'CANCELLED': 'rejected'
+    };
+    
+    const response: PlaceOrderResponse = {
+      orderId: placedOrder?.id || `order_${Date.now()}`,
+      status: statusMap[placedOrder?.status] || 'submitted',
+      submittedAt: placedOrder?.created_at || new Date().toISOString()
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
     logSnapTradeError('place_order', error, requestId, { 
-      accountId: req.body.accountId,
-      symbol: req.body.symbol,
-      side: req.body.side,
-      tradeId: req.body.tradeId
+      impactId: placeOrderRequest.impactId
     });
     
     const mappedError = mapSnapTradeError(error, requestId);
@@ -332,11 +336,14 @@ router.post('/trades/place', isAuthenticated, async (req: any, res) => {
         error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
     }
     
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId
+      }
+    };
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 

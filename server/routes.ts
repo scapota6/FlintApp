@@ -29,6 +29,8 @@ import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { snaptradeUsersRouter } from './routes/snaptrade-users';
 import { snaptradeConnectionsRouter } from './routes/snaptrade-connections';
+import { snaptradeTradingRouter } from './routes/snaptrade-trading';
+import { snaptradeWebhooksRouter } from './routes/snaptrade-webhooks';
 
 // Initialize Stripe (only if API key is provided)
 let stripe: Stripe | null = null;
@@ -1798,6 +1800,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount the connections SnapTrade routes
   const connectionsSnaptradeRouter = await import('./routes/connections.snaptrade');
   app.use('/api', connectionsSnaptradeRouter.default);
+  
+  // Mount SnapTrade trading and webhook routes
+  app.use('/api/snaptrade', snaptradeTradingRouter);
+  app.use('/api/snaptrade', snaptradeWebhooksRouter);
   
   // Disconnect account endpoint
   app.post('/api/accounts/disconnect', isAuthenticated, async (req: any, res) => {

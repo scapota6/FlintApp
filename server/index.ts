@@ -120,6 +120,24 @@ const app = express();
     next();
   });
   
+  // Add webhook route before CSRF to allow external calls
+  app.post('/api/snaptrade/webhooks', async (req: Request, res: Response) => {
+    try {
+      // Import webhook handler dynamically
+      const { handleSnapTradeWebhook } = await import('./routes/snaptrade-webhooks');
+      await handleSnapTradeWebhook(req, res);
+    } catch (error) {
+      console.error('[Webhook] Error:', error);
+      res.status(500).json({ 
+        error: { 
+          code: 'WEBHOOK_ERROR', 
+          message: 'Webhook processing failed',
+          requestId: req.headers['x-request-id'] as string || 'unknown'
+        } 
+      });
+    }
+  });
+
   // 4) CSRF setup (must come BEFORE protected routes)
   installCsrf(app);
 
@@ -132,12 +150,10 @@ const app = express();
   // Mount new SnapTrade management routes (require authentication)
   const { snaptradeUsersRouter } = await import('./routes/snaptrade-users');
   const { snaptradeConnectionsRouter } = await import('./routes/snaptrade-connections');
-  const { snaptradeWebhooksRouter } = await import('./routes/snaptrade-webhooks');
   const { snaptradeAccountsRouter } = await import('./routes/snaptrade-accounts');
   const { snaptradeTradingRouter } = await import('./routes/snaptrade-trading');
   app.use("/api/snaptrade/users", snaptradeUsersRouter);
   app.use("/api/snaptrade", snaptradeConnectionsRouter);
-  app.use("/api/snaptrade", snaptradeWebhooksRouter);
   app.use("/api/snaptrade", snaptradeAccountsRouter);
   app.use("/api/snaptrade", snaptradeTradingRouter);
   

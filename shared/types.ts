@@ -212,6 +212,37 @@ export interface ImpactResponse {
   lines: ImpactSummaryLine[];    // fee/tax/settlement lines
 }
 
+export interface PlaceOrderRequest {
+  impactId: string;
+}
+
+export interface PlaceOrderResponse {
+  orderId: string;
+  status: "submitted" | "filled" | "partial_filled" | "replaced" | "rejected";
+  submittedAt: ISODate | null;
+}
+
+export type WebhookType =
+  | "connection.attempted"
+  | "connection.added"
+  | "connection.updated"
+  | "connection.deleted"
+  | "connection.broken"
+  | "connection.fixed";
+
+export interface WebhookEvent {
+  id: string;
+  type: WebhookType;
+  createdAt: ISODate;
+  userId: string;               // your Flint user id echoed back
+  authorizationId?: UUID | null;
+  details?: Record<string, any>;
+}
+
+export interface WebhookAck {
+  ok: true;
+}
+
 export interface BrokerageConnection {
   id: UUID;                           // brokerage_authorization_id
   name: string;                       // e.g., "Robinhood"
