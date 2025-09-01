@@ -5,7 +5,7 @@ import { db } from '../db';
 import { users, snaptradeUsers, snaptradeConnections } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { mapSnapTradeError, logSnapTradeError, checkConnectionStatus, RateLimitHandler } from '../lib/snaptrade-errors';
-import type { Connection, ListConnectionsResponse, PortalUrlRequest, PortalUrlResponse, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID } from '@shared/types';
+import type { Connection, ListConnectionsResponse, RefreshConnectionResponse, DisableConnectionResponse, RemoveConnectionResponse, PortalUrlRequest, PortalUrlResponse, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID } from '@shared/types';
 
 const router = Router();
 
@@ -323,11 +323,12 @@ router.post('/connections/:id/refresh', isAuthenticated, async (req: any, res) =
     
     console.log('[SnapTrade Connections] Connection refreshed successfully');
     
-    res.json({
-      success: true,
-      message: 'Connection refreshed successfully',
-      refreshedAt: new Date().toISOString()
-    });
+    const response: RefreshConnectionResponse = {
+      refreshed: true,
+      requestedAt: new Date().toISOString() as ISODate
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     console.error('[SnapTrade Connections] Refresh connection error:', error?.response?.data || error?.message || error);
@@ -356,6 +357,8 @@ router.post('/connections/:id/disable', isAuthenticated, async (req: any, res) =
     // Mark connection as disabled in database (SnapTrade handles this via connection status)
     console.log('[SnapTrade Connections] Marking connection as disabled');
     
+    const disabledAt = new Date().toISOString() as ISODate;
+    
     // Update status in our database
     await db
       .update(snaptradeConnections)
@@ -371,10 +374,12 @@ router.post('/connections/:id/disable', isAuthenticated, async (req: any, res) =
     
     console.log('[SnapTrade Connections] Connection disabled successfully');
     
-    res.json({
-      success: true,
-      message: 'Connection disabled successfully'
-    });
+    const response: DisableConnectionResponse = {
+      disabled: true,
+      disabledAt: disabledAt
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     console.error('[SnapTrade Connections] Disable connection error:', error?.response?.data || error?.message || error);
@@ -413,10 +418,11 @@ router.delete('/connections/:id', isAuthenticated, async (req: any, res) => {
     
     console.log('[SnapTrade Connections] Connection deleted successfully');
     
-    res.json({
-      success: true,
-      message: 'Connection deleted successfully'
-    });
+    const response: RemoveConnectionResponse = {
+      removed: true
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     console.error('[SnapTrade Connections] Delete connection error:', error?.response?.data || error?.message || error);

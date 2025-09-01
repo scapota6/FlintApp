@@ -53,6 +53,20 @@ export interface ListConnectionsResponse {
   connections: Connection[];
 }
 
+export interface RefreshConnectionResponse {
+  refreshed: boolean;
+  requestedAt: ISODate;
+}
+
+export interface DisableConnectionResponse {
+  disabled: boolean;
+  disabledAt: ISODate;
+}
+
+export interface RemoveConnectionResponse {
+  removed: boolean;
+}
+
 export interface BrokerageConnection {
   id: UUID;                           // brokerage_authorization_id
   name: string;                       // e.g., "Robinhood"
