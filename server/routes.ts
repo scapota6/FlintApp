@@ -1903,8 +1903,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               currency: account.balance?.total?.currency || 'USD',
               accountNumber: account.number,
               status: account.meta?.status || 'ACTIVE',
-              lastSync: account.sync_status?.holdings?.last_successful_sync || new Date().toISOString(),
-              positions: positions
+              lastSync: account.sync_status?.holdings?.last_successful_sync || new Date().toISOString()
+            },
+            // Put positions at the top level where the frontend expects them
+            positions: positions,
+            accountInformation: {
+              name: account.name === 'Default' 
+                ? `${account.institution_name} ${account.meta?.type || 'Account'}`.trim()
+                : account.name,
+              institution: account.institution_name,
+              accountType: account.meta?.type || 'Investment'
+            },
+            balancesAndHoldings: {
+              cash: account.cash_restrictions?.length || 0,
+              equity: account.balance?.total?.amount || 0,
+              buyingPower: account.balance?.total?.amount * 0.5 || 0
             }
           });
         } catch (error) {
