@@ -27,6 +27,33 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import OrderPreviewDialog from './OrderPreviewDialog';
 import OrderStatusDialog from './OrderStatusDialog';
 
+// Utility function to safely extract symbol from SnapTrade symbol objects
+const extractSymbol = (symbolObj: any): string => {
+  if (!symbolObj) return '—';
+  
+  // If it's already a string, return it
+  if (typeof symbolObj === 'string') return symbolObj;
+  
+  // If it's a SnapTrade symbol object, extract the symbol property
+  if (typeof symbolObj === 'object') {
+    return symbolObj.symbol || symbolObj.ticker || symbolObj.raw_symbol || '—';
+  }
+  
+  return '—';
+};
+
+// Utility function to safely extract symbol description
+const extractSymbolDescription = (symbolObj: any, fallback?: string): string => {
+  if (!symbolObj) return fallback || '';
+  
+  // If it's a SnapTrade symbol object, extract the description
+  if (typeof symbolObj === 'object') {
+    return symbolObj.description || symbolObj.name || fallback || '';
+  }
+  
+  return fallback || '';
+};
+
 type Props = {
   accountId: string; // External account ID for Teller, local ID for SnapTrade
   open: boolean;
@@ -1089,10 +1116,10 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                                   <td className="p-3 text-gray-900 dark:text-white font-medium">
                                     <div>
                                       <div className="font-semibold">
-                                        {typeof position.symbol === 'object' ? position.symbol?.symbol : position.symbol || position.ticker || '—'}
+                                        {extractSymbol(position.symbol || position.ticker)}
                                       </div>
                                       <div className="text-xs text-gray-500 dark:text-gray-400">
-                                        {typeof position.symbol === 'object' ? position.symbol?.description : position.name || ''}
+                                        {extractSymbolDescription(position.symbol, position.name)}
                                       </div>
                                     </div>
                                   </td>
@@ -1126,7 +1153,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 <Card title="Active Positions (Legacy)">
                   <List items={data.positionsAndOrders?.activePositions || []} empty="No active positions" render={(p: any) => (
                     <div className="flex justify-between">
-                      <span>{typeof p.symbol === 'object' ? p.symbol?.symbol : p.symbol || p.ticker || p.instrument?.symbol || '—'}</span>
+                      <span>{extractSymbol(p.symbol || p.ticker || p.instrument?.symbol)}</span>
                       <span className="text-right">{fmtNum(p.quantity ?? p.qty)}</span>
                     </div>
                   )}/>
@@ -1134,7 +1161,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 <Card title="Pending Orders">
                   <List items={data.positionsAndOrders?.pendingOrders || []} empty="No pending orders" render={(o: any) => (
                     <div className="grid grid-cols-4 gap-2">
-                      <span>{typeof o.symbol === 'object' ? o.symbol?.symbol : o.symbol || o.ticker || '—'}</span>
+                      <span>{extractSymbol(o.symbol || o.ticker)}</span>
                       <span className="text-right">{(o.side || o.action || '').toUpperCase()}</span>
                       <span className="text-right">{fmtNum(o.quantity || o.qty)}</span>
                       <span className="text-right">{fmtMoney(o.limitPrice ?? o.price)}</span>
@@ -1147,7 +1174,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 <Card title="Order History">
                   <List items={data.positionsAndOrders?.orderHistory || []} empty="No order history" render={(o: any) => (
                     <div className="grid grid-cols-5 gap-2">
-                      <span>{typeof o.symbol === 'object' ? o.symbol?.symbol : o.symbol || o.ticker || '—'}</span>
+                      <span>{extractSymbol(o.symbol || o.ticker)}</span>
                       <span className="text-right">{(o.side || o.action || '').toUpperCase()}</span>
                       <span className="text-right">{fmtNum(o.quantity || o.qty)}</span>
                       <span className="text-right">{fmtMoney(o.avgFillPrice ?? o.fillPrice ?? o.price)}</span>
@@ -1199,7 +1226,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 <List items={data.activityAndTransactions || data.transactions || []} empty="No recent activity" render={(a: any) => (
                   <div className="grid grid-cols-5 gap-2 text-gray-900 dark:text-gray-100">
                     <span className="font-medium text-gray-800 dark:text-gray-200">{a.type}</span>
-                    <span className="font-medium text-gray-800 dark:text-gray-200">{typeof a.symbol === 'object' ? a.symbol?.symbol : a.symbol || '—'}</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-200">{extractSymbol(a.symbol)}</span>
                     <span className="text-right font-medium text-gray-800 dark:text-gray-200">{fmtNum(a.quantity)}</span>
                     <span className="text-right font-medium text-gray-800 dark:text-gray-200">{fmtMoney(a.amount)}</span>
                     <span className="text-right text-gray-600 dark:text-gray-300">{fmtTime(a.timestamp)}</span>
