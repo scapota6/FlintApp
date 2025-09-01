@@ -295,9 +295,9 @@ const app = express();
     log(`serving on port ${port}`);
     
     // Start services after server is up
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
-        const { healthCheckService } = require("./services/health-check");
+        const { healthCheckService } = await import("./services/health-check");
         healthCheckService.start();
         console.log('[Health Check] Service initialized');
       } catch (error) {

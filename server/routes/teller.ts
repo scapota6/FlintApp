@@ -8,6 +8,7 @@ import { isAuthenticated } from "../replitAuth";
 import { logger } from "@shared/logger";
 import { storage } from "../storage";
 import { v4 as uuidv4 } from 'uuid';
+import tellerPaymentsRouter from './teller.payments';
 
 const router = Router();
 
@@ -733,84 +734,134 @@ router.get("/institutions", async (req, res) => {
 
 /**
  * POST /api/teller/webhook
- * Handle Teller webhook events
+ * Handle Teller webhook events with proper signature verification
+ * Following: https://teller.io/docs/api/webhooks
  */
 router.post("/webhook", async (req, res) => {
   try {
     const signature = req.headers['teller-signature'] as string;
+    const webhookSecret = process.env.TELLER_WEBHOOK_SECRET;
     
     if (!signature) {
+      logger.warn("Webhook received without signature");
       return res.status(401).json({ message: "Missing signature" });
     }
     
-    // Parse signature header: t=timestamp,v1=signature
-    const signatureMatch = signature.match(/t=(\d+),v1=([a-f0-9]+)/);
-    if (!signatureMatch) {
-      return res.status(401).json({ message: "Invalid signature format" });
+    // Verify webhook signature if secret is configured
+    if (webhookSecret) {
+      const { verifyTellerWebhook } = await import("../teller/client");
+      const rawBody = JSON.stringify(req.body);
+      
+      if (!verifyTellerWebhook(rawBody, signature, webhookSecret)) {
+        logger.warn("Webhook signature verification failed", { signature });
+        return res.status(401).json({ message: "Invalid signature" });
+      }
+      
+      logger.info("Webhook signature verified successfully");
+    } else {
+      logger.warn("Webhook secret not configured - skipping signature verification");
     }
-    
-    const [, timestamp, receivedSignature] = signatureMatch;
-    
-    // Verify timestamp (reject if older than 3 minutes)
-    const currentTime = Math.floor(Date.now() / 1000);
-    const signatureTime = parseInt(timestamp, 10);
-    if (currentTime - signatureTime > 180) {
-      return res.status(401).json({ message: "Signature expired" });
-    }
-    
-    // TODO: Verify signature with webhook secret once configured
-    // For now, just process the webhook
     
     const { id, type, payload, timestamp: eventTime } = req.body;
     
-    logger.info(`Received Teller webhook: ${type}`);
+    logger.info(`Processing Teller webhook: ${type}`, { 
+      webhookId: id, 
+      timestamp: eventTime 
+    });
+    
+    // Use the comprehensive webhook processor
+    const { processTellerWebhook } = await import("../teller/client");
+    processTellerWebhook(req.body);
     
     switch (type) {
       case 'enrollment.disconnected':
-        // Handle disconnected enrollment
+        // Handle disconnected enrollment following Teller docs
         const { enrollment_id, reason } = payload;
         logger.warn(`Enrollment disconnected: ${enrollment_id} - ${reason}`);
         
-        // Mark accounts as disconnected in database
-        await storage.markEnrollmentDisconnected(enrollment_id, reason);
+        try {
+          // Mark accounts as disconnected in database
+          await storage.markEnrollmentDisconnected(enrollment_id, reason);
+          
+          // TODO: Notify user to reconnect via Teller Connect in update mode
+          // Following Teller docs: "initialize Teller Connect in update mode"
+        } catch (storageError: any) {
+          logger.error("Failed to update enrollment status", { error: storageError.message });
+        }
         break;
         
       case 'transactions.processed':
-        // Handle processed transactions
+        // Handle processed transactions with enrichment data
         const { transactions } = payload;
-        logger.info(`Transactions processed: ${transactions.length} transactions`);
+        logger.info(`Processing ${transactions?.length || 0} enriched transactions`);
         
-        // Store or update transactions in database
-        for (const transaction of transactions) {
-          await storage.upsertTransaction(transaction);
+        if (transactions && Array.isArray(transactions)) {
+          for (const transaction of transactions) {
+            try {
+              // Store transaction with enrichment data (category, counterparty, etc.)
+              await storage.upsertTransaction(transaction);
+            } catch (transactionError: any) {
+              logger.error("Failed to store transaction", { 
+                transactionId: transaction.id,
+                error: transactionError.message 
+              });
+            }
+          }
         }
         break;
         
       case 'account.number_verification.processed':
-        // Handle account verification
+        // Handle account verification via microdeposit
         const { account_id, status } = payload;
-        logger.info(`Account verification processed: ${account_id} - ${status}`);
+        logger.info(`Account verification ${status}: ${account_id}`);
         
-        // Update account verification status
-        await storage.updateAccountVerificationStatus(account_id, status);
+        try {
+          // Update account verification status in database
+          await storage.updateAccountVerificationStatus(account_id, status);
+          
+          if (status === 'completed') {
+            logger.info(`Account details now available for ${account_id}`);
+            // TODO: Notify user that account details are ready
+          } else if (status === 'expired') {
+            logger.warn(`Account verification expired for ${account_id}`);
+            // TODO: Notify user to re-verify account
+          }
+        } catch (verificationError: any) {
+          logger.error("Failed to update verification status", { 
+            accountId: account_id,
+            error: verificationError.message 
+          });
+        }
         break;
         
       case 'webhook.test':
-        // Test webhook
-        logger.info("Test webhook received");
+        // Test webhook from Teller dashboard
+        logger.info("Test webhook received and processed successfully");
         break;
         
       default:
-        logger.warn(`Unknown webhook type: ${type}`);
+        logger.warn(`Unknown webhook type received: ${type}`, { 
+          webhookId: id,
+          payloadKeys: Object.keys(payload || {})
+        });
     }
     
-    // Always respond with 200 to acknowledge receipt
-    res.json({ received: true });
+    // Always respond with 200 to acknowledge receipt (following Teller docs)
+    res.json({ 
+      received: true, 
+      processed: true,
+      webhook_id: id,
+      type
+    });
     
   } catch (error: any) {
     logger.error("Webhook processing error", { error: error.message });
-    // Still respond with 200 to prevent retries
-    res.json({ received: true, error: error.message });
+    // Still respond with 200 to prevent retries (following Teller docs)
+    res.json({ 
+      received: true, 
+      processed: false,
+      error: error.message 
+    });
   }
 });
 
@@ -1157,6 +1208,35 @@ function analyzeRecurringTransactions(transactions: any[]): any[] {
 }
 
 /**
+ * GET /api/teller/identity
+ * Get identity information for all connected accounts
+ * Following: https://teller.io/docs/api/identity#get-identity
+ */
+router.get("/identity", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    
+    // Use the new comprehensive Teller client
+    const { tellerForUser } = await import("../teller/client");
+    const teller = await tellerForUser(userId);
+    
+    const identities = await teller.identity.get();
+    
+    res.json({ 
+      identities,
+      count: identities.length
+    });
+    
+  } catch (error: any) {
+    logger.error("Failed to fetch identity information", { error: error.message });
+    res.status(500).json({ 
+      message: "Failed to fetch identity information",
+      error: error.message 
+    });
+  }
+});
+
+/**
  * POST /api/teller/init-update
  * Initialize Teller Connect in update mode for reconnecting an existing account
  */
@@ -1215,5 +1295,8 @@ router.post("/init-update", isAuthenticated, async (req: any, res) => {
     });
   }
 });
+
+// Mount payments sub-router
+router.use("/payments", tellerPaymentsRouter);
 
 export default router;
