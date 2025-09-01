@@ -104,17 +104,17 @@ export default function Transfers() {
     }
   };
 
+  // Extract accounts from the hook data
+  const accounts = accountsData || { accounts: [] };
+  
   // Combine all accounts into a single array for transfers
-  const allAccounts = [
-    ...(accounts?.brokerages || []),
-    ...(accounts?.banks || [])
-  ];
+  const allAccounts = accounts?.accounts || [];
 
   const quickTransferOptions = allAccounts.slice(0, 4).map((account: any) => ({
     id: account.id,
     name: account.accountName || account.name,
     balance: account.balance,
-    type: account.accountType || (accounts?.brokerages?.includes(account) ? 'brokerage' : 'bank'),
+    type: account.type || 'bank',
     institution: account.institutionName || account.institution,
   }));
 
@@ -349,7 +349,7 @@ export default function Transfers() {
         <TransferModal
           isOpen={isTransferModalOpen}
           onClose={() => setIsTransferModalOpen(false)}
-          accounts={accounts || []}
+          accounts={allAccounts || []}
         />
       </main>
     </PageTransition>

@@ -53,9 +53,9 @@ export default function Accounts() {
     queryKey: ['/api/dashboard'],
     select: (data: any) => {
       // Extract accounts from dashboard response
-      const accounts = data?.accounts || [];
+      const accountsList = data?.accounts || [];
       // Filter for investment/brokerage accounts (SnapTrade accounts) that are actually connected
-      return accounts.filter((acc: any) => 
+      return accountsList.filter((acc: any) => 
         (acc.provider === 'snaptrade' || acc.type === 'investment') && 
         !acc.needsReconnection && 
         acc.balance > 0

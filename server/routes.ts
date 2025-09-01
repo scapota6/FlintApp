@@ -1882,12 +1882,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Get positions for this account
           let positions = [];
           try {
-            const positionsResponse = await portfolioApi.getUserHoldings({
-              userId: snapUser.userId,
-              userSecret: userSecret,
-              accountId: accountId,
-            });
-            positions = positionsResponse.data || [];
+            const { getPositions } = await import('./lib/snaptrade');
+            positions = await getPositions(snapUser.userId, userSecret, accountId);
             console.log(`[Account Details] Fetched ${positions.length} positions for account: ${accountId}`);
           } catch (error) {
             console.log(`[Account Details] Could not fetch positions for account: ${accountId}`, error);
