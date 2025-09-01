@@ -58,6 +58,22 @@ export const snaptradeUsers = pgTable('snaptrade_users', {
   uniqueFlintUser: unique().on(table.flintUserId), // Ensure only one SnapTrade user per Flint user
 }));
 
+// SnapTrade brokerage authorizations/connections table
+export const snaptradeConnections = pgTable('snaptrade_connections', {
+  id: serial('id').primaryKey(),
+  flintUserId: varchar('flint_user_id').notNull().references(() => users.id),
+  brokerageAuthorizationId: varchar('brokerage_authorization_id').notNull().unique(),
+  brokerageName: varchar('brokerage_name').notNull(),
+  brokerageType: varchar('brokerage_type'),
+  status: varchar('status').notNull().default('active'), // active, disabled, expired
+  disabled: boolean('disabled').default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+  lastRefreshedAt: timestamp('last_refreshed_at'),
+}, (table) => ({
+  userAuthIndex: index('snaptrade_connections_user_auth_idx').on(table.flintUserId, table.brokerageAuthorizationId),
+}));
+
 // Connected accounts (banks, brokerages, crypto)
 export const connectedAccounts = pgTable("connected_accounts", {
   id: serial("id").primaryKey(),
@@ -243,6 +259,12 @@ export type ActivityLog = typeof activityLog.$inferSelect;
 
 export type InsertMarketData = typeof marketData.$inferInsert;
 export type MarketData = typeof marketData.$inferSelect;
+
+export type SnaptradeUser = typeof snaptradeUsers.$inferSelect;
+export type InsertSnaptradeUser = typeof snaptradeUsers.$inferInsert;
+
+export type SnaptradeConnection = typeof snaptradeConnections.$inferSelect;
+export type InsertSnaptradeConnection = typeof snaptradeConnections.$inferInsert;
 
 // Insert schemas
 export const insertConnectedAccountSchema = createInsertSchema(connectedAccounts).omit({

@@ -27,6 +27,8 @@ import {
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
+import { snaptradeUsersRouter } from './routes/snaptrade-users';
+import { snaptradeConnectionsRouter } from './routes/snaptrade-connections';
 
 // Initialize Stripe (only if API key is provided)
 let stripe: Stripe | null = null;
