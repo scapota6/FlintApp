@@ -1126,7 +1126,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 <Card title="Active Positions (Legacy)">
                   <List items={data.positionsAndOrders?.activePositions || []} empty="No active positions" render={(p: any) => (
                     <div className="flex justify-between">
-                      <span>{p.symbol || p.ticker || p.instrument?.symbol || '—'}</span>
+                      <span>{typeof p.symbol === 'object' ? p.symbol?.symbol : p.symbol || p.ticker || p.instrument?.symbol || '—'}</span>
                       <span className="text-right">{fmtNum(p.quantity ?? p.qty)}</span>
                     </div>
                   )}/>
@@ -1134,7 +1134,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 <Card title="Pending Orders">
                   <List items={data.positionsAndOrders?.pendingOrders || []} empty="No pending orders" render={(o: any) => (
                     <div className="grid grid-cols-4 gap-2">
-                      <span>{o.symbol || o.ticker || '—'}</span>
+                      <span>{typeof o.symbol === 'object' ? o.symbol?.symbol : o.symbol || o.ticker || '—'}</span>
                       <span className="text-right">{(o.side || o.action || '').toUpperCase()}</span>
                       <span className="text-right">{fmtNum(o.quantity || o.qty)}</span>
                       <span className="text-right">{fmtMoney(o.limitPrice ?? o.price)}</span>
@@ -1147,7 +1147,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                 <Card title="Order History">
                   <List items={data.positionsAndOrders?.orderHistory || []} empty="No order history" render={(o: any) => (
                     <div className="grid grid-cols-5 gap-2">
-                      <span>{o.symbol || o.ticker || '—'}</span>
+                      <span>{typeof o.symbol === 'object' ? o.symbol?.symbol : o.symbol || o.ticker || '—'}</span>
                       <span className="text-right">{(o.side || o.action || '').toUpperCase()}</span>
                       <span className="text-right">{fmtNum(o.quantity || o.qty)}</span>
                       <span className="text-right">{fmtMoney(o.avgFillPrice ?? o.fillPrice ?? o.price)}</span>
