@@ -102,7 +102,7 @@ function detectRecurringPayments(transactions: any[]): RecurringSubscription[] {
   const merchantGroups = groupTransactionsByMerchant(transactions);
   
   for (const [merchantKey, merchantTransactions] of merchantGroups) {
-    if (merchantTransactions.length < 2) continue; // Need at least 2 transactions
+    if (merchantTransactions.length < 3) continue; // Need at least 3 transactions for pattern detection
     
     // Sort by date
     merchantTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -110,7 +110,7 @@ function detectRecurringPayments(transactions: any[]): RecurringSubscription[] {
     // Check for recurring patterns
     const recurringPattern = analyzeRecurringPattern(merchantTransactions);
     
-    if (recurringPattern && recurringPattern.confidence > 0.6) {
+    if (recurringPattern && recurringPattern.confidence > 0.75) { // Higher confidence threshold
       const latestTransaction = merchantTransactions[merchantTransactions.length - 1];
       const subscription: RecurringSubscription = {
         id: `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -164,21 +164,25 @@ function getMerchantKey(transaction: any): string {
   
   // FILTER OUT non-subscription transaction types
   const exclusionPatterns = [
-    /^wire transfer/i,
-    /^incoming wire/i,
-    /^outgoing wire/i,
-    /^deposit/i,
-    /^atm withdrawal/i,
-    /^check #\d+/i,
-    /^debit card purchase/i,
-    /^mobile deposit/i,
-    /gas station|exxon|shell|chevron|bp |mobil|texaco|sunoco/i,
-    /grocery|walmart|target|kroger|safeway|whole foods/i,
-    /restaurant|mcdonalds|burger|pizza|starbucks|coffee/i,
-    /amazon\.com purchases|amazon marketplace/i, // but allow "amazon prime"
-    /uber|lyft|taxi/i,
-    /parking|toll/i,
-    /cash advance|balance transfer/i
+    /wire transfer/i,
+    /incoming wire/i,
+    /outgoing wire/i,
+    /^wire\s/i,
+    /\swire$/i,
+    /deposit/i,
+    /atm withdrawal/i,
+    /check #\d+/i,
+    /debit card purchase/i,
+    /mobile deposit/i,
+    /gas station|exxon|shell|chevron|bp |mobil|texaco|sunoco|staples|valero|citgo|marathon|phillips/i,
+    /grocery|walmart|target|kroger|safeway|whole foods|costco|publix|albertsons/i,
+    /restaurant|mcdonalds|burger|pizza|starbucks|coffee|chipotle|subway|wendy|taco bell/i,
+    /amazon\.com purchases|amazon marketplace|amzn mktp/i, // but allow "amazon prime"
+    /uber|lyft|taxi|doordash|grubhub|postmates/i,
+    /parking|toll|meter/i,
+    /cash advance|balance transfer/i,
+    /venmo|zelle|paypal|cash app/i,
+    /transfer to|transfer from/i
   ];
   
   // Check if this transaction should be excluded from subscription detection
@@ -248,9 +252,9 @@ function analyzeRecurringPattern(transactions: any[]): { frequency: any; average
     intervals.push(daysDiff);
   }
   
-  // Check for monthly pattern (28-32 days)
-  const monthlyIntervals = intervals.filter(interval => interval >= 28 && interval <= 32);
-  if (monthlyIntervals.length >= Math.max(1, intervals.length * 0.6)) {
+  // Check for monthly pattern (28-35 days) - needs at least 3 occurrences
+  const monthlyIntervals = intervals.filter(interval => interval >= 28 && interval <= 35);
+  if (monthlyIntervals.length >= 3 && monthlyIntervals.length >= intervals.length * 0.7) {
     return {
       frequency: 'monthly',
       averageAmount: calculateAverageAmount(transactions),
@@ -258,9 +262,9 @@ function analyzeRecurringPattern(transactions: any[]): { frequency: any; average
     };
   }
   
-  // Check for weekly pattern (6-8 days)
+  // Check for weekly pattern (6-8 days) - needs at least 4 occurrences
   const weeklyIntervals = intervals.filter(interval => interval >= 6 && interval <= 8);
-  if (weeklyIntervals.length >= Math.max(1, intervals.length * 0.6)) {
+  if (weeklyIntervals.length >= 4 && weeklyIntervals.length >= intervals.length * 0.7) {
     return {
       frequency: 'weekly',
       averageAmount: calculateAverageAmount(transactions),

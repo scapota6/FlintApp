@@ -428,6 +428,9 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
         });
         
         // Normalize response format to match frontend expectations
+        const cashBalance = parseFloat(account.balance?.cash_balance?.amount || '0') || 0;
+        const equityBalance = balance - cashBalance; // Equity is total minus cash
+        
         res.json({
           provider: 'snaptrade',
           accountOverview: {
@@ -446,17 +449,17 @@ router.get("/accounts/:accountId/details", async (req: any, res) => {
             number: account.number || null,
             balance: {
               total: balance,
-              cash: parseFloat(account.balance?.cash_balance?.amount || '0') || 0,
-              equity: parseFloat(account.balance?.total?.amount || '0') || 0
+              cash: cashBalance,
+              equity: equityBalance
             }
           },
           balances: {
             total: balance,
-            cash: parseFloat(account.balance?.cash_balance?.amount || '0') || 0,
-            equity: parseFloat(account.balance?.total?.amount || '0') || 0
+            cash: cashBalance,
+            equity: equityBalance
           },
           holdings: holdings.data?.map((holding: any) => ({
-            symbol: holding.symbol?.symbol?.symbol || holding.symbol?.raw_symbol || 'Unknown',
+            symbol: holding.symbol?.symbol?.symbol || holding.symbol?.raw_symbol || holding.symbol?.symbol || 'Unknown',
             description: holding.symbol?.symbol?.description || holding.symbol?.description || '',
             quantity: holding.units || holding.fractional_units || 0,
             averagePurchasePrice: holding.average_purchase_price || 0,
