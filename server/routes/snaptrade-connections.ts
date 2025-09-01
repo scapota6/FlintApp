@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { authApi, accountsApi } from '../lib/snaptrade';
+import { authApi, accountsApi, createLoginUrl, createReconnectLoginUrl, listBrokerageAuthorizations, detailBrokerageAuthorization, refreshBrokerageAuthorization } from '../lib/snaptrade';
 import { isAuthenticated } from '../replitAuth';
 import { db } from '../db';
 import { users, snaptradeUsers, snaptradeConnections } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
+import { mapSnapTradeError, logSnapTradeError, checkConnectionStatus, RateLimitHandler } from '../lib/snaptrade-errors';
 
 const router = Router();
 
@@ -64,8 +65,18 @@ router.post('/portal-url', isAuthenticated, async (req: any, res) => {
       console.log('[SnapTrade Connections] Reconnecting authorization:', reconnect);
     }
     
-    const loginResponse = await authApi.loginSnapTradeUser(loginParams);
-    const portalUrl = loginResponse.data.redirectURI;
+    const portalUrl = reconnect ? 
+      await createReconnectLoginUrl({
+        userId: credentials.snaptradeUserId,
+        userSecret: credentials.snaptradeUserSecret,
+        redirect: process.env.SNAPTRADE_REDIRECT_URI!,
+        authorizationId: reconnect
+      }) :
+      await createLoginUrl({
+        userId: credentials.snaptradeUserId,
+        userSecret: credentials.snaptradeUserSecret,
+        redirect: process.env.SNAPTRADE_REDIRECT_URI!
+      });
     
     if (!portalUrl) {
       throw new Error('SnapTrade did not return portal URL');
@@ -80,10 +91,23 @@ router.post('/portal-url', isAuthenticated, async (req: any, res) => {
     });
     
   } catch (error: any) {
-    console.error('[SnapTrade Connections] Portal URL error:', error?.response?.data || error?.message || error);
-    res.status(500).json({
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('generate_portal_url', error, requestId, { 
+      flintUserId: flintUser.id,
+      reconnecting: !!req.body.reconnect
+    });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
+    if (mappedError.code === '429') {
+      await RateLimitHandler.handleRateLimit(`portal_url_${flintUser.id}`, 
+        error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
+    }
+    
+    res.status(mappedError.httpStatus).json({
       success: false,
-      message: error?.message || 'Failed to generate connection portal URL'
+      message: mappedError.userMessage,
+      error: mappedError
     });
   }
 });
@@ -103,12 +127,10 @@ router.get('/connections', isAuthenticated, async (req: any, res) => {
     });
     
     // Get brokerage authorizations from SnapTrade
-    const authorizationsResponse = await authApi.listBrokerageAuthorizations({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret
-    });
-    
-    const connections = authorizationsResponse.data || [];
+    const connections = await listBrokerageAuthorizations(
+      credentials.snaptradeUserId,
+      credentials.snaptradeUserSecret
+    ) || [];
     
     // Sync connections to our database
     for (const connection of connections) {
@@ -141,21 +163,45 @@ router.get('/connections', isAuthenticated, async (req: any, res) => {
     
     res.json({
       success: true,
-      connections: connections.map(conn => ({
-        id: conn.id,
-        name: conn.name,
-        type: conn.type,
-        disabled: !!conn.disabled,
-        created: conn.created,
-        updated: conn.updated
-      }))
+      connections: connections.map((conn: any) => {
+        const connectionStatus = checkConnectionStatus(conn);
+        return {
+          id: conn.id,
+          name: conn.name,
+          type: conn.type,
+          disabled: !!conn.disabled,
+          created: conn.created,
+          updated: conn.updated,
+          needsReconnect: connectionStatus.needsReconnect,
+          reconnectUrl: connectionStatus.reconnectUrl
+        };
+      })
     });
     
   } catch (error: any) {
-    console.error('[SnapTrade Connections] List connections error:', error?.response?.data || error?.message || error);
-    res.status(500).json({
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('list_connections', error, requestId, { flintUserId: flintUser.id });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
+    if (mappedError.code === '429') {
+      const remaining = RateLimitHandler.getRemainingRequests(error.headers);
+      const reset = RateLimitHandler.getResetTime(error.headers);
+      
+      res.status(429).json({
+        success: false,
+        message: mappedError.userMessage,
+        error: mappedError,
+        retryAfter: reset,
+        remaining
+      });
+      return;
+    }
+    
+    res.status(mappedError.httpStatus).json({
       success: false,
-      message: error?.message || 'Failed to list connections'
+      message: mappedError.userMessage,
+      error: mappedError
     });
   }
 });
@@ -175,13 +221,12 @@ router.get('/connections/:id', isAuthenticated, async (req: any, res) => {
       connectionId
     });
     
-    // Get all brokerage authorizations and find the specific one
-    const authorizationsResponse = await authApi.listBrokerageAuthorizations({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret
-    });
-    
-    const connection = authorizationsResponse.data?.find(auth => auth.id === connectionId);
+    // Get specific brokerage authorization details
+    const connection = await detailBrokerageAuthorization(
+      credentials.snaptradeUserId,
+      credentials.snaptradeUserSecret,
+      connectionId
+    );
     
     if (!connection) {
       return res.status(404).json({
@@ -245,11 +290,11 @@ router.post('/connections/:id/refresh', isAuthenticated, async (req: any, res) =
     });
     
     // Refresh the connection
-    const refreshResponse = await authApi.refreshBrokerageAuthorization({
-      authorizationId: connectionId,
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret
-    });
+    await refreshBrokerageAuthorization(
+      credentials.snaptradeUserId,
+      credentials.snaptradeUserSecret,
+      connectionId
+    );
     
     // Update the last refreshed timestamp in our database
     await db
@@ -295,8 +340,8 @@ router.post('/connections/:id/disable', isAuthenticated, async (req: any, res) =
       connectionId
     });
     
-    // Disable the connection
-    await authApi.disableBrokerageAuthorization({
+    // Disable the connection using direct API call
+    await authApi.deleteBrokerageAuthorization({
       authorizationId: connectionId,
       userId: credentials.snaptradeUserId,
       userSecret: credentials.snaptradeUserSecret

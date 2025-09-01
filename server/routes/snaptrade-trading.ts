@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { authApi, accountsApi, tradingApi } from '../lib/snaptrade';
+import { authApi, accountsApi, tradingApi, searchSymbols, getOrderImpact } from '../lib/snaptrade';
 import { isAuthenticated } from '../replitAuth';
 import { db } from '../db';
 import { users, snaptradeUsers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { mapSnapTradeError, logSnapTradeError, RateLimitHandler } from '../lib/snaptrade-errors';
 
 const router = Router();
 
@@ -50,14 +51,12 @@ router.get('/symbols/:ticker', isAuthenticated, async (req: any, res) => {
     });
     
     // Search for symbols using SnapTrade API
-    const symbolsResponse = await tradingApi.symbolSearchUserAccount({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret,
-      accountId: req.query.accountId || '', // Account ID for context
-      substring: ticker
-    });
-    
-    const symbols = symbolsResponse.data || [];
+    const symbols = await searchSymbols(
+      credentials.snaptradeUserId,
+      credentials.snaptradeUserSecret,
+      req.query.accountId as string || '',
+      ticker
+    );
     
     // Find exact match or best match for the ticker
     let symbol = symbols.find((s: any) => 
@@ -97,10 +96,20 @@ router.get('/symbols/:ticker', isAuthenticated, async (req: any, res) => {
     });
     
   } catch (error: any) {
-    console.error('[SnapTrade Trading] Symbol search error:', error?.response?.data || error?.message || error);
-    res.status(500).json({
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('symbol_search', error, requestId, { ticker: req.params.ticker });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
+    if (mappedError.code === '429') {
+      await RateLimitHandler.handleRateLimit(`symbol_search_${req.params.ticker}`, 
+        error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
+    }
+    
+    res.status(mappedError.httpStatus).json({
       success: false,
-      message: error?.message || 'Failed to search symbol'
+      message: mappedError.userMessage,
+      error: mappedError
     });
   }
 });
@@ -126,20 +135,19 @@ router.post('/trades/impact', isAuthenticated, async (req: any, res) => {
     });
     
     // Check order impact using SnapTrade API
-    const impactResponse = await tradingApi.checkOrderImpact({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret,
+    const impact = await getOrderImpact(
+      credentials.snaptradeUserId,
+      credentials.snaptradeUserSecret,
       accountId,
-      action: side, // buy/sell
-      orderType: orderType || 'market',
-      price: req.body.price || undefined, // For limit orders
-      stop: req.body.stopPrice || undefined, // For stop orders
-      timeInForce: timeInForce || 'day',
-      units: quantity,
-      universalSymbolId: symbolId
-    });
-    
-    const impact = impactResponse.data;
+      {
+        action: side.toUpperCase() as 'BUY' | 'SELL',
+        orderType: (orderType || 'market') as 'Market' | 'Limit',
+        timeInForce: (timeInForce || 'day') as 'Day' | 'GTC',
+        units: quantity,
+        universalSymbolId: symbolId,
+        price: req.body.price || undefined
+      }
+    );
     
     console.log('[SnapTrade Trading] Order impact calculated:', {
       impactId: impact?.trade?.id,
@@ -169,10 +177,24 @@ router.post('/trades/impact', isAuthenticated, async (req: any, res) => {
     });
     
   } catch (error: any) {
-    console.error('[SnapTrade Trading] Order impact error:', error?.response?.data || error?.message || error);
-    res.status(500).json({
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('order_impact', error, requestId, { 
+      accountId: req.body.accountId,
+      symbol: req.body.symbol,
+      side: req.body.side
+    });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
+    if (mappedError.code === '429') {
+      await RateLimitHandler.handleRateLimit(`order_impact_${req.body.accountId}`, 
+        error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
+    }
+    
+    res.status(mappedError.httpStatus).json({
       success: false,
-      message: error?.message || 'Failed to check order impact'
+      message: mappedError.userMessage,
+      error: mappedError
     });
   }
 });
@@ -262,10 +284,25 @@ router.post('/trades/place', isAuthenticated, async (req: any, res) => {
     });
     
   } catch (error: any) {
-    console.error('[SnapTrade Trading] Place order error:', error?.response?.data || error?.message || error);
-    res.status(500).json({
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('place_order', error, requestId, { 
+      accountId: req.body.accountId,
+      symbol: req.body.symbol,
+      side: req.body.side,
+      tradeId: req.body.tradeId
+    });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
+    if (mappedError.code === '429') {
+      await RateLimitHandler.handleRateLimit(`place_order_${req.body.accountId}`, 
+        error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
+    }
+    
+    res.status(mappedError.httpStatus).json({
       success: false,
-      message: error?.message || 'Failed to place order'
+      message: mappedError.userMessage,
+      error: mappedError
     });
   }
 });

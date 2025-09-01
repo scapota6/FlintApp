@@ -4,6 +4,7 @@ import { isAuthenticated } from '../replitAuth';
 import { db } from '../db';
 import { users, snaptradeUsers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { mapSnapTradeError, logSnapTradeError, checkConnectionStatus, RateLimitHandler } from '../lib/snaptrade-errors';
 
 const router = Router();
 
@@ -88,10 +89,42 @@ router.get('/accounts', isAuthenticated, async (req: any, res) => {
     });
     
   } catch (error: any) {
-    console.error('[SnapTrade Accounts] List accounts error:', error?.response?.data || error?.message || error);
-    res.status(500).json({
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('list_accounts', error, requestId, { flintUserId: req.user?.claims?.sub });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
+    // Handle rate limiting with backoff
+    if (mappedError.code === '429') {
+      const remaining = RateLimitHandler.getRemainingRequests(error.headers);
+      const reset = RateLimitHandler.getResetTime(error.headers);
+      
+      res.status(429).json({
+        success: false,
+        message: mappedError.userMessage,
+        error: mappedError,
+        retryAfter: reset,
+        remaining
+      });
+      return;
+    }
+    
+    // Handle authentication errors with automatic cleanup
+    if (['1076', '428', '409'].includes(mappedError.code)) {
+      try {
+        const flintUser = await getFlintUserByAuth(req.user);
+        await db.delete(snaptradeUsers).where(eq(snaptradeUsers.flintUserId, flintUser.id));
+        console.log('[SnapTrade] Cleared stale credentials for user:', flintUser.id);
+      } catch (cleanupError) {
+        console.error('[SnapTrade] Failed to cleanup stale credentials:', cleanupError);
+      }
+    }
+    
+    res.status(mappedError.httpStatus).json({
       success: false,
-      message: error?.message || 'Failed to list accounts'
+      message: mappedError.userMessage,
+      error: mappedError,
+      accounts: []
     });
   }
 });
@@ -146,10 +179,20 @@ router.get('/accounts/:accountId/details', isAuthenticated, async (req: any, res
     });
     
   } catch (error: any) {
-    console.error('[SnapTrade Accounts] Get account details error:', error?.response?.data || error?.message || error);
-    res.status(500).json({
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('get_account_details', error, requestId, { accountId: req.params.accountId });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
+    if (mappedError.code === '429') {
+      await RateLimitHandler.handleRateLimit(`account_details_${req.params.accountId}`, 
+        error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
+    }
+    
+    res.status(mappedError.httpStatus).json({
       success: false,
-      message: error?.message || 'Failed to get account details'
+      message: mappedError.userMessage,
+      error: mappedError
     });
   }
 });
@@ -205,10 +248,20 @@ router.get('/accounts/:accountId/balances', isAuthenticated, async (req: any, re
     });
     
   } catch (error: any) {
-    console.error('[SnapTrade Accounts] Get account balances error:', error?.response?.data || error?.message || error);
-    res.status(500).json({
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('get_account_balances', error, requestId, { accountId: req.params.accountId });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
+    if (mappedError.code === '429') {
+      await RateLimitHandler.handleRateLimit(`account_balances_${req.params.accountId}`, 
+        error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
+    }
+    
+    res.status(mappedError.httpStatus).json({
       success: false,
-      message: error?.message || 'Failed to get account balances'
+      message: mappedError.userMessage,
+      error: mappedError
     });
   }
 });
@@ -260,10 +313,20 @@ router.get('/accounts/:accountId/positions', isAuthenticated, async (req: any, r
     });
     
   } catch (error: any) {
-    console.error('[SnapTrade Accounts] Get account positions error:', error?.response?.data || error?.message || error);
-    res.status(500).json({
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('get_account_positions', error, requestId, { accountId: req.params.accountId });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
+    if (mappedError.code === '429') {
+      await RateLimitHandler.handleRateLimit(`account_positions_${req.params.accountId}`, 
+        error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
+    }
+    
+    res.status(mappedError.httpStatus).json({
       success: false,
-      message: error?.message || 'Failed to get account positions'
+      message: mappedError.userMessage,
+      error: mappedError
     });
   }
 });
@@ -316,10 +379,20 @@ router.get('/accounts/:accountId/orders', isAuthenticated, async (req: any, res)
     });
     
   } catch (error: any) {
-    console.error('[SnapTrade Accounts] Get account orders error:', error?.response?.data || error?.message || error);
-    res.status(500).json({
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('get_account_orders', error, requestId, { accountId: req.params.accountId });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
+    if (mappedError.code === '429') {
+      await RateLimitHandler.handleRateLimit(`account_orders_${req.params.accountId}`, 
+        error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
+    }
+    
+    res.status(mappedError.httpStatus).json({
       success: false,
-      message: error?.message || 'Failed to get account orders'
+      message: mappedError.userMessage,
+      error: mappedError
     });
   }
 });
@@ -381,10 +454,20 @@ router.get('/accounts/:accountId/recent-orders', isAuthenticated, async (req: an
     });
     
   } catch (error: any) {
-    console.error('[SnapTrade Accounts] Get recent orders error:', error?.response?.data || error?.message || error);
-    res.status(500).json({
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('get_recent_orders', error, requestId, { accountId: req.params.accountId });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
+    if (mappedError.code === '429') {
+      await RateLimitHandler.handleRateLimit(`recent_orders_${req.params.accountId}`, 
+        error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
+    }
+    
+    res.status(mappedError.httpStatus).json({
       success: false,
-      message: error?.message || 'Failed to get recent orders'
+      message: mappedError.userMessage,
+      error: mappedError
     });
   }
 });
@@ -437,10 +520,20 @@ router.get('/accounts/:accountId/activities', isAuthenticated, async (req: any, 
     });
     
   } catch (error: any) {
-    console.error('[SnapTrade Accounts] Get account activities error:', error?.response?.data || error?.message || error);
-    res.status(500).json({
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('get_account_activities', error, requestId, { accountId: req.params.accountId });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
+    if (mappedError.code === '429') {
+      await RateLimitHandler.handleRateLimit(`account_activities_${req.params.accountId}`, 
+        error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
+    }
+    
+    res.status(mappedError.httpStatus).json({
       success: false,
-      message: error?.message || 'Failed to get account activities'
+      message: mappedError.userMessage,
+      error: mappedError
     });
   }
 });
@@ -499,10 +592,20 @@ router.get('/options/:accountId', isAuthenticated, async (req: any, res) => {
     });
     
   } catch (error: any) {
-    console.error('[SnapTrade Accounts] Get options positions error:', error?.response?.data || error?.message || error);
-    res.status(500).json({
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+    logSnapTradeError('get_options_positions', error, requestId, { accountId: req.params.accountId });
+    
+    const mappedError = mapSnapTradeError(error, requestId);
+    
+    if (mappedError.code === '429') {
+      await RateLimitHandler.handleRateLimit(`options_positions_${req.params.accountId}`, 
+        error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
+    }
+    
+    res.status(mappedError.httpStatus).json({
       success: false,
-      message: error?.message || 'Failed to get options positions'
+      message: mappedError.userMessage,
+      error: mappedError
     });
   }
 });

@@ -17,6 +17,7 @@ import { toast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
 import { getCsrfToken } from '@/lib/csrf';
 import { requestJSON } from '@/lib/http';
+import SnapTradeErrorHandler from '@/components/SnapTradeErrorHandler';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -70,6 +71,7 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
   const [tradeId, setTradeId] = useState<string | null>(null);
   const [impact, setImpact] = useState<any>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [snapTradeError, setSnapTradeError] = useState<any>(null);
 
   // Use the account ID from props
   const selectedAccountId = propAccountId || '';
@@ -142,11 +144,16 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Preview Failed',
-        description: error.message || 'Failed to preview order',
-        variant: 'destructive'
-      });
+      // Check if it's a SnapTrade-specific error
+      if (error.responseBody?.error) {
+        setSnapTradeError(error.responseBody.error);
+      } else {
+        toast({
+          title: 'Preview Failed',
+          description: error.message || 'Failed to preview order',
+          variant: 'destructive'
+        });
+      }
     }
   });
 
@@ -202,11 +209,16 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
       }
     },
     onError: (error: any) => {
-      toast({
-        title: 'Order Failed',
-        description: error.message || 'Failed to place order',
-        variant: 'destructive'
-      });
+      // Check if it's a SnapTrade-specific error
+      if (error.responseBody?.error) {
+        setSnapTradeError(error.responseBody.error);
+      } else {
+        toast({
+          title: 'Order Failed',
+          description: error.message || 'Failed to place order',
+          variant: 'destructive'
+        });
+      }
     }
   });
 
@@ -370,6 +382,20 @@ export default function OrderTicket({ symbol, currentPrice = 0, selectedAccountI
               Market orders execute immediately at the best available price
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* SnapTrade Error Display */}
+        {snapTradeError && (
+          <SnapTradeErrorHandler
+            error={snapTradeError}
+            onRetry={() => {
+              setSnapTradeError(null);
+              if (preview) {
+                handlePreview();
+              }
+            }}
+            className="mb-4"
+          />
         )}
 
         {/* Action Buttons */}

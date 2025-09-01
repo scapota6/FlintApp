@@ -48,7 +48,11 @@ export function useAccounts() {
       });
 
       if (!dashboardResponse.ok) {
-        throw new Error('Failed to fetch accounts');
+        const errorData = await dashboardResponse.json().catch(() => null);
+        const error: any = new Error(errorData?.message || 'Failed to fetch accounts');
+        error.status = dashboardResponse.status;
+        error.responseBody = errorData;
+        throw error;
       }
 
       const dashboardData = await dashboardResponse.json();

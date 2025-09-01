@@ -20,6 +20,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { AccountDetailsModal } from "@/components/AccountDetailsModal";
 import { BrokerageAccountModal } from "@/components/BrokerageAccountModal";
+import SnapTradeErrorHandler from "@/components/SnapTradeErrorHandler";
 
 interface BrokerageAccount {
   id: string;
