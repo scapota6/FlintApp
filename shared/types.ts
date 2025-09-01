@@ -67,6 +67,23 @@ export interface RemoveConnectionResponse {
   removed: boolean;
 }
 
+export interface AccountSummary {
+  id: UUID;                        // SnapTrade account id
+  connectionId: UUID;              // brokerage authorization id
+  institution: string;
+  name: string | null;             // account display name
+  numberMasked: string | null;
+  type: string | null;             // e.g., "individual", "margin", etc.
+  status: "open" | "closed" | "archived" | "unknown";
+  currency: string;                // base currency
+  totalBalance: Money | null;      // from balances
+  lastHoldingsSyncAt: ISODate | null;
+}
+
+export interface ListAccountsResponse {
+  accounts: AccountSummary[];
+}
+
 export interface BrokerageConnection {
   id: UUID;                           // brokerage_authorization_id
   name: string;                       // e.g., "Robinhood"

@@ -5,7 +5,7 @@ import { db } from '../db';
 import { users, snaptradeUsers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { mapSnapTradeError, logSnapTradeError, checkConnectionStatus, RateLimitHandler } from '../lib/snaptrade-errors';
-import type { AccountSummary, AccountDetails, AccountBalance, AccountPositions, AccountOrders, AccountActivities, Position, Order, Activity, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID, Money } from '@shared/types';
+import type { AccountSummary, ListAccountsResponse, AccountDetails, AccountBalance, AccountPositions, AccountOrders, AccountActivities, Position, Order, Activity, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID, Money } from '@shared/types';
 
 const router = Router();
 
@@ -62,29 +62,42 @@ router.get('/accounts', isAuthenticated, async (req: any, res) => {
     console.log('[SnapTrade Accounts] Fetched', accounts.length, 'accounts');
     
     // Transform accounts to normalized DTO
-    const transformedAccounts: AccountSummary[] = accounts.map((account: any) => ({
-      id: account.id as UUID,
-      brokerageAuthId: account.brokerage_authorization as UUID,
-      institutionName: account.institution_name,
-      name: account.name === 'Default' 
-        ? `${account.institution_name} ${account.meta?.type || account.raw_type || 'Account'}`.trim()
-        : account.name,
-      numberMasked: account.number || account.account_number || null,
-      accountType: account.meta?.brokerage_account_type || account.meta?.type || account.raw_type || null,
-      status: account.status || null,
-      currency: account.balance?.total?.currency || 'USD',
-      balance: account.balance?.total ? {
-        amount: parseFloat(account.balance.total.amount) || 0,
-        currency: account.balance.total.currency || 'USD'
-      } : null,
-      lastSyncAt: account.sync_status?.holdings?.last_successful_sync || 
-                  account.sync_status?.transactions?.last_successful_sync || null
-    }));
+    const transformedAccounts: AccountSummary[] = accounts.map((account: any) => {
+      // Extract account number and mask it for display
+      const accountNumber = account.number || account.account_number;
+      const numberMasked = accountNumber ? `…${accountNumber.slice(-4)}` : null;
+      
+      // Determine account status
+      let status: "open" | "closed" | "archived" | "unknown" = "unknown";
+      if (account.status) {
+        status = account.status.toLowerCase() === 'active' ? 'open' : 
+                account.status.toLowerCase() === 'closed' ? 'closed' :
+                account.status.toLowerCase() === 'archived' ? 'archived' : 'unknown';
+      } else if (account.meta?.status) {
+        status = account.meta.status.toLowerCase() === 'active' ? 'open' : 'unknown';
+      }
+      
+      return {
+        id: account.id as UUID,
+        connectionId: account.brokerage_authorization as UUID,
+        institution: account.institution_name,
+        name: account.name === 'Default' 
+          ? `${account.institution_name} ${account.meta?.type || account.raw_type || 'Account'}`.trim()
+          : account.name,
+        numberMasked,
+        type: account.meta?.brokerage_account_type || account.meta?.type || account.raw_type || null,
+        status,
+        currency: account.balance?.total?.currency || 'USD',
+        totalBalance: account.balance?.total ? {
+          amount: parseFloat(account.balance.total.amount) || 0,
+          currency: account.balance.total.currency || 'USD'
+        } : null,
+        lastHoldingsSyncAt: account.sync_status?.holdings?.last_successful_sync || null
+      };
+    });
     
-    const response: ListResponse<AccountSummary> = {
-      data: transformedAccounts,
-      total: transformedAccounts.length,
-      lastUpdated: new Date().toISOString() as ISODate
+    const response: ListAccountsResponse = {
+      accounts: transformedAccounts
     };
     
     res.json(response);
