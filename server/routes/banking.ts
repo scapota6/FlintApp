@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { isAuthenticated } from "../replitAuth";
-import { getUserByEmail, storage } from "../storage";
+import { storage } from "../storage";
 import { TellerService } from "../services/TellerService";
 import { db } from "../db";
 import { connectedAccounts } from "@shared/schema";
@@ -316,7 +316,8 @@ router.delete("/accounts/:accountId/disconnect", isAuthenticated, async (req: an
       .update(connectedAccounts)
       .set({
         isActive: false,
-        accessToken: null, // Clear stored token
+        // Clear stored token
+      accessToken: null as string | null,
         updatedAt: new Date()
       })
       .where(eq(connectedAccounts.id, connectedAccount.id));
