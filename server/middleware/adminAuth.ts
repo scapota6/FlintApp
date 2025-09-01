@@ -35,7 +35,7 @@ export const isAdmin: RequestHandler = async (req, res, next) => {
     
     next();
   } catch (error) {
-    logger.error("Admin authentication error:", error);
+    console.error("Admin authentication error:", error);
     res.status(500).json({ 
       message: "Internal server error during admin authentication." 
     });

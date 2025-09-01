@@ -464,10 +464,10 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
         
         // Handle 410 DISCONNECTED and 404 as disconnected states
         if (resp.status === 410 && errorData.code === 'DISCONNECTED') {
-          trackAccountDisconnectedShown(accountId, provider || 'unknown');
+          trackAccountDisconnectedShown(accountId, 'unknown');
           throw { ...errorData, isDisconnected: true, status: 410 };
         } else if (resp.status === 404) {
-          trackAccountDisconnectedShown(accountId, provider || 'unknown');
+          trackAccountDisconnectedShown(accountId, 'unknown');
           throw { 
             ...errorData, 
             isDisconnected: true, 
@@ -491,10 +491,13 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
   // Universal reconnection handler for both Teller and SnapTrade
   const handleReconnectAccount = async () => {
     setIsReconnecting(true);
-    trackReconnectClicked(accountId, provider || 'unknown');
+    trackReconnectClicked(accountId, 'unknown');
     
     try {
-      if (provider === 'teller') {
+      // For now, assume reconnection flow since provider is not available
+      // This will need to be enhanced when provider information is properly passed
+      const isSnapTrade = accountId.includes('-'); // SnapTrade accounts have UUID format
+      if (!isSnapTrade) {
         // Teller reconnection flow
         const response = await fetch('/api/teller/init-update', {
           method: 'POST',
@@ -539,7 +542,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
     } catch (error: any) {
       console.error('Failed to reconnect account:', error);
       setIsReconnecting(false);
-      trackReconnectFailed(accountId, provider || 'unknown', error.message);
+      trackReconnectFailed(accountId, 'unknown', error.message);
       toast({
         title: "Reconnection Failed",
         description: "Failed to initialize account reconnection. Please try again.",
@@ -794,26 +797,19 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <Info label="Available balance" value={fmtMoney(data.balances?.available)} />
                     {data.balances?.ledger && data.balances?.ledger !== data.balances?.available && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="cursor-help">
-                              <Info 
-                                label={
-                                  <div className="flex items-center gap-1">
-                                    Ledger balance
-                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                                  </div>
-                                } 
-                                value={fmtMoney(data.balances?.ledger)} 
-                              />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Ledger includes pending transactions; available is what you can use right now.</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <Tooltip content="Ledger includes pending transactions; available is what you can use right now.">
+                        <div className="cursor-help">
+                          <Info 
+                            label={
+                              <div className="flex items-center gap-1">
+                                Ledger balance
+                                <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                              </div>
+                            } 
+                            value={fmtMoney(data.balances?.ledger)} 
+                          />
+                        </div>
+                      </Tooltip>
                     )}
                     
                     {/* For credit cards: show Credit limit, Available credit, Current balance */}

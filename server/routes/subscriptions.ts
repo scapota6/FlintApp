@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { isAuthenticated } from '../middleware/auth.js';
+import { isAuthenticated } from '../replitAuth';
 import { storage } from '../storage.js';
 
 const router = Router();
@@ -101,11 +101,11 @@ function detectRecurringPayments(transactions: any[]): RecurringSubscription[] {
   // Group transactions by merchant/description similarity
   const merchantGroups = groupTransactionsByMerchant(transactions);
   
-  for (const [merchantKey, merchantTransactions] of merchantGroups) {
+  for (const [merchantKey, merchantTransactions] of Array.from(merchantGroups.entries())) {
     if (merchantTransactions.length < 3) continue; // Need at least 3 transactions for pattern detection
     
     // Sort by date
-    merchantTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    merchantTransactions.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
     // Check for recurring patterns
     const recurringPattern = analyzeRecurringPattern(merchantTransactions);
