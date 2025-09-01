@@ -175,6 +175,43 @@ export interface OptionHoldingsResponse {
   holdings: OptionHolding[];
 }
 
+export interface SymbolInfo {
+  symbol: string;            // "AAPL"
+  description: string;       // "Apple Inc."
+  exchange: string | null;   // "NASDAQ"
+  currency: string;          // "USD"
+  tradable: boolean;
+  securityType: string;      // "EQUITY", etc.
+}
+
+export interface SymbolSearchResponse {
+  results: SymbolInfo[];
+}
+
+export interface ImpactRequest {
+  accountId: UUID;
+  symbol: string;
+  side: "buy" | "sell";
+  quantity: number;              // shares
+  type: OrderType;
+  timeInForce?: TimeInForce;
+  limitPrice?: number;           // for limit/stop_limit
+  stopPrice?: number;            // for stop/stop_limit
+}
+
+export interface ImpactSummaryLine {
+  label: string;
+  value: string;
+}
+
+export interface ImpactResponse {
+  impactId: string;              // returned by SnapTrade impact call
+  accepted: boolean;             // false if broker would reject
+  reason: string | null;         // rejection reason if any
+  estCost: Money | null;         // or proceeds if sell
+  lines: ImpactSummaryLine[];    // fee/tax/settlement lines
+}
+
 export interface BrokerageConnection {
   id: UUID;                           // brokerage_authorization_id
   name: string;                       // e.g., "Robinhood"

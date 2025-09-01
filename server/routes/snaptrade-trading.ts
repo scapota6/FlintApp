@@ -5,6 +5,7 @@ import { db } from '../db';
 import { users, snaptradeUsers } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { mapSnapTradeError, logSnapTradeError, RateLimitHandler } from '../lib/snaptrade-errors';
+import type { SymbolInfo, SymbolSearchResponse, ImpactRequest, ImpactResponse, ImpactSummaryLine, ErrorResponse, ISODate, UUID, Money } from '@shared/types';
 
 const router = Router();
 
@@ -36,18 +37,18 @@ async function getSnaptradeCredentials(flintUserId: string) {
 }
 
 /**
- * GET /api/snaptrade/symbols/:ticker
- * Get symbol metadata including description, exchange, type, currency
+ * GET /api/snaptrade/symbols/:query
+ * Search for symbols by query string - used for search and ticker header
  */
-router.get('/symbols/:ticker', isAuthenticated, async (req: any, res) => {
+router.get('/symbols/:query', isAuthenticated, async (req: any, res) => {
   try {
     const flintUser = await getFlintUserByAuth(req.user);
     const credentials = await getSnaptradeCredentials(flintUser.id);
-    const ticker = req.params.ticker.toUpperCase();
+    const query = req.params.query.toUpperCase();
     
     console.log('[SnapTrade Trading] Symbol search for:', {
       flintUserId: flintUser.id,
-      ticker
+      query
     });
     
     // Search for symbols using SnapTrade API
@@ -55,62 +56,46 @@ router.get('/symbols/:ticker', isAuthenticated, async (req: any, res) => {
       credentials.snaptradeUserId,
       credentials.snaptradeUserSecret,
       req.query.accountId as string || '',
-      ticker
+      query
     );
     
-    // Find exact match or best match for the ticker
-    let symbol = symbols.find((s: any) => 
-      s.symbol === ticker || s.raw_symbol === ticker
-    );
+    // Transform symbols to normalized DTO
+    const transformedSymbols: SymbolInfo[] = symbols.map((symbol: any) => ({
+      symbol: symbol.symbol || symbol.raw_symbol,
+      description: symbol.description || symbol.symbol || symbol.raw_symbol,
+      exchange: symbol.exchange || null,
+      currency: symbol.currency?.code || symbol.currency || 'USD',
+      tradable: symbol.is_tradable !== false, // Default to tradable unless explicitly false
+      securityType: symbol.type?.description || symbol.type || 'EQUITY'
+    }));
     
-    if (!symbol && symbols.length > 0) {
-      // If no exact match, take the first result
-      symbol = symbols[0];
-    }
+    console.log('[SnapTrade Trading] Found', transformedSymbols.length, 'symbols for query:', query);
     
-    if (!symbol) {
-      return res.status(404).json({
-        success: false,
-        message: 'Symbol not found',
-        ticker
-      });
-    }
+    const response: SymbolSearchResponse = {
+      results: transformedSymbols
+    };
     
-    console.log('[SnapTrade Trading] Symbol found:', {
-      ticker,
-      symbolId: symbol.id,
-      description: symbol.description
-    });
-    
-    res.json({
-      success: true,
-      symbol: {
-        id: symbol.id,
-        symbol: symbol.symbol || symbol.raw_symbol,
-        description: symbol.description,
-        exchange: symbol.exchange,
-        type: symbol.type?.description || symbol.type,
-        currency: symbol.currency?.code || symbol.currency,
-        isActive: symbol.is_tradable || true
-      }
-    });
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
-    logSnapTradeError('symbol_search', error, requestId, { ticker: req.params.ticker });
+    logSnapTradeError('symbol_search', error, requestId, { query: req.params.query });
     
     const mappedError = mapSnapTradeError(error, requestId);
     
     if (mappedError.code === '429') {
-      await RateLimitHandler.handleRateLimit(`symbol_search_${req.params.ticker}`, 
+      await RateLimitHandler.handleRateLimit(`symbol_search_${req.params.query}`, 
         error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
     }
     
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId
+      }
+    };
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
@@ -123,29 +108,56 @@ router.post('/trades/impact', isAuthenticated, async (req: any, res) => {
     const flintUser = await getFlintUserByAuth(req.user);
     const credentials = await getSnaptradeCredentials(flintUser.id);
     
-    const { accountId, symbolId, side, quantity, orderType, timeInForce } = req.body;
+    // Validate request body matches ImpactRequest interface
+    const impactRequest: ImpactRequest = {
+      accountId: req.body.accountId,
+      symbol: req.body.symbol,
+      side: req.body.side,
+      quantity: req.body.quantity,
+      type: req.body.type,
+      timeInForce: req.body.timeInForce,
+      limitPrice: req.body.limitPrice,
+      stopPrice: req.body.stopPrice
+    };
     
     console.log('[SnapTrade Trading] Checking order impact:', {
       flintUserId: flintUser.id,
-      accountId,
-      symbolId,
-      side,
-      quantity,
-      orderType
+      ...impactRequest
     });
+    
+    // First search for the symbol to get universal symbol ID
+    const symbols = await searchSymbols(
+      credentials.snaptradeUserId,
+      credentials.snaptradeUserSecret,
+      impactRequest.accountId,
+      impactRequest.symbol
+    );
+    
+    if (!symbols || symbols.length === 0) {
+      const errorResponse: ErrorResponse = {
+        error: {
+          code: 'SYMBOL_NOT_FOUND',
+          message: `Symbol ${impactRequest.symbol} not found or not tradable`,
+          requestId: req.headers['x-request-id'] || null
+        }
+      };
+      return res.status(404).json(errorResponse);
+    }
+    
+    const universalSymbolId = symbols[0].id;
     
     // Check order impact using SnapTrade API
     const impact = await getOrderImpact(
       credentials.snaptradeUserId,
       credentials.snaptradeUserSecret,
-      accountId,
+      impactRequest.accountId,
       {
-        action: side.toUpperCase() as 'BUY' | 'SELL',
-        orderType: (orderType || 'market') as 'Market' | 'Limit',
-        timeInForce: (timeInForce || 'day') as 'Day' | 'GTC',
-        units: quantity,
-        universalSymbolId: symbolId,
-        price: req.body.price || undefined
+        action: impactRequest.side.toUpperCase() as 'BUY' | 'SELL',
+        orderType: impactRequest.type === 'market' ? 'Market' : 'Limit',
+        timeInForce: (impactRequest.timeInForce || 'day') === 'gtc' ? 'GTC' : 'Day',
+        units: impactRequest.quantity,
+        universalSymbolId,
+        price: impactRequest.limitPrice || undefined
       }
     );
     
@@ -155,26 +167,44 @@ router.post('/trades/impact', isAuthenticated, async (req: any, res) => {
       buyingPowerEffect: impact?.trade?.buying_power_effect
     });
     
-    res.json({
-      success: true,
-      impact: {
-        id: impact?.trade?.id, // impact_id for next step
-        estimatedCommissions: impact?.trade?.estimated_commissions || 0,
-        buyingPowerEffect: impact?.trade?.buying_power_effect || 0,
-        estimatedCost: impact?.trade?.price || 0,
-        fees: impact?.trade?.fees || [],
-        warnings: impact?.warnings || [],
-        canPlace: !impact?.warnings?.some((w: any) => w.severity === 'error'),
-        trade: {
-          symbol: impact?.trade?.symbol,
-          side: impact?.trade?.action,
-          quantity: impact?.trade?.units,
-          orderType: impact?.trade?.order_type,
-          price: impact?.trade?.price,
-          timeInForce: impact?.trade?.time_in_force
-        }
+    // Transform to your ImpactResponse interface
+    const estimatedCost = impact?.trade?.price ? impact.trade.price * impactRequest.quantity : 0;
+    const fees = impact?.trade?.estimated_commissions || 0;
+    const totalCost = impactRequest.side === 'buy' ? estimatedCost + fees : estimatedCost - fees;
+    
+    const lines: ImpactSummaryLine[] = [
+      {
+        label: impactRequest.side === 'buy' ? 'Estimated cost' : 'Estimated proceeds',
+        value: `$${estimatedCost.toFixed(2)}`
       }
+    ];
+    
+    if (fees > 0) {
+      lines.push({
+        label: 'Fees',
+        value: `$${fees.toFixed(2)}`
+      });
+    }
+    
+    lines.push({
+      label: 'Settlement',
+      value: 'T+2'
     });
+    
+    const hasErrors = impact?.warnings?.some((w: any) => w.severity === 'error');
+    
+    const response: ImpactResponse = {
+      impactId: impact?.trade?.id || `imp_${Date.now()}`,
+      accepted: !hasErrors,
+      reason: hasErrors ? impact.warnings.find((w: any) => w.severity === 'error')?.description : null,
+      estCost: {
+        amount: totalCost,
+        currency: 'USD'
+      },
+      lines
+    };
+    
+    res.json(response);
     
   } catch (error: any) {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
@@ -191,11 +221,14 @@ router.post('/trades/impact', isAuthenticated, async (req: any, res) => {
         error.headers?.['retry-after'], error.headers?.['x-ratelimit-remaining']);
     }
     
-    res.status(mappedError.httpStatus).json({
-      success: false,
-      message: mappedError.userMessage,
-      error: mappedError
-    });
+    const errorResponse: ErrorResponse = {
+      error: {
+        code: mappedError.code,
+        message: mappedError.userMessage,
+        requestId
+      }
+    };
+    res.status(mappedError.httpStatus).json(errorResponse);
   }
 });
 
