@@ -54,7 +54,21 @@ export async function listAccounts(userId: string, userSecret: string) {
 
 export async function getPositions(userId: string, userSecret: string, accountId: string) {
   try {
-    // First get all holdings for the user, then filter by account
+    // Following SnapTrade best practices: prefer fine-grained APIs over coarse-grained ones
+    // Try getUserAccountPositions first (recommended by SnapTrade docs)
+    try {
+      const positions = await getUserAccountPositions(userId, userSecret, accountId);
+      console.log('Using fine-grained getUserAccountPositions API (recommended by SnapTrade)');
+      if (positions && positions.length > 0) {
+        // Wrap in expected structure for compatibility
+        return [{ account: { id: accountId }, positions }];
+      }
+    } catch (fineGrainedError: any) {
+      console.log('Fine-grained API failed, falling back to getAllUserHoldings');
+      handleSnapTradeError(fineGrainedError, 'getUserAccountPositions');
+    }
+
+    // Fallback to coarse-grained API (getAllUserHoldings)
     const response = await accountsApi.getAllUserHoldings({ userId, userSecret });
     console.log('DEBUG: getAllUserHoldings response length:', response.data?.length);
     
@@ -69,12 +83,13 @@ export async function getPositions(userId: string, userSecret: string, accountId
     console.log('DEBUG: No positions found for account:', accountId);
     return [];
   } catch (e: any) {
-    // If that doesn't work, try alternate method
+    // Final fallback attempt
     try {
       const response = await accountsApi.getUserAccountHoldings({ userId, userSecret, accountId });
       return response.data ? [response.data] : [];
     } catch (fallbackError: any) {
-      console.error('SnapTrade getPositions error:', e?.responseBody || e?.message || e);
+      const errorInfo = handleSnapTradeError(e, 'getPositions');
+      console.error('All position fetching methods failed:', errorInfo);
       return [];
     }
   }
@@ -731,6 +746,137 @@ export async function getSymbolsByTicker(query: string) {
   } catch (e: any) {
     console.error('SnapTrade getSymbolsByTicker error:', e?.responseBody || e?.message || e);
     throw e;
+  }
+}
+
+// ===== ENHANCED UTILITIES BASED ON SNAPTRADE BEST PRACTICES =====
+
+/**
+ * Manual refresh connection - Force real-time data sync
+ * Following best practices from account-data docs: use manual refresh for real-time data
+ */
+export async function refreshBrokerageAuthorization(userId: string, userSecret: string, authorizationId: string) {
+  try {
+    console.log('Manual refresh triggered for authorization:', authorizationId.slice(-6));
+    const response = await snaptrade.connections.refreshBrokerageAuthorization({
+      userId,
+      userSecret,
+      authorizationId
+    });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade refreshBrokerageAuthorization error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * List brokerage authorizations - Check connection status and disabled state
+ * Following fix-broken-connections docs: check disabled status for connection health
+ */
+export async function listBrokerageAuthorizations(userId: string, userSecret: string) {
+  try {
+    const response = await snaptrade.connections.listBrokerageAuthorizations({ userId, userSecret });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade listBrokerageAuthorizations error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Get connection details - Check specific connection status
+ * Following fix-broken-connections docs: check disabled status for specific connection
+ */
+export async function detailBrokerageAuthorization(userId: string, userSecret: string, authorizationId: string) {
+  try {
+    const response = await snaptrade.connections.detailBrokerageAuthorization({
+      userId,
+      userSecret,
+      authorizationId
+    });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade detailBrokerageAuthorization error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Enhanced error handling with request ID tracking
+ * Following request-ids docs: capture X-Request-ID for debugging
+ */
+export function handleSnapTradeError(error: any, context: string) {
+  const requestId = error?.response?.headers?.['x-request-id'] || error?.headers?.['x-request-id'];
+  const rateLimit = error?.response?.headers?.['x-ratelimit-remaining'] || error?.headers?.['x-ratelimit-remaining'];
+  
+  console.error(`SnapTrade ${context} error:`, {
+    message: error?.responseBody?.message || error?.message,
+    code: error?.responseBody?.code || error?.code,
+    requestId,
+    rateLimitRemaining: rateLimit,
+    fullError: error?.responseBody || error
+  });
+  
+  // Rate limiting detection
+  if (error?.status === 429 || error?.responseBody?.code === 'RATE_LIMIT_EXCEEDED') {
+    throw new Error(`RATE_LIMIT_EXCEEDED: Please wait before retrying. Request ID: ${requestId}`);
+  }
+  
+  // Connection disabled detection  
+  if (error?.responseBody?.code === 'CONNECTION_DISABLED') {
+    throw new Error(`CONNECTION_DISABLED: User needs to reconnect their account. Request ID: ${requestId}`);
+  }
+  
+  return {
+    error: error?.responseBody || error,
+    requestId,
+    rateLimitRemaining: rateLimit
+  };
+}
+
+/**
+ * Reconnect disabled connection - Fix broken connections
+ * Following fix-broken-connections docs: use reconnect parameter to fix existing connections
+ */
+export async function createReconnectLoginUrl(params: { 
+  userId: string; 
+  userSecret: string; 
+  redirect: string;
+  authorizationId: string; // The disabled connection to fix
+}) {
+  try {
+    const login = await authApi.loginSnapTradeUser({
+      userId: params.userId,
+      userSecret: params.userSecret,
+      immediateRedirect: true,
+      customRedirect: params.redirect,
+      reconnect: params.authorizationId, // This is the key parameter for fixing connections
+      connectionType: "trade",
+    });
+    
+    console.log('Reconnect URL generated for disabled connection:', params.authorizationId.slice(-6));
+    return (login.data as any)?.redirectURI || (login.data as any)?.url;
+  } catch (e: any) {
+    console.error('SnapTrade createReconnectLoginUrl error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+/**
+ * Enhanced position fetching using fine-grained APIs
+ * Following account-data docs: prefer fine-grained APIs over getUserHoldings
+ */
+export async function getAccountPositionsDetailed(userId: string, userSecret: string, accountId: string) {
+  try {
+    // Use fine-grained API as recommended by SnapTrade docs
+    const response = await getUserAccountPositions(userId, userSecret, accountId);
+    console.log('Using fine-grained getUserAccountPositions API (recommended)');
+    return response;
+  } catch (e: any) {
+    console.error('Fine-grained positions API failed, falling back to getAllUserHoldings');
+    // Fallback to original method if fine-grained API fails
+    return await getPositions(userId, userSecret, accountId);
   }
 }
 
