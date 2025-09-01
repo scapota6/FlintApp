@@ -341,7 +341,7 @@ router.post('/connections/:id/disable', isAuthenticated, async (req: any, res) =
     });
     
     // Disable the connection using direct API call
-    await authApi.deleteBrokerageAuthorization({
+    await authApi.disableBrokerageAuthorization({
       authorizationId: connectionId,
       userId: credentials.snaptradeUserId,
       userSecret: credentials.snaptradeUserSecret
