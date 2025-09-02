@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -30,35 +30,45 @@ interface AccountDetailsModalProps {
 export function AccountDetailsModal({ isOpen, onClose, accountId, accountName }: AccountDetailsModalProps) {
   const [activeTab, setActiveTab] = useState('information');
 
-  // Fetch account details
-  const { data: accountDetails, isLoading: loadingDetails, error: detailsError } = useQuery({
-    queryKey: [`/api/snaptrade/accounts/${accountId}/details`],
-    enabled: isOpen && !!accountId
+  // Parallel API calls when Details modal opens (per specification)
+  const accountQueries = useQueries({
+    queries: [
+      {
+        queryKey: [`/api/snaptrade/accounts/${accountId}/details`],
+        enabled: isOpen && !!accountId,
+        retry: 2
+      },
+      {
+        queryKey: [`/api/snaptrade/accounts/${accountId}/balances`],
+        enabled: isOpen && !!accountId,
+        retry: 2
+      },
+      {
+        queryKey: [`/api/snaptrade/accounts/${accountId}/positions`],
+        enabled: isOpen && !!accountId,
+        retry: 2
+      },
+      {
+        queryKey: [`/api/snaptrade/accounts/${accountId}/orders`],
+        enabled: isOpen && !!accountId,
+        retry: 2
+      },
+      {
+        queryKey: [`/api/snaptrade/accounts/${accountId}/activities`],
+        enabled: isOpen && !!accountId,
+        retry: 2
+      }
+    ]
   });
 
-  // Fetch account balances
-  const { data: balancesData, isLoading: loadingBalances, error: balancesError } = useQuery({
-    queryKey: [`/api/snaptrade/accounts/${accountId}/balances`],
-    enabled: isOpen && !!accountId
-  });
-
-  // Fetch positions
-  const { data: positionsData, isLoading: loadingPositions, error: positionsError } = useQuery({
-    queryKey: [`/api/snaptrade/accounts/${accountId}/positions`],
-    enabled: isOpen && !!accountId
-  });
-
-  // Fetch orders
-  const { data: ordersData, isLoading: loadingOrders, error: ordersError } = useQuery({
-    queryKey: [`/api/snaptrade/accounts/${accountId}/orders`],
-    enabled: isOpen && !!accountId
-  });
-
-  // Fetch activities
-  const { data: activitiesData, isLoading: loadingActivities, error: activitiesError } = useQuery({
-    queryKey: [`/api/snaptrade/accounts/${accountId}/activities`],
-    enabled: isOpen && !!accountId
-  });
+  // Extract data from parallel queries
+  const [
+    { data: accountDetails, isLoading: loadingDetails, error: detailsError },
+    { data: balancesData, isLoading: loadingBalances, error: balancesError },
+    { data: positionsData, isLoading: loadingPositions, error: positionsError },
+    { data: ordersData, isLoading: loadingOrders, error: ordersError },
+    { data: activitiesData, isLoading: loadingActivities, error: activitiesError }
+  ] = accountQueries;
 
   const account = accountDetails?.account;
   const balances = balancesData?.balances;

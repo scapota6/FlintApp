@@ -90,10 +90,33 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
-      retry: false,
+      retry: (failureCount: number, error: any) => {
+        // Don't retry beyond 3 attempts
+        if (failureCount >= 3) return false;
+        
+        // Only retry on specific error codes (429 rate limit, 502/503/504 server errors)
+        const status = error?.response?.status || error?.status;
+        return status === 429 || status === 502 || status === 503 || status === 504;
+      },
+      retryDelay: (attemptIndex: number) => {
+        // Exponential backoff with jitter: baseDelay * 2^attempt + random jitter
+        const baseDelay = 1000; // 1 second
+        const maxDelay = 10000; // 10 seconds
+        const jitterMax = 1000; // 1 second jitter
+        
+        const exponentialDelay = baseDelay * Math.pow(2, attemptIndex);
+        const cappedDelay = Math.min(exponentialDelay, maxDelay);
+        const jitter = Math.random() * jitterMax;
+        
+        return cappedDelay + jitter;
+      },
     },
     mutations: {
-      retry: false,
+      retry: (failureCount: number, error: any) => {
+        if (failureCount >= 2) return false;
+        const status = error?.response?.status || error?.status;
+        return status === 429 || status === 502 || status === 503 || status === 504;
+      },
     },
   },
 });

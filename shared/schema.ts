@@ -379,6 +379,22 @@ export type ActivityLog = typeof activityLog.$inferSelect;
 export type InsertMarketData = typeof marketData.$inferInsert;
 export type MarketData = typeof marketData.$inferSelect;
 
+// SnapTrade webhooks table per specification: snaptrade_webhooks(id, type, created_at, user_id, authorization_id, payload_json)
+export const snaptradeWebhooks = pgTable('snaptrade_webhooks', {
+  id: serial('id').primaryKey(),
+  type: varchar('type').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  userId: varchar('user_id'), // flint user ID
+  authorizationId: varchar('authorization_id'), // brokerage authorization ID
+  payloadJson: jsonb('payload_json').notNull(),
+  processed: boolean('processed').default(false),
+  error: text('error'),
+}, (table) => ({
+  typeIndex: index('snaptrade_webhooks_type_idx').on(table.type),
+  userIndex: index('snaptrade_webhooks_user_idx').on(table.userId),
+  processedIndex: index('snaptrade_webhooks_processed_idx').on(table.processed),
+}));
+
 export type SnaptradeUser = typeof snaptradeUsers.$inferSelect;
 export type InsertSnaptradeUser = typeof snaptradeUsers.$inferInsert;
 
