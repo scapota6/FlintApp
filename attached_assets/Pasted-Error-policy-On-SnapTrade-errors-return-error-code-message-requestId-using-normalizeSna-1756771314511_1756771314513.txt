@@ -1,0 +1,70 @@
+Error policy: On SnapTrade errors, return { error: { code, message, requestId } } using normalizeSnapTradeError(..) so the UI can show actionable banners:
+
+SNAPTRADE_NOT_REGISTERED (428) → prompt “Finish registration”
+
+SNAPTRADE_USER_MISMATCH (409) → prompt “Reset SnapTrade user”
+
+SIGNATURE_INVALID (401/1076) → config/clock/secret issue; show admin alert
+
+RATE_LIMITED (429) → transient retry
+
+3) UI wiring (what to show where)
+Account Details modal (your screenshot)
+
+Account Information ← …/details
+
+id, brokerage, type, currency, status, masked number
+
+Live Balances ← …/balances
+
+cash, equity/total, buying power, maintenance excess
+
+Holdings & Positions ← …/positions (tab: Equity/ETF, Options)
+
+Orders ← …/orders (recent first, status badges)
+
+Activity ← …/activities (credit/debit formatting, symbol chip)
+
+Accounts page
+
+Card per account: name, brokerage, last sync, total balance, connection status; Details button opens modal.
+
+Trading Ticket
+
+Search symbols via …/symbols/search
+
+2-step: impact → show preview/fees → place
+
+After place, refetch orders + positions
+
+Admin → Connections & Users
+
+Connection list (actions: refresh/disable/remove)
+
+SnapTrade users table (list/reset/delete)
+
+4) Background & webhooks
+
+Cron/queue to refresh balances/positions nightly and cache listAllBrokerageInstruments.
+
+Webhook handler to update connection status; store raw payload + processed summary.
+
+5) Storage (DB)
+
+Tables (or JSON columns) to persist:
+
+snaptrade_users(flint_user_id, user_id, user_secret, created_at, updated_at)
+
+snaptrade_authorizations(id, flint_user_id, brokerage_name, status, last_sync_at, created_at, updated_at)
+
+snaptrade_accounts(id, flint_user_id, authorization_id, name, masked_number, type, status, currency, last_sync_at, total_balance)
+
+snaptrade_balances(account_id, cash, equity, buying_power, maintenance_excess, currency, as_of)
+
+snaptrade_positions(account_id, symbol, description, qty, avg_cost, last_price, mv, upl, currency, as_of)
+
+snaptrade_orders(account_id, order_id, placed_at, status, side, type, tif, symbol, qty, limit_price, stop_price, avg_fill, currency)
+
+snaptrade_activities(account_id, activity_id, date, type, description, amount, currency, symbol)
+
+snaptrade_webhooks(id, type, created_at, user_id, authorization_id, payload_json)

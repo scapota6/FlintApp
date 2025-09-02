@@ -863,6 +863,36 @@ export async function createReconnectLoginUrl(params: {
   }
 }
 
+export async function disableBrokerageAuthorization(userId: string, userSecret: string, authorizationId: string) {
+  try {
+    console.log('Disabling brokerage authorization:', authorizationId.slice(-6));
+    const response = await snaptrade.connections.disableBrokerageAuthorization({
+      userId,
+      userSecret,
+      authorizationId
+    });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade disableBrokerageAuthorization error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+export async function removeBrokerageAuthorization(userId: string, userSecret: string, authorizationId: string) {
+  try {
+    console.log('Removing brokerage authorization:', authorizationId.slice(-6));
+    const response = await snaptrade.connections.removeBrokerageAuthorization({
+      userId,
+      userSecret,
+      authorizationId
+    });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade removeBrokerageAuthorization error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
 /**
  * Enhanced position fetching using fine-grained APIs
  * Following account-data docs: prefer fine-grained APIs over getUserHoldings
@@ -877,6 +907,36 @@ export async function getAccountPositionsDetailed(userId: string, userSecret: st
     console.error('Fine-grained positions API failed, falling back to getAllUserHoldings');
     // Fallback to original method if fine-grained API fails
     return await getPositions(userId, userSecret, accountId);
+  }
+}
+
+export async function getUserAccountActivities(userId: string, userSecret: string, accountId: string) {
+  try {
+    const response = await portfolioApi.getActivities({ userId, userSecret, accountId });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade getUserAccountActivities error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+export async function getSnapTradeAccountDetails(userId: string, userSecret: string, accountId: string) {
+  try {
+    const response = await accountsApi.getUserAccountDetails({ userId, userSecret, accountId });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade getSnapTradeAccountDetails error:', e?.responseBody || e?.message || e);
+    throw e;
+  }
+}
+
+export async function getAllUserHoldings(userId: string, userSecret: string) {
+  try {
+    const response = await accountsApi.getAllUserHoldings({ userId, userSecret });
+    return response.data;
+  } catch (e: any) {
+    console.error('SnapTrade getAllUserHoldings error:', e?.responseBody || e?.message || e);
+    throw e;
   }
 }
 

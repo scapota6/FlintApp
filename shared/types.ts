@@ -141,15 +141,22 @@ export type TimeInForce = "day" | "gtc" | "fok" | "ioc";
 
 export interface Order {
   id: string;
-  placedAt: ISODate | null;
+  placedAt?: ISODate | null; // Made optional for compatibility
   status: "open" | "filled" | "cancelled" | "rejected" | "partial_filled" | "unknown";
   side: OrderSide;
   type: OrderType;
   timeInForce: TimeInForce | null;
-  symbol: string;
+  symbol: string | null;
+  symbolId?: string | null;
   quantity: number;
-  limitPrice: Money | null;
-  averageFillPrice: Money | null;
+  price?: number | null;
+  limitPrice?: Money | null; // Made optional for compatibility
+  averageFillPrice?: Money | null; // Made optional for compatibility
+  filledQuantity?: number;
+  filledPrice?: number | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  accountId?: string;
 }
 
 export interface OrdersResponse {
@@ -160,11 +167,18 @@ export type ActivityType = "trade" | "dividend" | "interest" | "fee" | "transfer
 
 export interface Activity {
   id: string;
-  date: ISODate;
+  date?: ISODate; // Made optional for compatibility
+  tradeDate?: string | null;
+  settlementDate?: string | null;
   type: ActivityType;
-  description: string;
+  description: string | null;
   amount: Money;             // positive credit / negative debit
   symbol: string | null;
+  symbolId?: string | null;
+  quantity?: number;
+  price?: number | null;
+  currency?: string;
+  accountId?: string;
 }
 
 export interface ActivitiesResponse {
@@ -319,18 +333,65 @@ export interface AccountBalance {
   lastUpdated?: ISODate | null;
 }
 
+// SnapTrade enhanced types
+export interface Account {
+  id: string;
+  name: string;
+  number: string | null;
+  institutionName: string | null;
+  brokerageAuthorizationId: string | null;
+  accountType: string | null;
+  status: string | null;
+  balance: {
+    total: number;
+    currency: string;
+  };
+  syncStatus: {
+    holdingsLastSync: string | null;
+    transactionsLastSync: string | null;
+    initialSyncCompleted: boolean;
+  };
+  createdAt: string | null;
+  rawType: string | null;
+  cashRestrictions: string[];
+  meta?: any;
+}
+
+export interface Holding {
+  symbol: string | null;
+  symbolId: string | null;
+  description: string | null;
+  quantity: number;
+  averagePrice: number;
+  price: number;
+  marketValue: number;
+  unrealizedPnl: number;
+  unrealizedPnlPercent: number;
+  currency: string;
+  accountId: string;
+  accountName?: string | null;
+  institutionName?: string | null;
+}
+
 // Position Management
 export interface Position {
-  symbol: string;                    // e.g., "AAPL"
-  description?: string | null;       // e.g., "Apple Inc"
+  symbol: string | null;                    // e.g., "AAPL"
+  symbolId?: string | null;
+  description?: string | null;
   quantity: number;
-  averagePrice?: number | null;
+  averagePrice?: number;
+  price?: number;
+  avgPrice: Money | null;    // Required by existing type
+  marketPrice: Money | null; // Required by existing type
+  marketValue?: number;
+  unrealizedPnl?: number;
+  unrealizedPnlPercent?: number;
+  currency: string;
+  accountId?: string;
   currentPrice?: number | null;
-  marketValue?: Money | null;
   costBasis?: Money | null;
   unrealizedPnL?: Money | null;
   unrealizedPnLPercent?: number | null;
-  currency: string;
   lastUpdated?: ISODate | null;
 }
 
@@ -340,45 +401,10 @@ export interface AccountPositions {
   lastUpdated?: ISODate | null;
 }
 
-// Order Management
-export interface Order {
-  id: UUID;
-  accountId: UUID;
-  symbol: string;
-  side: 'BUY' | 'SELL';               // normalized
-  type: 'MARKET' | 'LIMIT' | 'STOP' | 'STOP_LIMIT'; // normalized
-  quantity: number;
-  price?: number | null;              // for limit orders
-  stopPrice?: number | null;          // for stop orders
-  status: 'PENDING' | 'FILLED' | 'CANCELLED' | 'REJECTED' | 'EXPIRED'; // normalized
-  timeInForce?: 'DAY' | 'GTC' | 'IOC' | 'FOK' | null;
-  filledQuantity?: number | null;
-  avgFillPrice?: number | null;
-  fees?: Money | null;
-  placedAt: ISODate;
-  filledAt?: ISODate | null;
-  cancelledAt?: ISODate | null;
-}
-
 export interface AccountOrders {
   accountId: UUID;
   orders: Order[];
   lastUpdated?: ISODate | null;
-}
-
-// Activity Management  
-export interface Activity {
-  id: UUID;
-  accountId: UUID;
-  type: 'TRADE' | 'DEPOSIT' | 'WITHDRAWAL' | 'DIVIDEND' | 'FEE' | 'OTHER'; // normalized
-  symbol?: string | null;
-  quantity?: number | null;
-  price?: number | null;
-  amount?: Money | null;
-  fees?: Money | null;
-  description: string;
-  date: ISODate;
-  settleDate?: ISODate | null;
 }
 
 export interface AccountActivities {
