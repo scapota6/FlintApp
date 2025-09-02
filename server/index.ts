@@ -143,6 +143,10 @@ const app = express();
 
   // Mount SnapTrade API router BEFORE auth setup (no auth required)
   app.use("/api/snaptrade", snaptradeRouter);
+  
+  // Mount versioned SnapTrade routes with proper error handling
+  const versionedSnaptradeRouter = (await import('./routes/snaptrade')).default;
+  app.use("/api/snaptrade", versionedSnaptradeRouter);
 
   // Initialize authentication and base routes
   const server = await registerRoutes(app);
