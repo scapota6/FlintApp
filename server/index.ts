@@ -161,9 +161,13 @@ const app = express();
   const snaptradeAuthRouter = (await import('./routes/snaptrade-auth')).default;
   const snaptradeConnectionsManagementRouter = (await import('./routes/snaptrade-connections-management')).default;
   const snaptradeAccountInformationRouter = (await import('./routes/snaptrade-account-information')).default;
+  const snaptradeOptionsRouter = (await import('./routes/snaptrade-options')).default;
+  const snaptradeReferenceDataRouter = (await import('./routes/snaptrade-reference-data')).default;
   app.use("/api/snaptrade", snaptradeAuthRouter);
   app.use("/api/snaptrade", snaptradeConnectionsManagementRouter);
   app.use("/api/snaptrade", snaptradeAccountInformationRouter);
+  app.use("/api/snaptrade/options", snaptradeOptionsRouter);
+  app.use("/api/snaptrade/reference", snaptradeReferenceDataRouter);
   
   // Mount routes that REQUIRE authentication AFTER passport is initialized
   // Mount SnapTrade connections router

@@ -4,6 +4,7 @@ import {
   varchar,
   timestamp,
   jsonb,
+  json,
   index,
   decimal,
   integer,
@@ -96,16 +97,124 @@ export const connectedAccounts = pgTable("connected_accounts", {
 export const snaptradeAccounts = pgTable('snaptrade_accounts', {
   id: varchar('id').primaryKey(), // account UUID
   connectionId: integer('connection_id').notNull().references(() => snaptradeConnections.id),
+  brokerageAuthId: varchar('brokerage_auth_id'),
+  brokerageName: varchar('brokerage_name'),
   institution: varchar('institution').notNull(),
   name: varchar('name'),
+  number: varchar('number'),
   numberMasked: varchar('number_masked'),
+  accountType: varchar('account_type'),
   rawType: varchar('raw_type'),
   status: varchar('status'),
   currency: varchar('currency').default('USD'),
   totalBalanceAmount: decimal('total_balance_amount', { precision: 15, scale: 2 }),
+  cashRestrictions: json('cash_restrictions'),
+  meta: json('meta'),
+  holdingsLastSync: timestamp('holdings_last_sync'),
+  transactionsLastSync: timestamp('transactions_last_sync'),
+  initialSyncCompleted: boolean('initial_sync_completed').default(false),
   lastHoldingsSyncAt: timestamp('last_holdings_sync_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 }, (table) => ({
   connectionIndex: index('snaptrade_accounts_connection_idx').on(table.connectionId),
+}));
+
+// SnapTrade account balances table
+export const snaptradeBalances = pgTable('snaptrade_balances', {
+  id: serial('id').primaryKey(),
+  accountId: varchar('account_id').notNull().references(() => snaptradeAccounts.id),
+  cash: decimal('cash', { precision: 15, scale: 2 }),
+  totalEquity: decimal('total_equity', { precision: 15, scale: 2 }),
+  buyingPower: decimal('buying_power', { precision: 15, scale: 2 }),
+  maintenanceExcess: decimal('maintenance_excess', { precision: 15, scale: 2 }),
+  currency: varchar('currency').default('USD'),
+  lastUpdated: timestamp('last_updated').defaultNow(),
+}, (table) => ({
+  accountIndex: index('snaptrade_balances_account_idx').on(table.accountId),
+}));
+
+// SnapTrade positions/holdings table
+export const snaptradePositions = pgTable('snaptrade_positions', {
+  id: serial('id').primaryKey(),
+  accountId: varchar('account_id').notNull().references(() => snaptradeAccounts.id),
+  symbol: varchar('symbol').notNull(),
+  symbolId: varchar('symbol_id'),
+  description: varchar('description'),
+  quantity: decimal('quantity', { precision: 15, scale: 8 }).notNull(),
+  avgCost: decimal('avg_cost', { precision: 15, scale: 4 }),
+  lastPrice: decimal('last_price', { precision: 15, scale: 4 }),
+  marketValue: decimal('market_value', { precision: 15, scale: 2 }),
+  unrealizedPnL: decimal('unrealized_pnl', { precision: 15, scale: 2 }),
+  unrealizedPnLPercent: decimal('unrealized_pnl_percent', { precision: 8, scale: 4 }),
+  currency: varchar('currency').default('USD'),
+  lastUpdated: timestamp('last_updated').defaultNow(),
+}, (table) => ({
+  accountSymbolIndex: index('snaptrade_positions_account_symbol_idx').on(table.accountId, table.symbol),
+}));
+
+// SnapTrade orders table
+export const snaptradeOrders = pgTable('snaptrade_orders', {
+  id: varchar('id').primaryKey(), // order UUID from SnapTrade
+  accountId: varchar('account_id').notNull().references(() => snaptradeAccounts.id),
+  symbol: varchar('symbol').notNull(),
+  symbolId: varchar('symbol_id'),
+  side: varchar('side').notNull(), // BUY/SELL
+  type: varchar('type').notNull(), // MARKET/LIMIT/STOP/STOP_LIMIT
+  timeInForce: varchar('time_in_force'), // DAY/GTC/FOK/IOC
+  quantity: decimal('quantity', { precision: 15, scale: 8 }).notNull(),
+  price: decimal('price', { precision: 15, scale: 4 }),
+  stopPrice: decimal('stop_price', { precision: 15, scale: 4 }),
+  limitPrice: decimal('limit_price', { precision: 15, scale: 4 }),
+  avgFillPrice: decimal('avg_fill_price', { precision: 15, scale: 4 }),
+  filledQuantity: decimal('filled_quantity', { precision: 15, scale: 8 }),
+  status: varchar('status').notNull(), // OPEN/FILLED/CANCELLED/REJECTED/EXPIRED
+  placedAt: timestamp('placed_at').notNull(),
+  filledAt: timestamp('filled_at'),
+  cancelledAt: timestamp('cancelled_at'),
+  lastUpdated: timestamp('last_updated').defaultNow(),
+}, (table) => ({
+  accountIndex: index('snaptrade_orders_account_idx').on(table.accountId),
+  symbolIndex: index('snaptrade_orders_symbol_idx').on(table.symbol),
+  statusIndex: index('snaptrade_orders_status_idx').on(table.status),
+}));
+
+// SnapTrade activities table
+export const snaptradeActivities = pgTable('snaptrade_activities', {
+  id: varchar('id').primaryKey(), // activity UUID from SnapTrade
+  accountId: varchar('account_id').notNull().references(() => snaptradeAccounts.id),
+  date: timestamp('date').notNull(),
+  type: varchar('type').notNull(), // TRADE/DIVIDEND/INTEREST/FEE/TRANSFER
+  description: text('description').notNull(),
+  amount: decimal('amount', { precision: 15, scale: 2 }).notNull(), // positive credit / negative debit
+  currency: varchar('currency').default('USD'),
+  symbol: varchar('symbol'),
+  symbolId: varchar('symbol_id'),
+  quantity: decimal('quantity', { precision: 15, scale: 8 }),
+  price: decimal('price', { precision: 15, scale: 4 }),
+  tradeDate: timestamp('trade_date'),
+  settlementDate: timestamp('settlement_date'),
+  lastUpdated: timestamp('last_updated').defaultNow(),
+}, (table) => ({
+  accountIndex: index('snaptrade_activities_account_idx').on(table.accountId),
+  dateIndex: index('snaptrade_activities_date_idx').on(table.date),
+  typeIndex: index('snaptrade_activities_type_idx').on(table.type),
+}));
+
+// SnapTrade option holdings table
+export const snaptradeOptionHoldings = pgTable('snaptrade_option_holdings', {
+  id: serial('id').primaryKey(),
+  accountId: varchar('account_id').notNull().references(() => snaptradeAccounts.id),
+  occSymbol: varchar('occ_symbol').notNull(), // OCC symbol format
+  description: varchar('description'),
+  quantity: decimal('quantity', { precision: 15, scale: 8 }).notNull(),
+  markPrice: decimal('mark_price', { precision: 15, scale: 4 }),
+  marketValue: decimal('market_value', { precision: 15, scale: 2 }),
+  unrealizedPnL: decimal('unrealized_pnl', { precision: 15, scale: 2 }),
+  currency: varchar('currency').default('USD'),
+  lastUpdated: timestamp('last_updated').defaultNow(),
+}, (table) => ({
+  accountIndex: index('snaptrade_option_holdings_account_idx').on(table.accountId),
 }));
 
 // Holdings (stocks, crypto, etc.)
