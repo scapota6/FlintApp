@@ -147,6 +147,10 @@ const app = express();
   // Mount versioned SnapTrade routes with proper error handling
   const versionedSnaptradeRouter = (await import('./routes/snaptrade')).default;
   app.use("/api/snaptrade", versionedSnaptradeRouter);
+  
+  // Start background services
+  const { snaptradeBackgroundService } = await import('./services/snaptrade-background');
+  await snaptradeBackgroundService.start();
 
   // Initialize authentication and base routes
   const server = await registerRoutes(app);
