@@ -38,8 +38,8 @@ export default function GlobalNavbar() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/';
+      // Use the correct logout endpoint
+      window.location.href = '/api/logout';
     } catch (error) {
       console.error('Logout failed:', error);
     }
