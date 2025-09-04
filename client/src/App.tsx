@@ -31,6 +31,29 @@ import Security from "@/pages/Security";
 import Monitoring from "@/pages/Monitoring";
 import TellerCallback from "@/pages/TellerCallback";
 
+// Protected route wrapper for admin-only access
+function AdminRoute({ component: Component }: { component: React.ComponentType }) {
+  const { user } = useAuth();
+  
+  if (!user?.isAdmin) {
+    return <NotFound />;
+  }
+  
+  return <Component />;
+}
+
+// Public route wrapper that redirects authenticated users
+function PublicRoute({ component: Component }: { component: React.ComponentType }) {
+  const { isAuthenticated } = useAuth();
+  
+  if (isAuthenticated) {
+    window.location.href = '/dashboard';
+    return null;
+  }
+  
+  return <Component />;
+}
+
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -51,7 +74,40 @@ function Router() {
             {!isAuthenticated ? (
               <>
                 <Route path="/" component={Landing} />
+                <Route path="/landing" component={Landing} />
                 <Route path="/success" component={SuccessPage} />
+                <Route path="/landing/success" component={SuccessPage} />
+                {/* Redirect any protected routes to login */}
+                <Route path="/dashboard">
+                  {() => { window.location.href = '/api/login'; return null; }}
+                </Route>
+                <Route path="/admin">
+                  {() => { window.location.href = '/api/login'; return null; }}
+                </Route>
+                <Route path="/accounts">
+                  {() => { window.location.href = '/api/login'; return null; }}
+                </Route>
+                <Route path="/trading">
+                  {() => { window.location.href = '/api/login'; return null; }}
+                </Route>
+                <Route path="/portfolio">
+                  {() => { window.location.href = '/api/login'; return null; }}
+                </Route>
+                <Route path="/transfers">
+                  {() => { window.location.href = '/api/login'; return null; }}
+                </Route>
+                <Route path="/watchlist">
+                  {() => { window.location.href = '/api/login'; return null; }}
+                </Route>
+                <Route path="/activity">
+                  {() => { window.location.href = '/api/login'; return null; }}
+                </Route>
+                <Route path="/settings">
+                  {() => { window.location.href = '/api/login'; return null; }}
+                </Route>
+                <Route path="/profile">
+                  {() => { window.location.href = '/api/login'; return null; }}
+                </Route>
               </>
             ) : (
               <>
@@ -62,7 +118,9 @@ function Router() {
                 <Route path="/watchlist" component={WatchlistPage} />
                 <Route path="/activity" component={Activity} />
                 <Route path="/subscribe" component={Subscribe} />
-                <Route path="/admin" component={Admin} />
+                <Route path="/admin">
+                  {() => <AdminRoute component={Admin} />}
+                </Route>
                 <Route path="/profile" component={Profile} />
                 <Route path="/news" component={News} />
                 <Route path="/stock/:symbol" component={StockDetail} />
@@ -76,6 +134,10 @@ function Router() {
                 <Route path="/security" component={Security} />
                 <Route path="/monitoring" component={Monitoring} />
                 <Route path="/teller/callback" component={TellerCallback} />
+                {/* Redirect authenticated users away from landing page */}
+                <Route path="/landing">
+                  {() => { window.location.href = '/dashboard'; return null; }}
+                </Route>
               </>
             )}
             <Route component={NotFound} />
