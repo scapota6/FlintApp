@@ -1341,6 +1341,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Landing page Stripe checkout routes
+  app.get('/api/checkout/:planId', async (req, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ message: "Payment processing not configured" });
+      }
+
+      const { planId } = req.params;
+      const { email } = req.query;
+
+      // Define all landing page plans with pricing
+      const plans = {
+        'annual-unlimited': { name: 'Flint Unlimited Annual', amount: 49999, description: 'Unlimited accounts, all features' }, // $499.99
+        'unlimited-6mo': { name: 'Flint Unlimited 6-Month', amount: 24999, description: '6 months of unlimited access' }, // $249.99
+        'plus-annual': { name: 'Flint Plus Annual', amount: 19999, description: 'Plus features for 1-4 accounts' }, // $199.99
+        'plus-yearly': { name: 'Flint Plus Yearly', amount: 19999, description: 'Plus features for 1-4 accounts' }, // $199.99
+        'plus-monthly': { name: 'Flint Plus Monthly', amount: 1999, description: 'Plus features for 1-4 accounts' }, // $19.99
+        'pro-yearly': { name: 'Flint Pro Yearly', amount: 39999, description: 'Pro features for advanced users' }, // $399.99
+        'pro-monthly': { name: 'Flint Pro Monthly', amount: 3999, description: 'Pro features for advanced users' }, // $39.99
+        'unlimited-yearly': { name: 'Flint Unlimited Yearly', amount: 49999, description: 'Unlimited accounts, all features' }, // $499.99
+        'unlimited-monthly': { name: 'Flint Unlimited Monthly', amount: 4999, description: 'Unlimited accounts, all features' }, // $49.99
+        'fast-track': { name: 'Fast-Track Pass', amount: 7999, description: 'Skip waitlist + instant access to Flint Free' }, // $79.99
+        'fast-track-upsell': { name: 'Fast-Track Pass', amount: 7999, description: 'Skip waitlist + instant access to Flint Free' } // $79.99
+      };
+
+      const plan = plans[planId as keyof typeof plans];
+      if (!plan) {
+        return res.status(404).json({ message: 'Plan not found' });
+      }
+
+      // Create Stripe checkout session
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: plan.name,
+              description: plan.description,
+            },
+            unit_amount: plan.amount,
+          },
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: `${req.protocol}://${req.get('host')}/landing/success?plan=${planId}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.protocol}://${req.get('host')}/landing#${planId}`,
+        metadata: {
+          planId,
+          source: 'landing_page'
+        },
+        ...(email && { customer_email: email as string })
+      });
+
+      // Redirect to Stripe checkout
+      res.redirect(303, session.url!);
+    } catch (error: any) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ message: "Failed to create checkout session: " + error.message });
+    }
+  });
+
   // Admin middleware - checks if user has admin privileges
   const isAdmin = async (req: any, res: any, next: any) => {
     try {

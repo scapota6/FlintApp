@@ -80,8 +80,8 @@ function Landing() {
   // Handle CTA clicks
   const handleCTAClick = (ctaId: string, price: string) => {
     trackEvent('click_cta', { cta_id: ctaId, price });
-    const checkoutUrl = getCheckoutUrl(ctaId, formData.email);
-    window.open(checkoutUrl, '_blank');
+    // Route to Stripe checkout
+    window.location.href = `/api/checkout/${ctaId}${formData.email ? `?email=${encodeURIComponent(formData.email)}` : ''}`;
   };
 
   // Handle form submission
@@ -256,10 +256,6 @@ function Landing() {
               >
                 Start with Unlimited – 6 Months for $249.99
               </Button>
-              
-              <Badge variant="secondary" className="bg-green-900 text-green-100">
-                Pause/Cancel after 6 months
-              </Badge>
             </div>
           </div>
         </section>
