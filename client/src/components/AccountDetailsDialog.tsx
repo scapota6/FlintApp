@@ -708,26 +708,40 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                      <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
                         <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Minimum Due</div>
-                        <div className="text-xl font-bold text-red-700 dark:text-red-300 mt-1">
-                          {data.creditCardInfo?.minimumDue ? fmtMoney(data.creditCardInfo?.minimumDue) : '—'}
+                        <div className="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">
+                          {data.creditCardInfo?.minimumDue ? fmtMoney(data.creditCardInfo?.minimumDue) : (
+                            <span className="text-gray-500 dark:text-gray-400" title="Not provided by issuer">N/A</span>
+                          )}
                         </div>
                       </div>
-                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
+                      <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
                         <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Statement Balance</div>
-                        <div className="text-xl font-bold text-red-700 dark:text-red-300 mt-1">
-                          {data.creditCardInfo?.statementBalance ? fmtMoney(data.creditCardInfo?.statementBalance) : '—'}
+                        <div className="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">
+                          {data.creditCardInfo?.statementBalance ? fmtMoney(data.creditCardInfo?.statementBalance) : (
+                            <span className="text-gray-500 dark:text-gray-400" title="Not provided by issuer">N/A</span>
+                          )}
                         </div>
                       </div>
-                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
+                      <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
+                        <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Available Credit</div>
+                        <div className="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">
+                          {data.creditCardInfo?.availableCredit ? fmtMoney(data.creditCardInfo?.availableCredit) : (
+                            <span className="text-gray-500 dark:text-gray-400" title="Not provided by issuer">N/A</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700">
                         <div className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Last Payment</div>
-                        <div className="text-sm font-bold text-red-700 dark:text-red-300 mt-1">
-                          {data.creditCardInfo?.lastPayment?.amount ? fmtMoney(data.creditCardInfo?.lastPayment?.amount) : '—'}
+                        <div className="text-lg font-bold text-red-700 dark:text-red-300 mt-1">
+                          {data.creditCardInfo?.lastPayment?.amount ? fmtMoney(data.creditCardInfo?.lastPayment?.amount) : (
+                            <span className="text-gray-500 dark:text-gray-400" title="Not provided by issuer">N/A</span>
+                          )}
                         </div>
                         <div className="text-xs text-red-600 dark:text-red-400 mt-1">
-                          {data.creditCardInfo?.lastPayment?.date || '—'}
+                          {data.creditCardInfo?.lastPayment?.date || 'N/A'}
                         </div>
                       </div>
                     </div>
@@ -794,37 +808,40 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm mr-3">💰</div>
                     Balances
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <Info label="Available balance" value={fmtMoney(data.balances?.available)} />
-                    {data.balances?.ledger && data.balances?.ledger !== data.balances?.available && (
-                      <Tooltip content="Ledger includes pending transactions; available is what you can use right now.">
-                        <div className="cursor-help">
-                          <Info 
-                            label={
-                              <div className="flex items-center gap-1">
-                                Ledger balance
-                                <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                              </div>
-                            } 
-                            value={fmtMoney(data.balances?.ledger)} 
-                          />
+                  
+                  {/* Emphasized Current & Available balances for bank accounts */}
+                  <div className="mb-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="text-center">
+                        <div className="text-xs font-medium text-green-600 dark:text-green-400 uppercase tracking-wide mb-2">Current Balance</div>
+                        <div className="text-4xl font-bold text-green-700 dark:text-green-300">
+                          {data.balances?.current ? fmtMoney(data.balances?.current) : 
+                           data.balances?.ledger ? fmtMoney(data.balances?.ledger) : (
+                            <span className="text-gray-500 dark:text-gray-400" title="Not provided by bank">N/A</span>
+                          )}
                         </div>
-                      </Tooltip>
-                    )}
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs font-medium text-green-600 dark:text-green-400 uppercase tracking-wide mb-2">Available Balance</div>
+                        <div className="text-4xl font-bold text-green-700 dark:text-green-300">
+                          {data.balances?.available ? fmtMoney(data.balances?.available) : (
+                            <span className="text-gray-500 dark:text-gray-400" title="Not provided by bank">N/A</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                     
-                    {/* For credit cards: show Credit limit, Available credit, Current balance */}
-                    {data.accountType === 'credit' && (
-                      <>
-                        {data.balances?.credit_limit && (
-                          <Info label="Credit limit" value={fmtMoney(data.balances?.credit_limit)} />
-                        )}
-                        {data.balances?.available_credit && (
-                          <Info label="Available credit" value={fmtMoney(data.balances?.available_credit)} />
-                        )}
-                        {data.balances?.current && (
-                          <Info label="Current balance" value={fmtMoney(data.balances?.current)} />
-                        )}
-                      </>
+                    {/* Additional balance details */}
+                    {(data.balances?.ledger && data.balances?.ledger !== data.balances?.available) && (
+                      <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-700">
+                        <div className="text-center">
+                          <div className="text-xs font-medium text-green-600 dark:text-green-400 uppercase tracking-wide mb-1">Ledger Balance</div>
+                          <div className="text-lg font-semibold text-green-700 dark:text-green-300 flex items-center justify-center gap-1">
+                            {fmtMoney(data.balances?.ledger)}
+                            <span className="text-xs text-green-600 dark:text-green-400 cursor-help" title="Ledger includes pending transactions; available is what you can use right now">ℹ️</span>
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </section>

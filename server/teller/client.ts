@@ -2,6 +2,171 @@ import { storage } from "../storage";
 import { logger } from "@shared/logger";
 import crypto from 'crypto';
 
+// ===== PRODUCTION-GRADE ERROR HANDLING & RESILIENCE =====
+
+interface RetryConfig {
+  maxAttempts: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+  jitterMs: number;
+}
+
+const DEFAULT_RETRY_CONFIG: RetryConfig = {
+  maxAttempts: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 10000,
+  jitterMs: 500
+};
+
+// Generate unique request ID for tracking
+function generateRequestId(): string {
+  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Calculate exponential backoff with jitter
+function calculateBackoffDelay(attempt: number, config: RetryConfig): number {
+  const exponentialDelay = Math.min(
+    config.baseDelayMs * Math.pow(2, attempt - 1),
+    config.maxDelayMs
+  );
+  const jitter = Math.random() * config.jitterMs;
+  return exponentialDelay + jitter;
+}
+
+// Enhanced fetch with retry logic and request ID tracking
+async function resilientTellerFetch(
+  url: string,
+  options: RequestInit,
+  context: string,
+  config: RetryConfig = DEFAULT_RETRY_CONFIG
+): Promise<Response> {
+  const requestId = generateRequestId();
+  
+  // Add request ID to headers for tracking
+  const enhancedOptions = {
+    ...options,
+    headers: {
+      ...options.headers,
+      'X-Request-ID': requestId,
+      'User-Agent': 'Flint/1.0 (Production)'
+    }
+  };
+
+  let lastError: any;
+  
+  for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
+    try {
+      console.log(`[Teller ${context}] Attempt ${attempt}/${config.maxAttempts}`, {
+        requestId,
+        url: url.replace(/\/accounts\/[^\/]+/, '/accounts/***'),
+        method: enhancedOptions.method || 'GET'
+      });
+
+      const response = await fetch(url, enhancedOptions);
+      
+      // Extract Teller's request ID from response headers if available
+      const tellerRequestId = response.headers.get('x-request-id') || response.headers.get('request-id');
+      
+      if (response.ok) {
+        console.log(`[Teller ${context}] Success`, {
+          requestId,
+          tellerRequestId,
+          status: response.status,
+          attempt
+        });
+        return response;
+      }
+
+      // Handle rate limiting with Retry-After header
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        const retryDelayMs = retryAfter ? parseInt(retryAfter) * 1000 : calculateBackoffDelay(attempt, config);
+        
+        console.warn(`[Teller ${context}] Rate limited`, {
+          requestId,
+          tellerRequestId,
+          retryAfter,
+          retryDelayMs,
+          attempt
+        });
+
+        if (attempt < config.maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+          continue;
+        }
+      }
+
+      // Retry on 5xx server errors
+      if (response.status >= 500 && response.status < 600) {
+        const retryDelayMs = calculateBackoffDelay(attempt, config);
+        
+        console.warn(`[Teller ${context}] Server error, retrying`, {
+          requestId,
+          tellerRequestId,
+          status: response.status,
+          retryDelayMs,
+          attempt
+        });
+
+        if (attempt < config.maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+          continue;
+        }
+      }
+
+      // For 4xx errors, don't retry but still log with request IDs
+      const errorText = await response.text();
+      let errorBody;
+      try {
+        errorBody = JSON.parse(errorText);
+      } catch {
+        errorBody = { message: errorText };
+      }
+
+      console.error(`[Teller ${context}] Client error`, {
+        requestId,
+        tellerRequestId,
+        status: response.status,
+        error: errorBody,
+        attempt
+      });
+
+      const error: any = new Error(`Teller API error: ${response.status}`);
+      error.response = { status: response.status };
+      error.responseBody = errorBody;
+      error.requestId = requestId;
+      error.tellerRequestId = tellerRequestId;
+      throw error;
+
+    } catch (error: any) {
+      lastError = error;
+      
+      // Don't retry on network/connection errors for final attempt
+      if (attempt === config.maxAttempts) {
+        console.error(`[Teller ${context}] Final failure`, {
+          requestId,
+          error: error.message,
+          attempts: config.maxAttempts
+        });
+        break;
+      }
+
+      // Retry on network errors
+      const retryDelayMs = calculateBackoffDelay(attempt, config);
+      console.warn(`[Teller ${context}] Network error, retrying`, {
+        requestId,
+        error: error.message,
+        retryDelayMs,
+        attempt
+      });
+
+      await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+    }
+  }
+
+  throw lastError;
+}
+
 // ===== TELLER API TYPES FOLLOWING OFFICIAL DOCUMENTATION =====
 
 interface TellerAccount {
@@ -174,11 +339,15 @@ interface TellerClient {
 export function handleTellerError(error: any, context: string) {
   const status = error?.response?.status || error?.status;
   const errorBody = error?.responseBody || error?.error;
+  const requestId = error?.requestId;
+  const tellerRequestId = error?.tellerRequestId;
   
   console.error(`Teller ${context} error:`, {
     status,
     error: errorBody,
-    message: error?.message
+    message: error?.message,
+    requestId,
+    tellerRequestId
   });
   
   // Handle specific Teller error patterns from docs
@@ -290,11 +459,27 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
   }
   
   // Create a map of account IDs to access tokens for quick lookup
+  const { EncryptionService } = await import('../services/EncryptionService');
+  const encryption = new EncryptionService();
+  
   const tokenMap = new Map<string, string>();
   accounts.forEach(acc => {
-    const token = acc.accessToken;
-    if (token && typeof token === 'string' && acc.externalAccountId) {
-      tokenMap.set(acc.externalAccountId, token);
+    const encryptedToken = acc.accessToken;
+    if (encryptedToken && typeof encryptedToken === 'string' && acc.externalAccountId) {
+      try {
+        // Decrypt the token before use
+        const decryptedToken = encryption.decrypt(encryptedToken);
+        tokenMap.set(acc.externalAccountId, decryptedToken);
+        
+        console.log('[Teller Security] Token decrypted for use', {
+          accountId: acc.externalAccountId,
+          encryptedLength: encryptedToken.length,
+          decryptedLength: decryptedToken.length
+        });
+      } catch (error) {
+        console.error('[Teller Security] Failed to decrypt token for account:', acc.externalAccountId, error);
+        // Skip this account if decryption fails
+      }
     }
   });
   
@@ -314,27 +499,16 @@ export async function tellerForUser(userId: string): Promise<TellerClient> {
         }
         
         try {
-          const response = await fetch(`https://api.teller.io/accounts/${accountId}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Accept': 'application/json'
-            }
-          });
-          
-          if (!response.ok) {
-            const errorText = await response.text();
-            let errorBody;
-            try {
-              errorBody = JSON.parse(errorText);
-            } catch {
-              errorBody = { message: errorText };
-            }
-            
-            const error: any = new Error(`Teller API error: ${response.status}`);
-            error.response = { status: response.status };
-            error.responseBody = errorBody;
-            handleTellerError(error, 'accounts.get');
-          }
+          const response = await resilientTellerFetch(
+            `https://api.teller.io/accounts/${accountId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+              }
+            },
+            'accounts.get'
+          );
           
           const data = await response.json();
           return data;

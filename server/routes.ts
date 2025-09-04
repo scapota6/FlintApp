@@ -1521,6 +1521,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const accounts = await tellerResponse.json();
       
+      // Encrypt the access token before storing
+      const { EncryptionService } = await import('./services/EncryptionService');
+      const encryption = new EncryptionService();
+      const encryptedToken = encryption.encrypt(token);
+      
+      console.log('[Teller Security] Access token encrypted for storage', {
+        userId,
+        accountCount: accounts.length,
+        tokenLength: token.length,
+        encryptedLength: encryptedToken.length
+      });
+      
       // Create account records for each connected account
       for (const account of accounts) {
         const accountData = {
@@ -1530,7 +1542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           accountName: account.name || 'Bank Account',
           accountType: 'bank',
           balance: parseFloat(account.balance?.available || "0.00"),
-          accessToken: token,
+          accessToken: encryptedToken, // Store encrypted token
           lastUpdated: new Date()
         };
         
@@ -1599,6 +1611,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const accounts = await tellerResponse.json();
       
+      // Encrypt the access token before storing
+      const { EncryptionService } = await import('./services/EncryptionService');
+      const encryption = new EncryptionService();
+      const encryptedToken = encryption.encrypt(token);
+      
+      console.log('[Teller Security] Access token encrypted for storage', {
+        userId,
+        accountCount: accounts.length,
+        tokenLength: token.length,
+        encryptedLength: encryptedToken.length
+      });
+      
       // Create account records for each connected account
       for (const account of accounts) {
         const accountData = {
@@ -1608,7 +1632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           accountName: account.name || 'Bank Account',
           accountType: 'bank',
           balance: parseFloat(account.balance?.available || "0.00"),
-          accessToken: token,
+          accessToken: encryptedToken, // Store encrypted token
           lastUpdated: new Date()
         };
         
@@ -2809,6 +2833,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== PRODUCTION WEBHOOK HEALTH MONITORING ENDPOINTS =====
+  
+  const { webhookHealthMonitor } = await import('./services/WebhookHealthMonitor');
+
+  // Enhanced webhook health check endpoint
+  app.get('/api/health/webhooks', async (req, res) => {
+    try {
+      const systemHealth = await webhookHealthMonitor.getSystemHealth();
+      const webhookHealth = webhookHealthMonitor.getHealth();
+      
+      const overallStatus = webhookHealth.status === 'unhealthy' ? 503 : 200;
+      res.status(overallStatus).json(systemHealth);
+      
+    } catch (error) {
+      console.error('[Health Check] Error:', error);
+      res.status(500).json({
+        error: 'Health check failed',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Dead letter queue management endpoint
+  app.get('/api/health/webhooks/dlq', async (req, res) => {
+    try {
+      const dlqItems = webhookHealthMonitor.getDeadLetterQueue().map(item => ({
+        failedAt: item.failedAt,
+        retryCount: item.retryCount,
+        webhookType: item.webhook?.type || 'unknown',
+        error: item.error || 'Unknown error'
+      }));
+      
+      res.json({
+        count: dlqItems.length,
+        items: dlqItems.slice(0, 20) // Return latest 20 for UI
+      });
+      
+    } catch (error) {
+      console.error('[DLQ Health] Error:', error);
+      res.status(500).json({ error: 'Failed to retrieve dead letter queue' });
+    }
+  });
+
+  // Dead letter queue retry endpoint
+  app.post('/api/health/webhooks/dlq/retry', async (req, res) => {
+    try {
+      const result = await webhookHealthMonitor.retryDeadLetterQueue();
+      
+      res.json({
+        message: `Attempted to retry ${result.retried} webhook(s)`,
+        remaining: result.remaining
+      });
+      
+    } catch (error) {
+      console.error('[DLQ Retry] Error:', error);
+      res.status(500).json({ error: 'Failed to retry dead letter queue items' });
+    }
+  });
+
+  // Webhook metrics endpoint for monitoring dashboards
+  app.get('/api/health/metrics', async (req, res) => {
+    try {
+      const metrics = webhookHealthMonitor.getMetrics();
+      res.json(metrics);
+    } catch (error) {
+      console.error('[Metrics] Error:', error);
+      res.status(500).json({ error: 'Failed to retrieve metrics' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
@@ -2991,6 +3085,7 @@ function calculateNextBillingDate(lastDate: string, frequency: string) {
   
   return date.toISOString().split('T')[0];
 }
+
 
 function categorizeSubscription(merchantKey: string) {
   const streaming = ['netflix', 'spotify', 'hulu', 'disney', 'amazon prime', 'apple music', 'youtube', 'hbo'];
