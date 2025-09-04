@@ -455,7 +455,6 @@ function Landing() {
               <Badge variant="outline" className="border-yellow-500 text-yellow-400">
                 Founding Member Pricing — lock this in before new features launch
               </Badge>
-              <p className="text-sm text-gray-400">Upgrade/downgrade anytime.</p>
             </div>
           </div>
         </section>
