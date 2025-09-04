@@ -2833,6 +2833,862 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== SNAPTRADE ACCOUNT DETAILS API ROUTES =====
+  
+  // Import SnapTrade functions and utilities
+  const { getUserAccountDetails, getUserAccountBalance, getUserAccountPositions, getUserAccountOrders, getUserAccountRecentOrders, listActivities } = await import('./lib/snaptrade');
+  const { getSnapUser } = await import('./store/snapUsers');
+  const { mapSnapTradeError } = await import('./lib/snaptrade-errors');
+
+  // Shared SnapTrade request context middleware
+  const resolveSnapTradeContext = async (req, res, next) => {
+    try {
+      // Get Flint user ID
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+            requestId: req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          }
+        });
+      }
+      
+      const flintId = req.user.claims.sub;
+      
+      // Get SnapTrade user from database
+      const snapUser = await getSnapUser(flintId);
+      if (!snapUser?.userSecret) {
+        return res.status(428).json({
+          error: {
+            code: 'SNAPTRADE_NOT_REGISTERED',
+            message: 'Complete SnapTrade registration to view account data',
+            requestId: req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          }
+        });
+      }
+      
+      // Attach resolved context
+      req.snapTradeContext = {
+        flintId,
+        snapUserId: snapUser.userId,
+        userSecret: snapUser.userSecret,
+        clientId: process.env.SNAPTRADE_CLIENT_ID
+      };
+      
+      next();
+    } catch (error) {
+      res.status(500).json({
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to resolve user context',
+          requestId: req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        }
+      });
+    }
+  };
+
+  // Shared error handler - NEVER return 200 {} on errors
+  const handleSnapTradeError = (error, requestId) => {
+    const errorCode = error.responseBody?.code || error.status?.toString();
+    
+    switch (errorCode) {
+      case '1076':
+      case '401':
+        return {
+          status: 401,
+          error: {
+            code: 'SIGNATURE_INVALID',
+            message: 'Authentication signature invalid - check keys/clock',
+            requestId
+          }
+        };
+        
+      case '428':
+        return {
+          status: 428,
+          error: {
+            code: 'SNAPTRADE_NOT_REGISTERED',
+            message: 'Complete SnapTrade registration to view account data',
+            requestId
+          }
+        };
+        
+      case '409':
+        return {
+          status: 409,
+          error: {
+            code: 'SNAPTRADE_USER_MISMATCH', 
+            message: 'SnapTrade user mismatch - reset required',
+            requestId
+          }
+        };
+        
+      case '429':
+        return {
+          status: 429,
+          error: {
+            code: 'RATE_LIMITED',
+            message: 'Rate limit exceeded - retrying with backoff',
+            requestId
+          }
+        };
+        
+      default:
+        return {
+          status: 500,
+          error: {
+            code: 'SNAPTRADE_ERROR',
+            message: error.message || 'SnapTrade API error',
+            requestId
+          }
+        };
+    }
+  };
+
+  // Apply middleware to all SnapTrade account routes
+  app.use('/api/snaptrade/accounts/:accountId/*', resolveSnapTradeContext);
+
+  // 1) Account Details (identity/meta)
+  app.get('/api/snaptrade/accounts/:accountId/details', async (req, res) => {
+    try {
+      const { snapUserId, userSecret } = req.snapTradeContext;
+      const { accountId } = req.params;
+      const requestId = req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      console.log('[SnapTrade Account Details] Request:', {
+        userId: snapUserId.slice(-6),
+        accountId: accountId.slice(-6),
+        requestId
+      });
+
+      // Call SnapTrade API
+      const accountDetails = await getUserAccountDetails(snapUserId, userSecret, accountId);
+
+      // Handle Robinhood brokerage name derivation if needed
+      let brokerageName = accountDetails.institution_name;
+      if (!brokerageName && accountDetails.brokerage_authorization) {
+        try {
+          // Try to get brokerage name from authorization if missing
+          const { accountsApi } = await import('./lib/snaptrade');
+          const authDetails = await accountsApi.detailBrokerageAuthorization({
+            authorizationId: accountDetails.brokerage_authorization,
+            userId: snapUserId,
+            userSecret: userSecret
+          });
+          brokerageName = authDetails.data?.brokerage?.name || accountDetails.institution_name;
+        } catch (authError) {
+          console.warn('[SnapTrade] Could not fetch brokerage authorization details:', authError);
+          brokerageName = accountDetails.institution_name;
+        }
+      }
+
+      // Return account details with all fields (null if missing) - ALWAYS include currency
+      const response = {
+        account: {
+          id: accountDetails.id || null,
+          brokerage: brokerageName || 'Unknown',
+          name: accountDetails.name || 'Investment Account',
+          numberMasked: accountDetails.number ? `...${accountDetails.number.slice(-4)}` : null,
+          type: accountDetails.meta?.type || accountDetails.raw_type || 'unknown',
+          status: accountDetails.status || accountDetails.meta?.status || 'unknown',
+          currency: accountDetails.balance?.total?.currency || 'USD' // ALWAYS default to USD
+        }
+      };
+
+      console.log('[SnapTrade Account Details] Success:', {
+        requestId,
+        accountId: accountId.slice(-6),
+        brokerage: response.account.brokerage,
+        type: response.account.type
+      });
+
+      res.json(response);
+
+    } catch (error) {
+      console.error('[SnapTrade Account Details] Error:', error);
+      const errorResponse = handleSnapTradeError(error, req.headers['x-request-id']);
+      res.status(errorResponse.status).json(errorResponse.error);
+    }
+  });
+
+  // 2) Account Balances (cards at top)
+  app.get('/api/snaptrade/accounts/:accountId/balances', async (req, res) => {
+    try {
+      const { snapUserId, userSecret } = req.snapTradeContext;
+      const { accountId } = req.params;
+      const requestId = req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      console.log('[SnapTrade Account Balances] Request:', {
+        userId: snapUserId.slice(-6),
+        accountId: accountId.slice(-6),
+        requestId
+      });
+
+      // Call SnapTrade API
+      const balanceData = await getUserAccountBalance(snapUserId, userSecret, accountId);
+
+      // Apply fallback logic per requirements with currency safety
+      const currency = (balanceData.total && balanceData.total.currency) || 'USD'; // ALWAYS default to USD
+      const total = balanceData.total_value || balanceData.equity || balanceData.total || null;
+      const cash = balanceData.cash || balanceData.cash_available || null;
+      const buyingPower = balanceData.buying_power || balanceData.margin_buying_power || null;
+      const maintenanceExcess = balanceData.maintenance_excess || null;
+
+      // Return balances with all fields (null if missing) - NEVER omit keys
+      const response = {
+        balances: {
+          total: total !== null ? { amount: parseFloat(total), currency } : null,
+          cash: cash !== null ? { amount: parseFloat(cash), currency } : null,
+          buyingPower: buyingPower !== null ? { amount: parseFloat(buyingPower), currency } : null,
+          maintenanceExcess: maintenanceExcess !== null ? { amount: parseFloat(maintenanceExcess), currency } : null
+        }
+      };
+
+      console.log('[SnapTrade Account Balances] Success:', {
+        requestId,
+        accountId: accountId.slice(-6),
+        hasTotal: response.balances.total !== null,
+        hasCash: response.balances.cash !== null,
+        hasBuyingPower: response.balances.buyingPower !== null
+      });
+
+      res.json(response);
+
+    } catch (error) {
+      console.error('[SnapTrade Account Balances] Error:', error);
+      const errorResponse = handleSnapTradeError(error, req.headers['x-request-id']);
+      res.status(errorResponse.status).json(errorResponse.error);
+    }
+  });
+
+  // 3) Positions (equities/ETFs) or Holdings (aggregate)
+  app.get('/api/snaptrade/accounts/:accountId/positions', async (req, res) => {
+    try {
+      const { snapUserId, userSecret } = req.snapTradeContext;
+      const { accountId } = req.params;
+      const requestId = req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      console.log('[SnapTrade Account Positions] Request:', {
+        userId: snapUserId.slice(-6),
+        accountId: accountId.slice(-6),
+        requestId
+      });
+
+      // Use existing getPositions function which has smart fallback logic
+      const positionsData = await getPositions(snapUserId, userSecret, accountId);
+      const asOfDate = new Date().toISOString();
+
+      // Transform positions data
+      const positions = positionsData.flatMap(accountData => {
+        if (!accountData.positions) return [];
+        
+        return accountData.positions.map(position => {
+          const currency = position.currency || position.instrument?.currency || 'USD';
+          
+          return {
+            symbol: position.instrument?.symbol || position.symbol || 'Unknown',
+            description: position.instrument?.name || position.description || position.instrument?.description || 'Unknown Security',
+            quantity: parseFloat(position.quantity || 0),
+            avgPrice: position.average_purchase_price ? {
+              amount: parseFloat(position.average_purchase_price.amount || position.average_purchase_price),
+              currency
+            } : null,
+            marketPrice: position.current_price || position.last_trade_price ? {
+              amount: parseFloat(position.current_price?.amount || position.last_trade_price?.amount || position.current_price || position.last_trade_price),
+              currency
+            } : null,
+            marketValue: position.market_value ? {
+              amount: parseFloat(position.market_value.amount || position.market_value),
+              currency
+            } : null,
+            unrealizedPnl: position.unrealized_pnl ? {
+              amount: parseFloat(position.unrealized_pnl.amount || position.unrealized_pnl),
+              currency
+            } : null,
+            currency
+          };
+        });
+      });
+
+      const response = {
+        accountId,
+        positions,
+        asOf: asOfDate
+      };
+
+      console.log('[SnapTrade Account Positions] Success:', {
+        requestId,
+        accountId: accountId.slice(-6),
+        positionCount: positions.length
+      });
+
+      res.json(response);
+
+    } catch (error) {
+      console.error('[SnapTrade Account Positions] Error:', error);
+      const errorResponse = handleSnapTradeError(error, req.headers['x-request-id']);
+      res.status(errorResponse.status).json(errorResponse.error);
+    }
+  });
+
+  // 4) Orders (read-only list)
+  app.get('/api/snaptrade/accounts/:accountId/orders', async (req, res) => {
+    try {
+      const { snapUserId, userSecret } = req.snapTradeContext;
+      const { accountId } = req.params;
+      const { from, to, limit } = req.query;
+      const requestId = req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      console.log('[SnapTrade Account Orders] Request:', {
+        userId: snapUserId.slice(-6),
+        accountId: accountId.slice(-6),
+        from, to, limit,
+        requestId
+      });
+
+      let ordersData;
+      
+      // Try recent orders first if no specific date range
+      if (!from && !to) {
+        try {
+          ordersData = await getUserAccountRecentOrders(snapUserId, userSecret, accountId);
+          console.log('[SnapTrade] Using recent orders API');
+        } catch (recentError) {
+          console.log('[SnapTrade] Recent orders failed, falling back to all orders');
+          ordersData = await getUserAccountOrders(snapUserId, userSecret, accountId);
+        }
+      } else {
+        // Use full orders API with filtering
+        ordersData = await getUserAccountOrders(snapUserId, userSecret, accountId);
+      }
+
+      // Apply date filtering if needed
+      let filteredOrders = ordersData || [];
+      if (from || to) {
+        filteredOrders = filteredOrders.filter(order => {
+          const orderDate = new Date(order.created_at || order.placed_at || order.updated_at);
+          if (from && orderDate < new Date(from)) return false;
+          if (to && orderDate > new Date(to)) return false;
+          return true;
+        });
+      }
+
+      // Apply limit
+      if (limit) {
+        filteredOrders = filteredOrders.slice(0, parseInt(limit));
+      }
+
+      // Transform orders
+      const orders = filteredOrders.map(order => {
+        const currency = order.currency || order.instrument?.currency || 'USD';
+        
+        // Normalize status
+        const normalizeStatus = (status) => {
+          const statusMap = {
+            'OPEN': 'open',
+            'FILLED': 'filled', 
+            'EXECUTED': 'filled',
+            'PARTIAL_FILL': 'partial_filled',
+            'PARTIALLY_FILLED': 'partial_filled',
+            'CANCELLED': 'cancelled',
+            'CANCELED': 'cancelled',
+            'REJECTED': 'rejected',
+            'FAILED': 'rejected'
+          };
+          return statusMap[status?.toUpperCase()] || 'unknown';
+        };
+
+        return {
+          id: order.id || order.brokerage_order_id || `order_${Date.now()}`,
+          placedAt: order.created_at || order.placed_at || order.updated_at || new Date().toISOString(),
+          status: normalizeStatus(order.status),
+          side: order.action?.toLowerCase() === 'buy' ? 'buy' : 'sell',
+          type: (order.order_type || order.type || 'market').toLowerCase(),
+          timeInForce: (order.time_in_force || 'day').toLowerCase(),
+          symbol: order.instrument?.symbol || order.symbol || 'Unknown',
+          quantity: parseFloat(order.quantity || order.units || 0),
+          limitPrice: order.price ? {
+            amount: parseFloat(order.price.amount || order.price),
+            currency
+          } : null,
+          averageFillPrice: order.filled_price || order.average_fill_price ? {
+            amount: parseFloat(order.filled_price?.amount || order.average_fill_price?.amount || order.filled_price || order.average_fill_price),
+            currency
+          } : { amount: null, currency }
+        };
+      });
+
+      const response = { orders };
+
+      console.log('[SnapTrade Account Orders] Success:', {
+        requestId,
+        accountId: accountId.slice(-6),
+        orderCount: orders.length
+      });
+
+      res.json(response);
+
+    } catch (error) {
+      console.error('[SnapTrade Account Orders] Error:', error);
+      const errorResponse = handleSnapTradeError(error, req.headers['x-request-id']);
+      res.status(errorResponse.status).json(errorResponse.error);
+    }
+  });
+
+  // 5) Activities (cash/dividends/trades/fees/transfers)
+  app.get('/api/snaptrade/accounts/:accountId/activities', async (req, res) => {
+    try {
+      const { snapUserId, userSecret } = req.snapTradeContext;
+      const { accountId } = req.params;
+      const { from, to, cursor } = req.query;
+      const requestId = req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      console.log('[SnapTrade Account Activities] Request:', {
+        userId: snapUserId.slice(-6),
+        accountId: accountId.slice(-6),
+        from, to, cursor,
+        requestId
+      });
+
+      // Call SnapTrade activities API
+      const activitiesData = await listActivities(snapUserId, userSecret, accountId);
+
+      // Map activity types
+      const mapActivityType = (activity) => {
+        const typeMap = {
+          'BUY': 'trade',
+          'SELL': 'trade',
+          'TRADE': 'trade',
+          'EXECUTION': 'trade',
+          'DIVIDEND': 'dividend',
+          'DIV': 'dividend',
+          'INTEREST': 'interest',
+          'INT': 'interest',
+          'FEE': 'fee',
+          'COMMISSION': 'fee',
+          'EXPENSE': 'fee',
+          'TRANSFER': 'transfer',
+          'DEPOSIT': 'transfer',
+          'WITHDRAWAL': 'transfer',
+          'CASH': 'transfer'
+        };
+        
+        const activityType = activity.type || activity.activity_type || activity.transaction_type;
+        return typeMap[activityType?.toUpperCase()] || 'transfer';
+      };
+
+      // Transform activities
+      const activities = (activitiesData || []).map(activity => {
+        const currency = activity.currency || activity.amount?.currency || 'USD';
+        
+        return {
+          id: activity.id || activity.transaction_id || `act_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          date: activity.date || activity.settlement_date || activity.trade_date || new Date().toISOString().split('T')[0],
+          type: mapActivityType(activity),
+          description: activity.description || activity.instrument?.name || `${activity.type || 'Activity'}`,
+          amount: {
+            amount: parseFloat(activity.amount?.amount || activity.net_amount || activity.gross_amount || activity.amount || 0),
+            currency
+          },
+          symbol: activity.instrument?.symbol || activity.symbol || null
+        };
+      });
+
+      // Apply date filtering
+      let filteredActivities = activities;
+      if (from || to) {
+        filteredActivities = activities.filter(activity => {
+          const activityDate = new Date(activity.date);
+          if (from && activityDate < new Date(from)) return false;
+          if (to && activityDate > new Date(to)) return false;
+          return true;
+        });
+      }
+
+      // Simple pagination with cursor (basic implementation)
+      let nextCursor = null;
+      const pageSize = 50;
+      if (filteredActivities.length > pageSize) {
+        filteredActivities = filteredActivities.slice(0, pageSize);
+        nextCursor = Buffer.from(JSON.stringify({
+          date: filteredActivities[filteredActivities.length - 1].date,
+          id: filteredActivities[filteredActivities.length - 1].id
+        })).toString('base64');
+      }
+
+      const response = {
+        activities: filteredActivities,
+        nextCursor
+      };
+
+      console.log('[SnapTrade Account Activities] Success:', {
+        requestId,
+        accountId: accountId.slice(-6),
+        activityCount: filteredActivities.length
+      });
+
+      res.json(response);
+
+    } catch (error) {
+      console.error('[SnapTrade Account Activities] Error:', error);
+      const errorResponse = handleSnapTradeError(error, req.headers['x-request-id']);
+      res.status(errorResponse.status).json(errorResponse.error);
+    }
+  });
+
+  // 6) Options Holdings (using optionsApi or fallback to positions filter)
+  app.get('/api/snaptrade/accounts/:accountId/options', async (req, res) => {
+    try {
+      const { snapUserId, userSecret } = req.snapTradeContext;
+      const { accountId } = req.params;
+      const requestId = req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      console.log('[SnapTrade Account Options] Request:', {
+        userId: snapUserId.slice(-6),
+        accountId: accountId.slice(-6),
+        requestId
+      });
+
+      let optionsData = [];
+      
+      try {
+        // Try options-specific API first
+        const { optionsApi } = await import('./lib/snaptrade');
+        const optionsResponse = await optionsApi.listOptionHoldings({
+          userId: snapUserId,
+          userSecret: userSecret,
+          accountId: accountId
+        });
+        optionsData = optionsResponse.data || [];
+        console.log('[SnapTrade] Using options-specific API');
+      } catch (optionsError) {
+        console.log('[SnapTrade] Options API not available, falling back to positions filter');
+        
+        // Fallback: filter options from general positions
+        try {
+          const positionsData = await getUserAccountPositions(snapUserId, userSecret, accountId);
+          optionsData = (positionsData || []).filter(position => 
+            position.instrument?.instrument_type === 'Option' ||
+            position.instrument?.symbol?.includes(' C ') ||
+            position.instrument?.symbol?.includes(' P ') ||
+            position.symbol?.includes(' C ') ||
+            position.symbol?.includes(' P ')
+          );
+        } catch (positionsError) {
+          // If both fail, return empty array (not an error)
+          console.warn('[SnapTrade] Both options and positions APIs failed:', positionsError);
+          optionsData = [];
+        }
+      }
+
+      // Transform options holdings with symbol formatting
+      const formatOptionsSymbol = (option) => {
+        const {
+          underlying_symbol,
+          expiration_date,
+          option_type, // 'call' or 'put'
+          strike_price
+        } = option.instrument || option;
+        
+        if (!underlying_symbol || !expiration_date || !option_type || !strike_price) {
+          return option.instrument?.symbol || option.symbol || 'Unknown Option';
+        }
+        
+        // Format: "AAPL 2025-12-19 C 200"
+        const typeCode = option_type?.toLowerCase() === 'call' ? 'C' : 'P';
+        return `${underlying_symbol} ${expiration_date} ${typeCode} ${strike_price}`;
+      };
+
+      const formatOptionsDescription = (option) => {
+        const {
+          underlying_symbol,
+          expiration_date,
+          option_type,
+          strike_price
+        } = option.instrument || option;
+        
+        if (!underlying_symbol || !expiration_date || !option_type || !strike_price) {
+          return option.instrument?.name || option.description || 'Unknown Option';
+        }
+        
+        // Format: "AAPL Dec19'25 200 Call"
+        const date = new Date(expiration_date);
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const month = monthNames[date.getMonth()];
+        const day = date.getDate();
+        const year = date.getFullYear().toString().slice(-2);
+        
+        return `${underlying_symbol} ${month}${day}'${year} ${strike_price} ${option_type}`;
+      };
+
+      const holdings = optionsData.map(holding => {
+        const currency = holding.currency || holding.instrument?.currency || 'USD';
+        
+        return {
+          symbol: formatOptionsSymbol(holding),
+          description: formatOptionsDescription(holding),
+          quantity: parseFloat(holding.quantity || 0),
+          marketPrice: holding.price || holding.market_price ? {
+            amount: parseFloat(holding.price?.amount || holding.market_price?.amount || holding.price || holding.market_price),
+            currency
+          } : null,
+          marketValue: holding.market_value ? {
+            amount: parseFloat(holding.market_value?.amount || holding.market_value),
+            currency
+          } : null,
+          unrealizedPnl: holding.unrealized_pnl ? {
+            amount: parseFloat(holding.unrealized_pnl?.amount || holding.unrealized_pnl),
+            currency
+          } : null
+        };
+      });
+
+      const response = { holdings };
+
+      console.log('[SnapTrade Account Options] Success:', {
+        requestId,
+        accountId: accountId.slice(-6),
+        holdingCount: holdings.length
+      });
+
+      res.json(response);
+
+    } catch (error) {
+      console.error('[SnapTrade Account Options] Error:', error);
+      const errorResponse = handleSnapTradeError(error, req.headers['x-request-id']);
+      res.status(errorResponse.status).json(errorResponse.error);
+    }
+  });
+
+  // ===== SNAPTRADE CONNECTIONS API ROUTES =====
+
+  // Apply middleware to all SnapTrade connection routes
+  app.use('/api/snaptrade/connections*', resolveSnapTradeContext);
+
+  // 7) List Connections (for header display and health monitoring)
+  app.get('/api/snaptrade/connections', async (req, res) => {
+    try {
+      const { snapUserId, userSecret } = req.snapTradeContext;
+      const requestId = req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      console.log('[SnapTrade Connections] List Request:', {
+        userId: snapUserId.slice(-6),
+        requestId
+      });
+
+      // Call SnapTrade connections API
+      const { accountsApi } = await import('./lib/snaptrade');
+      const connectionsResponse = await accountsApi.listBrokerageAuthorizations({
+        userId: snapUserId,
+        userSecret: userSecret
+      });
+
+      const authorizations = connectionsResponse.data || [];
+
+      // Determine connection health for each authorization
+      const determineConnectionHealth = (authorization) => {
+        const {
+          disabled,
+          created_at,
+          updated_at,
+          last_sync,
+          metadata
+        } = authorization;
+        
+        // Check if explicitly disabled
+        if (disabled === true) {
+          return {
+            status: 'DISABLED',
+            needs_reconnect: true,
+            reconnect_url: `/snaptrade/auth?reconnect=${authorization.id}`
+          };
+        }
+        
+        // Check last sync time (if available)
+        if (last_sync) {
+          const lastSyncDate = new Date(last_sync);
+          const hoursSinceSync = (Date.now() - lastSyncDate.getTime()) / (1000 * 60 * 60);
+          
+          if (hoursSinceSync > 48) { // 48 hours without sync
+            return {
+              status: 'DISCONNECTED',
+              needs_reconnect: true,
+              reconnect_url: `/snaptrade/auth?reconnect=${authorization.id}`
+            };
+          }
+        }
+        
+        return {
+          status: 'CONNECTED',
+          needs_reconnect: false,
+          reconnect_url: null
+        };
+      };
+
+      // Transform connections data
+      const connections = authorizations.map(auth => {
+        const health = determineConnectionHealth(auth);
+        
+        return {
+          id: auth.id || auth.authorization_id,
+          brokerage: {
+            id: auth.brokerage?.id || auth.brokerage?.slug,
+            name: auth.brokerage?.name || auth.brokerage?.display_name || 'Unknown',
+            logo: auth.brokerage?.logo_url || auth.brokerage?.logo || null,
+            display_name: auth.brokerage?.display_name || auth.brokerage?.name || 'Unknown'
+          },
+          status: health.status,
+          created_at: auth.created_at || new Date().toISOString(),
+          last_sync: auth.updated_at || auth.last_sync || null,
+          disabled: auth.disabled || false,
+          needs_reconnect: health.needs_reconnect,
+          reconnect_url: health.reconnect_url
+        };
+      });
+
+      const response = { connections };
+
+      console.log('[SnapTrade Connections] List Success:', {
+        requestId,
+        connectionCount: connections.length,
+        connectedCount: connections.filter(c => c.status === 'CONNECTED').length
+      });
+
+      res.json(response);
+
+    } catch (error) {
+      console.error('[SnapTrade Connections] List Error:', error);
+      const errorResponse = handleSnapTradeError(error, req.headers['x-request-id']);
+      res.status(errorResponse.status).json(errorResponse.error);
+    }
+  });
+
+  // 8) Connection Details (specific authorization)
+  app.get('/api/snaptrade/connections/:authorizationId', async (req, res) => {
+    try {
+      const { snapUserId, userSecret } = req.snapTradeContext;
+      const { authorizationId } = req.params;
+      const requestId = req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      console.log('[SnapTrade Connection Details] Request:', {
+        userId: snapUserId.slice(-6),
+        authorizationId: authorizationId.slice(-6),
+        requestId
+      });
+
+      // Call SnapTrade connection details API
+      const { accountsApi } = await import('./lib/snaptrade');
+      const connectionResponse = await accountsApi.detailBrokerageAuthorization({
+        authorizationId: authorizationId,
+        userId: snapUserId,
+        userSecret: userSecret
+      });
+
+      const auth = connectionResponse.data;
+      if (!auth) {
+        return res.status(404).json({
+          error: {
+            code: 'CONNECTION_NOT_FOUND',
+            message: 'Connection not found',
+            requestId
+          }
+        });
+      }
+
+      // Determine connection health
+      const determineConnectionHealth = (authorization) => {
+        const {
+          disabled,
+          created_at,
+          updated_at,
+          last_sync,
+          metadata
+        } = authorization;
+        
+        if (disabled === true) {
+          return {
+            status: 'DISABLED',
+            needs_reconnect: true,
+            reconnect_url: `/snaptrade/auth?reconnect=${authorization.id}`
+          };
+        }
+        
+        if (last_sync) {
+          const lastSyncDate = new Date(last_sync);
+          const hoursSinceSync = (Date.now() - lastSyncDate.getTime()) / (1000 * 60 * 60);
+          
+          if (hoursSinceSync > 48) {
+            return {
+              status: 'DISCONNECTED',
+              needs_reconnect: true,
+              reconnect_url: `/snaptrade/auth?reconnect=${authorization.id}`
+            };
+          }
+        }
+        
+        return {
+          status: 'CONNECTED',
+          needs_reconnect: false,
+          reconnect_url: null
+        };
+      };
+
+      const health = determineConnectionHealth(auth);
+
+      // Get account count for this connection
+      let accountCount = 0;
+      try {
+        const accountsResponse = await accountsApi.listUserAccounts({
+          userId: snapUserId,
+          userSecret: userSecret
+        });
+        accountCount = (accountsResponse.data || []).filter(acc => 
+          acc.brokerage_authorization === auth.id
+        ).length;
+      } catch (accountsError) {
+        console.warn('[SnapTrade] Could not fetch account count:', accountsError);
+      }
+
+      const response = {
+        connection: {
+          id: auth.id || auth.authorization_id,
+          brokerage: {
+            id: auth.brokerage?.id || auth.brokerage?.slug,
+            name: auth.brokerage?.name || auth.brokerage?.display_name || 'Unknown',
+            logo: auth.brokerage?.logo_url || auth.brokerage?.logo || null,
+            display_name: auth.brokerage?.display_name || auth.brokerage?.name || 'Unknown'
+          },
+          status: health.status,
+          created_at: auth.created_at || new Date().toISOString(),
+          last_sync: auth.updated_at || auth.last_sync || null,
+          disabled: auth.disabled || false,
+          needs_reconnect: health.needs_reconnect,
+          reconnect_url: health.reconnect_url,
+          metadata: {
+            account_count: accountCount,
+            sync_status: health.status === 'CONNECTED' ? 'healthy' : 'needs_attention'
+          }
+        }
+      };
+
+      console.log('[SnapTrade Connection Details] Success:', {
+        requestId,
+        authorizationId: authorizationId.slice(-6),
+        status: health.status,
+        accountCount
+      });
+
+      res.json(response);
+
+    } catch (error) {
+      console.error('[SnapTrade Connection Details] Error:', error);
+      const errorResponse = handleSnapTradeError(error, req.headers['x-request-id']);
+      res.status(errorResponse.status).json(errorResponse.error);
+    }
+  });
+
   // ===== PRODUCTION WEBHOOK HEALTH MONITORING ENDPOINTS =====
   
   const { webhookHealthMonitor } = await import('./services/WebhookHealthMonitor');

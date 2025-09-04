@@ -447,9 +447,96 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
   };
   const [isReconnecting, setIsReconnecting] = useState(false);
   
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  // Detect if this is a SnapTrade account (UUID format)
+  const isSnapTradeAccount = accountId.includes('-') && accountId.length > 30;
+  
+  // For SnapTrade accounts, use parallel API calls to fix "—" everywhere problem
+  const snapTradeQueries = {
+    details: useQuery({
+      queryKey: ['snaptrade-account-details', accountId],
+      enabled: open && isSnapTradeAccount,
+      queryFn: async () => {
+        const resp = await fetch(`/api/snaptrade/accounts/${accountId}/details`, {
+          headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
+          credentials: 'include',
+        });
+        if (!resp.ok) {
+          const errorData = await resp.json().catch(() => ({ message: resp.statusText, status: resp.status }));
+          throw errorData;
+        }
+        return resp.json();
+      }
+    }),
+    
+    balances: useQuery({
+      queryKey: ['snaptrade-account-balances', accountId],
+      enabled: open && isSnapTradeAccount,
+      queryFn: async () => {
+        const resp = await fetch(`/api/snaptrade/accounts/${accountId}/balances`, {
+          headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
+          credentials: 'include',
+        });
+        if (!resp.ok) {
+          const errorData = await resp.json().catch(() => ({ message: resp.statusText, status: resp.status }));
+          throw errorData;
+        }
+        return resp.json();
+      }
+    }),
+    
+    positions: useQuery({
+      queryKey: ['snaptrade-account-positions', accountId],
+      enabled: open && isSnapTradeAccount,
+      queryFn: async () => {
+        const resp = await fetch(`/api/snaptrade/accounts/${accountId}/positions`, {
+          headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
+          credentials: 'include',
+        });
+        if (!resp.ok) {
+          const errorData = await resp.json().catch(() => ({ message: resp.statusText, status: resp.status }));
+          throw errorData;
+        }
+        return resp.json();
+      }
+    }),
+    
+    orders: useQuery({
+      queryKey: ['snaptrade-account-orders', accountId],
+      enabled: open && isSnapTradeAccount,
+      queryFn: async () => {
+        const resp = await fetch(`/api/snaptrade/accounts/${accountId}/orders`, {
+          headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
+          credentials: 'include',
+        });
+        if (!resp.ok) {
+          const errorData = await resp.json().catch(() => ({ message: resp.statusText, status: resp.status }));
+          throw errorData;
+        }
+        return resp.json();
+      }
+    }),
+    
+    activities: useQuery({
+      queryKey: ['snaptrade-account-activities', accountId],
+      enabled: open && isSnapTradeAccount,
+      queryFn: async () => {
+        const resp = await fetch(`/api/snaptrade/accounts/${accountId}/activities`, {
+          headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
+          credentials: 'include',
+        });
+        if (!resp.ok) {
+          const errorData = await resp.json().catch(() => ({ message: resp.statusText, status: resp.status }));
+          throw errorData;
+        }
+        return resp.json();
+      }
+    })
+  };
+  
+  // Legacy single query for Teller and other accounts
+  const { data: legacyData, isLoading: legacyIsLoading, isError: legacyIsError, error: legacyError, refetch } = useQuery({
     queryKey: ['account-details', accountId],
-    enabled: open,
+    enabled: open && !isSnapTradeAccount,
     queryFn: async () => {
       const resp = await fetch(`/api/accounts/${accountId}/details`, {
         headers: { 'x-user-id': currentUserId },
@@ -482,6 +569,98 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
       return resp.json();
     }
   });
+  
+  // Transform SnapTrade parallel data into unified format
+  const snapTradeData = isSnapTradeAccount ? {
+    provider: 'snaptrade',
+    accountInformation: {
+      id: snapTradeQueries.details.data?.account?.id || accountId,
+      name: snapTradeQueries.details.data?.account?.name || 'Investment Account',
+      number: snapTradeQueries.details.data?.account?.numberMasked || '—',
+      brokerage: snapTradeQueries.details.data?.account?.brokerage || 'Unknown',
+      type: snapTradeQueries.details.data?.account?.type || 'unknown',
+      status: snapTradeQueries.details.data?.account?.status || 'unknown',
+      currency: snapTradeQueries.details.data?.account?.currency || 'USD',
+      balancesOverview: {
+        cash: snapTradeQueries.balances.data?.balances?.cash?.amount || null,
+        equity: snapTradeQueries.balances.data?.balances?.total?.amount || null,
+        buyingPower: snapTradeQueries.balances.data?.balances?.buyingPower?.amount || null,
+      }
+    },
+    balancesAndHoldings: {
+      balances: {
+        cashAvailableToTrade: snapTradeQueries.balances.data?.balances?.cash?.amount || null,
+        totalEquityValue: snapTradeQueries.balances.data?.balances?.total?.amount || null,
+        buyingPowerOrMargin: snapTradeQueries.balances.data?.balances?.buyingPower?.amount || null,
+      },
+      holdings: snapTradeQueries.positions.data?.positions?.map((position: any) => ({
+        symbol: position.symbol || 'Unknown',
+        name: position.description || 'Unknown Security',
+        quantity: position.quantity || 0,
+        costBasis: position.avgPrice?.amount || null,
+        marketValue: position.marketValue?.amount || null,
+        currentPrice: position.marketPrice?.amount || null,
+        unrealized: position.unrealizedPnl?.amount || null,
+      })) || []
+    },
+    positionsAndOrders: {
+      activePositions: snapTradeQueries.positions.data?.positions || [],
+      pendingOrders: (snapTradeQueries.orders.data?.orders || []).filter((order: any) => 
+        order.status === 'open' || order.status === 'partial_filled'
+      ),
+      orderHistory: snapTradeQueries.orders.data?.orders || []
+    },
+    tradingActions: {
+      canPlaceOrders: true,
+      canCancelOrders: true,
+      canGetConfirmations: true
+    },
+    activityAndTransactions: snapTradeQueries.activities.data?.activities?.map((activity: any) => ({
+      type: activity.type || 'transfer',
+      symbol: activity.symbol || null,
+      amount: activity.amount?.amount || 0,
+      quantity: null,
+      timestamp: activity.date || new Date().toISOString(),
+      description: activity.description || 'Transaction'
+    })) || [],
+    metadata: {
+      fetched_at: new Date().toISOString(),
+      last_sync: null,
+      cash_restrictions: [],
+      account_created: null
+    }
+  } : null;
+  
+  // Compute loading, error states for SnapTrade
+  const snapTradeIsLoading = isSnapTradeAccount && (
+    snapTradeQueries.details.isLoading ||
+    snapTradeQueries.balances.isLoading ||
+    snapTradeQueries.positions.isLoading ||
+    snapTradeQueries.orders.isLoading ||
+    snapTradeQueries.activities.isLoading
+  );
+  
+  const snapTradeHasError = isSnapTradeAccount && (
+    snapTradeQueries.details.isError ||
+    snapTradeQueries.balances.isError ||
+    snapTradeQueries.positions.isError ||
+    snapTradeQueries.orders.isError ||
+    snapTradeQueries.activities.isError
+  );
+  
+  const snapTradeError = isSnapTradeAccount ? (
+    snapTradeQueries.details.error ||
+    snapTradeQueries.balances.error ||
+    snapTradeQueries.positions.error ||
+    snapTradeQueries.orders.error ||
+    snapTradeQueries.activities.error
+  ) : null;
+  
+  // Unified state for both SnapTrade and legacy
+  const data = isSnapTradeAccount ? snapTradeData : legacyData;
+  const isLoading = isSnapTradeAccount ? snapTradeIsLoading : legacyIsLoading;
+  const isError = isSnapTradeAccount ? snapTradeHasError : legacyIsError;
+  const error = isSnapTradeAccount ? snapTradeError : legacyError;
   
   // Extract error details for dev mode
   const errorDetails = error as any;
@@ -575,7 +754,262 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
               <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 dark:border-purple-800"></div>
               <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-purple-600 absolute top-0 left-0"></div>
             </div>
-            <span className="ml-4 text-gray-600 dark:text-gray-400 font-medium">Loading account details...</span>
+            <span className="ml-4 text-gray-600 dark:text-gray-400 font-medium">
+              {isSnapTradeAccount ? 'Loading account details...' : 'Loading account details...'}
+            </span>
+          </div>
+        )}
+        
+        {/* SnapTrade Section-Specific Loading and Error States */}
+        {isSnapTradeAccount && data && (
+          <div className="p-6 max-h-[calc(95vh-140px)] overflow-y-auto space-y-6">
+            {/* Account Header with skeleton */}
+            <section>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm mr-3">1</div>
+                Account Information
+              </h3>
+              
+              {snapTradeQueries.details.isLoading ? (
+                <div className="animate-pulse">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+                    <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+                    <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+                    <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+                  </div>
+                </div>
+              ) : snapTradeQueries.details.isError ? (
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                    <div>
+                      <h4 className="font-semibold text-red-800 dark:text-red-200">Account Details Error</h4>
+                      <p className="text-sm text-red-600 dark:text-red-300 mt-1">
+                        {(snapTradeQueries.details.error as any)?.message || 'Failed to load account details'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Info label="Brokerage" value={data.accountInformation.brokerage} />
+                  <Info label="Account Type" value={data.accountInformation.type} />
+                  <Info label="Currency" value={data.accountInformation.currency} />
+                  <Info label="Account Number" value={data.accountInformation.number} />
+                </div>
+              )}
+            </section>
+
+            {/* Balances Section with skeleton */}
+            <section>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm mr-3">2</div>
+                Balances
+              </h3>
+              
+              {snapTradeQueries.balances.isLoading ? (
+                <div className="animate-pulse">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+                    <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+                    <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+                  </div>
+                </div>
+              ) : snapTradeQueries.balances.isError ? (
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                    <div>
+                      <h4 className="font-semibold text-red-800 dark:text-red-200">Balance Information Error</h4>
+                      <p className="text-sm text-red-600 dark:text-red-300 mt-1">
+                        {(snapTradeQueries.balances.error as any)?.message || 'Failed to load balance information'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Info label="Cash Available" value={fmtMoney(data.balancesAndHoldings.balances.cashAvailableToTrade)} />
+                  <Info label="Total Equity" value={fmtMoney(data.balancesAndHoldings.balances.totalEquityValue)} />
+                  <Info label="Buying Power" value={fmtMoney(data.balancesAndHoldings.balances.buyingPowerOrMargin)} />
+                </div>
+              )}
+            </section>
+
+            {/* Holdings Section with skeleton */}
+            <section>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm mr-3">📊</div>
+                Holdings & Positions
+              </h3>
+              
+              {snapTradeQueries.positions.isLoading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                  <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                  <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                </div>
+              ) : snapTradeQueries.positions.isError ? (
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                    <div>
+                      <h4 className="font-semibold text-red-800 dark:text-red-200">Holdings Error</h4>
+                      <p className="text-sm text-red-600 dark:text-red-300 mt-1">
+                        {(snapTradeQueries.positions.error as any)?.message || 'Failed to load holdings'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : data.balancesAndHoldings.holdings && data.balancesAndHoldings.holdings.length > 0 ? (
+                <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/30 dark:to-red-900/30">
+                      <tr>
+                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Symbol</th>
+                        <th className="text-left p-3 font-semibold text-gray-900 dark:text-white">Description</th>
+                        <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Quantity</th>
+                        <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Current Price</th>
+                        <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">Market Value</th>
+                        <th className="text-right p-3 font-semibold text-gray-900 dark:text-white">P&L</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.balancesAndHoldings.holdings.map((holding: any, index: number) => (
+                        <tr key={index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors duration-150">
+                          <td className="p-3 text-gray-900 dark:text-white font-medium">
+                            <div className="font-semibold">{holding.symbol}</div>
+                          </td>
+                          <td className="p-3 text-gray-900 dark:text-white">
+                            <div className="text-sm">{holding.name}</div>
+                          </td>
+                          <td className="p-3 text-right text-gray-900 dark:text-white font-medium">
+                            {fmtNum(holding.quantity)}
+                          </td>
+                          <td className="p-3 text-right text-gray-900 dark:text-white">
+                            {fmtMoney(holding.currentPrice)}
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className="font-bold text-green-600 dark:text-green-400">
+                              {fmtMoney(holding.marketValue)}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className={`font-medium ${
+                              (holding.unrealized || 0) >= 0 
+                                ? 'text-green-600 dark:text-green-400' 
+                                : 'text-red-600 dark:text-red-400'
+                            }`}>
+                              {fmtMoney(holding.unrealized)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-6 bg-gray-50 dark:bg-gray-900/20 rounded-lg border border-gray-200 dark:border-gray-700 text-center">
+                  <p className="text-gray-600 dark:text-gray-400">No holdings found in this account</p>
+                </div>
+              )}
+            </section>
+
+            {/* Orders Section with skeleton */}
+            <section>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm mr-3">📋</div>
+                Orders
+              </h3>
+              
+              {snapTradeQueries.orders.isLoading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                  <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                  <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                </div>
+              ) : snapTradeQueries.orders.isError ? (
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                    <div>
+                      <h4 className="font-semibold text-red-800 dark:text-red-200">Orders Error</h4>
+                      <p className="text-sm text-red-600 dark:text-red-300 mt-1">
+                        {(snapTradeQueries.orders.error as any)?.message || 'Failed to load orders'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <Card title="Order History">
+                  <List items={data.positionsAndOrders?.orderHistory || []} empty="No recent orders" render={(order: any) => (
+                    <div className="grid grid-cols-5 gap-2">
+                      <span className="font-medium">{order.symbol || '—'}</span>
+                      <span className="text-right">{(order.side || '').toUpperCase()}</span>
+                      <span className="text-right">{fmtNum(order.quantity)}</span>
+                      <span className="text-right">{fmtMoney(order.averageFillPrice?.amount)}</span>
+                      <span className="text-right text-gray-500">{fmtTime(order.placedAt)}</span>
+                    </div>
+                  )}/>
+                </Card>
+              )}
+            </section>
+
+            {/* Activities Section with skeleton */}
+            <section>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm mr-3">🏛️</div>
+                Activity and Transactions
+              </h3>
+              
+              {snapTradeQueries.activities.isLoading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                  <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                  <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                </div>
+              ) : snapTradeQueries.activities.isError ? (
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                    <div>
+                      <h4 className="font-semibold text-red-800 dark:text-red-200">Activity Error</h4>
+                      <p className="text-sm text-red-600 dark:text-red-300 mt-1">
+                        {(snapTradeQueries.activities.error as any)?.message || 'Failed to load activity'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <Card title="Recent Activity">
+                  <List items={data.activityAndTransactions || []} empty="No recent activity" render={(activity: any) => (
+                    <div className="grid grid-cols-5 gap-2 text-gray-900 dark:text-gray-100">
+                      <span className="font-medium text-gray-800 dark:text-gray-200">{activity.type}</span>
+                      <span className="font-medium text-gray-800 dark:text-gray-200">{activity.symbol || '—'}</span>
+                      <span className="text-right font-medium text-gray-800 dark:text-gray-200">{fmtNum(activity.quantity)}</span>
+                      <span className="text-right font-medium text-gray-800 dark:text-gray-200">{fmtMoney(activity.amount)}</span>
+                      <span className="text-right text-gray-600 dark:text-gray-300">{fmtTime(activity.timestamp)}</span>
+                    </div>
+                  )}/>
+                </Card>
+              )}
+            </section>
+
+            {/* Footer */}
+            <div className="mt-8 pt-6 border-t border-gradient-to-r from-purple-200 to-blue-200 dark:from-purple-800 dark:to-blue-800 bg-gradient-to-r from-purple-50/50 to-blue-50/50 dark:from-purple-950/30 dark:to-blue-950/30 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6 text-xs text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <Clock className="h-4 w-4 text-purple-500" />
+                    <span className="font-medium">Updated: {fmtTime(data.metadata?.fetched_at || new Date().toISOString())}</span>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 italic">
+                  Real-time data via SnapTrade
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
