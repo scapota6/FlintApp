@@ -183,16 +183,6 @@ function Landing() {
               <p className="text-sm text-gray-400">
                 Founding Member pricing. Renews at same rate if you keep your plan.
               </p>
-              
-              <div className="flex items-center space-x-4">
-                <a 
-                  href="#apply" 
-                  className="text-sm text-purple-400 hover:text-purple-300 underline"
-                  onClick={() => trackEvent('click_scroll_to_apply')}
-                >
-                  or scroll to apply free
-                </a>
-              </div>
             </div>
           </div>
           
