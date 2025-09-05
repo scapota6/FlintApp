@@ -1,0 +1,150 @@
+Sentry is disabled in development or DSN not provided
+financial-api.ts:142  POST https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/log-login 403 (Forbidden)
+logLogin @ financial-api.ts:142
+(anonymous) @ dashboard.tsx:69
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=2f3e4443:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=2f3e4443:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=2f3e4443:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=2f3e4443:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=2f3e4443:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=2f3e4443:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19416
+commitRoot @ chunk-RPCDYKBN.js?v=2f3e4443:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=2f3e4443:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=2f3e4443:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=2f3e4443:18627
+setTimeout
+defaultScheduler @ @tanstack_react-query.js?v=2f3e4443:560
+flush @ @tanstack_react-query.js?v=2f3e4443:584
+batch @ @tanstack_react-query.js?v=2f3e4443:602
+dispatch_fn @ @tanstack_react-query.js?v=2f3e4443:1035
+setData @ @tanstack_react-query.js?v=2f3e4443:713
+fetch @ @tanstack_react-query.js?v=2f3e4443:927
+await in fetch
+executeFetch_fn @ @tanstack_react-query.js?v=2f3e4443:2275
+onSubscribe @ @tanstack_react-query.js?v=2f3e4443:1978
+subscribe @ @tanstack_react-query.js?v=2f3e4443:24
+(anonymous) @ @tanstack_react-query.js?v=2f3e4443:3142
+subscribeToStore @ chunk-RPCDYKBN.js?v=2f3e4443:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=2f3e4443:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=2f3e4443:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=2f3e4443:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=2f3e4443:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=2f3e4443:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=2f3e4443:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=2f3e4443:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=2f3e4443:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19432
+commitRoot @ chunk-RPCDYKBN.js?v=2f3e4443:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=2f3e4443:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=2f3e4443:18718
+workLoop @ chunk-RPCDYKBN.js?v=2f3e4443:197
+flushWork @ chunk-RPCDYKBN.js?v=2f3e4443:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=2f3e4443:384Understand this error
+AccountDetailsDialog.tsx:491  GET https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/snaptrade/accounts/96b890e5-10ad-486a-a2ca-8a97192909d1/positions 401 (Unauthorized)
+queryFn @ AccountDetailsDialog.tsx:491
+fetchFn @ @tanstack_react-query.js?v=2f3e4443:879
+run @ @tanstack_react-query.js?v=2f3e4443:507
+start @ @tanstack_react-query.js?v=2f3e4443:550
+fetch @ @tanstack_react-query.js?v=2f3e4443:918
+executeFetch_fn @ @tanstack_react-query.js?v=2f3e4443:2275
+setOptions @ @tanstack_react-query.js?v=2f3e4443:2035
+(anonymous) @ @tanstack_react-query.js?v=2f3e4443:3152
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=2f3e4443:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=2f3e4443:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=2f3e4443:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=2f3e4443:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=2f3e4443:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=2f3e4443:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19416
+commitRoot @ chunk-RPCDYKBN.js?v=2f3e4443:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=2f3e4443:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=2f3e4443:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=2f3e4443:18627Understand this error
+AccountDetailsDialog.tsx:475  GET https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/snaptrade/accounts/96b890e5-10ad-486a-a2ca-8a97192909d1/balances 401 (Unauthorized)
+queryFn @ AccountDetailsDialog.tsx:475
+fetchFn @ @tanstack_react-query.js?v=2f3e4443:879
+run @ @tanstack_react-query.js?v=2f3e4443:507
+start @ @tanstack_react-query.js?v=2f3e4443:550
+fetch @ @tanstack_react-query.js?v=2f3e4443:918
+executeFetch_fn @ @tanstack_react-query.js?v=2f3e4443:2275
+setOptions @ @tanstack_react-query.js?v=2f3e4443:2035
+(anonymous) @ @tanstack_react-query.js?v=2f3e4443:3152
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=2f3e4443:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=2f3e4443:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=2f3e4443:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=2f3e4443:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=2f3e4443:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=2f3e4443:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19416
+commitRoot @ chunk-RPCDYKBN.js?v=2f3e4443:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=2f3e4443:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=2f3e4443:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=2f3e4443:18627Understand this error
+AccountDetailsDialog.tsx:507  GET https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/snaptrade/accounts/96b890e5-10ad-486a-a2ca-8a97192909d1/orders 401 (Unauthorized)
+queryFn @ AccountDetailsDialog.tsx:507
+fetchFn @ @tanstack_react-query.js?v=2f3e4443:879
+run @ @tanstack_react-query.js?v=2f3e4443:507
+start @ @tanstack_react-query.js?v=2f3e4443:550
+fetch @ @tanstack_react-query.js?v=2f3e4443:918
+executeFetch_fn @ @tanstack_react-query.js?v=2f3e4443:2275
+setOptions @ @tanstack_react-query.js?v=2f3e4443:2035
+(anonymous) @ @tanstack_react-query.js?v=2f3e4443:3152
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=2f3e4443:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=2f3e4443:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=2f3e4443:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=2f3e4443:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=2f3e4443:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=2f3e4443:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19416
+commitRoot @ chunk-RPCDYKBN.js?v=2f3e4443:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=2f3e4443:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=2f3e4443:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=2f3e4443:18627Understand this error
+AccountDetailsDialog.tsx:459  GET https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/snaptrade/accounts/96b890e5-10ad-486a-a2ca-8a97192909d1/details 401 (Unauthorized)
+queryFn @ AccountDetailsDialog.tsx:459
+fetchFn @ @tanstack_react-query.js?v=2f3e4443:879
+run @ @tanstack_react-query.js?v=2f3e4443:507
+start @ @tanstack_react-query.js?v=2f3e4443:550
+fetch @ @tanstack_react-query.js?v=2f3e4443:918
+executeFetch_fn @ @tanstack_react-query.js?v=2f3e4443:2275
+setOptions @ @tanstack_react-query.js?v=2f3e4443:2035
+(anonymous) @ @tanstack_react-query.js?v=2f3e4443:3152
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=2f3e4443:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=2f3e4443:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=2f3e4443:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=2f3e4443:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=2f3e4443:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=2f3e4443:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19416
+commitRoot @ chunk-RPCDYKBN.js?v=2f3e4443:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=2f3e4443:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=2f3e4443:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=2f3e4443:18627Understand this error
+AccountDetailsDialog.tsx:523  GET https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/api/snaptrade/accounts/96b890e5-10ad-486a-a2ca-8a97192909d1/activities 401 (Unauthorized)
+queryFn @ AccountDetailsDialog.tsx:523
+fetchFn @ @tanstack_react-query.js?v=2f3e4443:879
+run @ @tanstack_react-query.js?v=2f3e4443:507
+start @ @tanstack_react-query.js?v=2f3e4443:550
+fetch @ @tanstack_react-query.js?v=2f3e4443:918
+executeFetch_fn @ @tanstack_react-query.js?v=2f3e4443:2275
+setOptions @ @tanstack_react-query.js?v=2f3e4443:2035
+(anonymous) @ @tanstack_react-query.js?v=2f3e4443:3152
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=2f3e4443:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=2f3e4443:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=2f3e4443:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=2f3e4443:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=2f3e4443:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=2f3e4443:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=2f3e4443:19416
+commitRoot @ chunk-RPCDYKBN.js?v=2f3e4443:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=2f3e4443:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=2f3e4443:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=2f3e4443:18627Understand this error
