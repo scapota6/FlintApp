@@ -137,9 +137,34 @@ router.get('/accounts', isAuthenticated, async (req: any, res) => {
  * Returns: institution_name, name/number, status, raw_type, currency
  */
 router.get('/accounts/:accountId/details', isAuthenticated, async (req: any, res) => {
+  const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+  console.log(`[DEBUG ${requestId}] === Account Details Request START ===`);
+  console.log(`[DEBUG ${requestId}] Request headers:`, {
+    authorization: req.headers.authorization ? 'present' : 'missing',
+    cookie: req.headers.cookie ? 'present' : 'missing',
+    userAgent: req.headers['user-agent']
+  });
+  console.log(`[DEBUG ${requestId}] Session status:`, {
+    isAuthenticated: req.isAuthenticated(),
+    user: req.user ? {
+      email: req.user.claims?.email,
+      sub: req.user.claims?.sub,
+      expiresAt: req.user.expires_at,
+      hasRefreshToken: !!req.user.refresh_token
+    } : 'null'
+  });
+  
   try {
+    console.log(`[DEBUG ${requestId}] Getting Flint user by auth...`);
     const flintUser = await getFlintUserByAuth(req.user);
+    console.log(`[DEBUG ${requestId}] Flint user found:`, { id: flintUser.id, email: flintUser.email });
+    
+    console.log(`[DEBUG ${requestId}] Getting SnapTrade credentials...`);
     const credentials = await getSnaptradeCredentials(flintUser.id);
+    console.log(`[DEBUG ${requestId}] SnapTrade credentials found:`, {
+      snaptradeUserId: credentials.snaptradeUserId,
+      hasUserSecret: !!credentials.snaptradeUserSecret
+    });
     const accountId = req.params.accountId;
     
     console.log('[SnapTrade Accounts] Getting account details:', {

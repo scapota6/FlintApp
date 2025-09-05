@@ -164,28 +164,49 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
+  const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+  
+  console.log(`[AUTH DEBUG ${requestId}] === Authentication Check START ===`);
+  console.log(`[AUTH DEBUG ${requestId}] Request URL:`, req.originalUrl);
+  console.log(`[AUTH DEBUG ${requestId}] req.isAuthenticated():`, req.isAuthenticated());
+  console.log(`[AUTH DEBUG ${requestId}] user object:`, user ? {
+    hasClaimsEmail: !!user.claims?.email,
+    hasClaimsSub: !!user.claims?.sub,
+    expiresAt: user.expires_at,
+    hasRefreshToken: !!user.refresh_token,
+    expiresAtDate: user.expires_at ? new Date(user.expires_at * 1000).toISOString() : null
+  } : 'null');
 
   if (!req.isAuthenticated() || !user.expires_at) {
+    console.log(`[AUTH DEBUG ${requestId}] Authentication failed: isAuthenticated=${req.isAuthenticated()}, hasExpiresAt=${!!user?.expires_at}`);
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   const now = Math.floor(Date.now() / 1000);
+  console.log(`[AUTH DEBUG ${requestId}] Token expiry check: now=${now}, expiresAt=${user.expires_at}, valid=${now <= user.expires_at}`);
+  
   if (now <= user.expires_at) {
+    console.log(`[AUTH DEBUG ${requestId}] Token valid, proceeding to next middleware`);
     return next();
   }
 
+  console.log(`[AUTH DEBUG ${requestId}] Token expired, attempting refresh...`);
   const refreshToken = user.refresh_token;
   if (!refreshToken) {
+    console.log(`[AUTH DEBUG ${requestId}] No refresh token available, denying access`);
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
 
   try {
+    console.log(`[AUTH DEBUG ${requestId}] Calling token refresh...`);
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
+    console.log(`[AUTH DEBUG ${requestId}] Token refresh successful, proceeding`);
     return next();
   } catch (error) {
+    console.log(`[AUTH DEBUG ${requestId}] Token refresh failed:`, error);
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
