@@ -39,8 +39,8 @@ export function getSession() {
     name: 'flint.sid', // Custom session name instead of default
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Only require HTTPS in production
-      sameSite: 'strict', // CSRF protection
+      secure: true, // Always secure since Replit runs on HTTPS
+      sameSite: 'lax', // Changed from 'strict' for Replit preview compatibility
       maxAge: sessionTtl,
       path: '/',
       domain: undefined, // Let browser handle domain
@@ -177,9 +177,16 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     expiresAtDate: user.expires_at ? new Date(user.expires_at * 1000).toISOString() : null
   } : 'null');
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  // Add debugging breadcrumb header
+  res.setHeader('X-Debug-Reason', 'AUTH_CHECKING');
+
+  if (!req.isAuthenticated() || !user?.expires_at) {
     console.log(`[AUTH DEBUG ${requestId}] Authentication failed: isAuthenticated=${req.isAuthenticated()}, hasExpiresAt=${!!user?.expires_at}`);
-    return res.status(401).json({ message: "Unauthorized" });
+    res.setHeader('X-Debug-Reason', 'AUTH_REQUIRED');
+    return res.status(401).json({ 
+      code: 'AUTH_REQUIRED',
+      message: "Authentication required" 
+    });
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -187,6 +194,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   
   if (now <= user.expires_at) {
     console.log(`[AUTH DEBUG ${requestId}] Token valid, proceeding to next middleware`);
+    res.setHeader('X-Debug-Reason', 'OK');
     return next();
   }
 
@@ -194,7 +202,11 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const refreshToken = user.refresh_token;
   if (!refreshToken) {
     console.log(`[AUTH DEBUG ${requestId}] No refresh token available, denying access`);
-    res.status(401).json({ message: "Unauthorized" });
+    res.setHeader('X-Debug-Reason', 'NO_REFRESH_TOKEN');
+    res.status(401).json({ 
+      code: 'NO_REFRESH_TOKEN',
+      message: "Session expired and no refresh token available" 
+    });
     return;
   }
 
@@ -204,10 +216,15 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
     console.log(`[AUTH DEBUG ${requestId}] Token refresh successful, proceeding`);
+    res.setHeader('X-Debug-Reason', 'OK');
     return next();
   } catch (error) {
     console.log(`[AUTH DEBUG ${requestId}] Token refresh failed:`, error);
-    res.status(401).json({ message: "Unauthorized" });
+    res.setHeader('X-Debug-Reason', 'TOKEN_REFRESH_FAILED');
+    res.status(401).json({ 
+      code: 'TOKEN_REFRESH_FAILED',
+      message: "Token refresh failed" 
+    });
     return;
   }
 };
