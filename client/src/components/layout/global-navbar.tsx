@@ -17,7 +17,6 @@ const navLinks = [
   { href: '/', label: 'Dashboard' },
   { href: '/portfolio', label: 'Portfolio' },
   { href: '/accounts', label: 'Accounts' },
-  { href: '/trading', label: 'Trading' },
   { href: '/transfers', label: 'Transfers' },
   { href: '/watchlist', label: 'Watchlist' },
   { href: '/activity', label: 'Activity' },

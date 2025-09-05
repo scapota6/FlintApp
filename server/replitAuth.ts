@@ -39,7 +39,7 @@ export function getSession() {
     name: 'flint.sid', // Custom session name instead of default
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === 'production', // Only require HTTPS in production
       sameSite: 'strict', // CSRF protection
       maxAge: sessionTtl,
       path: '/',
