@@ -1887,6 +1887,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const connectionsSnaptradeRouter = await import('./routes/connections.snaptrade');
   app.use('/api', connectionsSnaptradeRouter.default);
   
+  // Mount SnapTrade accounts router
+  const { snaptradeAccountsRouter } = await import('./routes/snaptrade-accounts');
+  app.use('/api/snaptrade', snaptradeAccountsRouter);
+  
   // Mount SnapTrade trading and webhook routes
   app.use('/api/snaptrade', snaptradeTradingRouter);
   app.use('/api/snaptrade', snaptradeWebhooksRouter);
