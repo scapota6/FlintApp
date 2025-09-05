@@ -1015,8 +1015,46 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
 
         {isError && (
           <div className="mx-6 mb-6">
-            {/* Handle disconnected account state (410/404) */}
-            {errorDetails?.isDisconnected ? (
+            {/* Handle authentication errors (401/403) */}
+            {errorDetails?.status === 401 ? (
+              <div className="p-8 text-center bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border border-red-200 dark:border-red-700 rounded-xl">
+                <div className="mx-auto w-16 h-16 mb-6 bg-gradient-to-br from-red-500 to-pink-500 rounded-full flex items-center justify-center">
+                  <AlertCircle className="h-8 w-8 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                  Please sign in again
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                  Your session has expired. Please log in again to view your account details.
+                </p>
+                <Button
+                  onClick={() => window.location.href = '/login'}
+                  className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-6 py-3 text-base font-medium"
+                  data-testid="button-login"
+                >
+                  Login
+                </Button>
+              </div>
+            ) : errorDetails?.status === 403 ? (
+              <div className="p-8 text-center bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700 rounded-xl">
+                <div className="mx-auto w-16 h-16 mb-6 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center">
+                  <AlertCircle className="h-8 w-8 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                  Session expired (CSRF)
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                  Your security token has expired. Please refresh the page and try again.
+                </p>
+                <Button
+                  onClick={() => window.location.reload()}
+                  className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-6 py-3 text-base font-medium"
+                  data-testid="button-refresh"
+                >
+                  Refresh and try again
+                </Button>
+              </div>
+            ) : errorDetails?.isDisconnected ? (
               <div className="p-8 text-center bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 border border-orange-200 dark:border-orange-700 rounded-xl">
                 <div className="mx-auto w-16 h-16 mb-6 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-full flex items-center justify-center">
                   <AlertCircle className="h-8 w-8 text-white" />
