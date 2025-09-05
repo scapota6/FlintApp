@@ -184,6 +184,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // CSRF Token endpoint for mutating requests
+  app.get('/api/csrf-token', (req: any, res) => {
+    res.json({ csrfToken: req.csrfToken() });
+  });
+
   // Dashboard data (with data rate limiting) - Enhanced with real API integration
   app.get('/api/dashboard', rateLimits.data, isAuthenticated, async (req: any, res) => {
     try {

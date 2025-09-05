@@ -165,6 +165,10 @@ router.get('/accounts/:accountId/details', isAuthenticated, async (req: any, res
       snaptradeUserId: credentials.snaptradeUserId,
       hasUserSecret: !!credentials.snaptradeUserSecret
     });
+    
+    // Server-side debugging breadcrumb
+    console.log(`[BREADCRUMB ${requestId}] user=${req.user?.claims?.sub} hasSession=${!!req.user} accountId=${req.params.accountId}`);
+    res.setHeader('X-Debug-Reason', 'OK');
     const accountId = req.params.accountId;
     
     console.log('[SnapTrade Accounts] Getting account details:', {
