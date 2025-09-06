@@ -73,9 +73,9 @@ async function upsertUser(
   try {
     const { ensureSnaptradeUser } = await import('./services/snaptradeProvision');
     await ensureSnaptradeUser(user.id);
-    console.log('[SnapTrade] Auto-provisioned user on signup:', user.id);
+    // Auto-provisioned SnapTrade user
   } catch (error) {
-    console.error('[SnapTrade] Auto-provision failed on signup:', error);
+    // Auto-provision failed (non-blocking)
     // Don't fail the auth flow if SnapTrade provision fails
   }
 }
@@ -164,24 +164,11 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
-  const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
-  
-  console.log(`[AUTH DEBUG ${requestId}] === Authentication Check START ===`);
-  console.log(`[AUTH DEBUG ${requestId}] Request URL:`, req.originalUrl);
-  console.log(`[AUTH DEBUG ${requestId}] req.isAuthenticated():`, req.isAuthenticated());
-  console.log(`[AUTH DEBUG ${requestId}] user object:`, user ? {
-    hasClaimsEmail: !!user.claims?.email,
-    hasClaimsSub: !!user.claims?.sub,
-    expiresAt: user.expires_at,
-    hasRefreshToken: !!user.refresh_token,
-    expiresAtDate: user.expires_at ? new Date(user.expires_at * 1000).toISOString() : null
-  } : 'null');
 
   // Add debugging breadcrumb header
   res.setHeader('X-Debug-Reason', 'AUTH_CHECKING');
 
   if (!req.isAuthenticated() || !user?.expires_at) {
-    console.log(`[AUTH DEBUG ${requestId}] Authentication failed: isAuthenticated=${req.isAuthenticated()}, hasExpiresAt=${!!user?.expires_at}`);
     res.setHeader('X-Debug-Reason', 'AUTH_REQUIRED');
     return res.status(401).json({ 
       code: 'AUTH_REQUIRED',
@@ -190,18 +177,14 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  console.log(`[AUTH DEBUG ${requestId}] Token expiry check: now=${now}, expiresAt=${user.expires_at}, valid=${now <= user.expires_at}`);
   
   if (now <= user.expires_at) {
-    console.log(`[AUTH DEBUG ${requestId}] Token valid, proceeding to next middleware`);
     res.setHeader('X-Debug-Reason', 'OK');
     return next();
   }
 
-  console.log(`[AUTH DEBUG ${requestId}] Token expired, attempting refresh...`);
   const refreshToken = user.refresh_token;
   if (!refreshToken) {
-    console.log(`[AUTH DEBUG ${requestId}] No refresh token available, denying access`);
     res.setHeader('X-Debug-Reason', 'NO_REFRESH_TOKEN');
     res.status(401).json({ 
       code: 'NO_REFRESH_TOKEN',
@@ -211,15 +194,14 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   }
 
   try {
-    console.log(`[AUTH DEBUG ${requestId}] Calling token refresh...`);
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
-    console.log(`[AUTH DEBUG ${requestId}] Token refresh successful, proceeding`);
+    // Token refresh successful
     res.setHeader('X-Debug-Reason', 'OK');
     return next();
   } catch (error) {
-    console.log(`[AUTH DEBUG ${requestId}] Token refresh failed:`, error);
+    // Token refresh failed
     res.setHeader('X-Debug-Reason', 'TOKEN_REFRESH_FAILED');
     res.status(401).json({ 
       code: 'TOKEN_REFRESH_FAILED',
