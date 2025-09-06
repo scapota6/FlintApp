@@ -1197,8 +1197,8 @@ router.get('/options/:accountId/holdings', isAuthenticated, async (req: any, res
     
     // Get positions and filter for options
     const positionsResponse = await accountsApi.getUserAccountPositions({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret,
+      userId: credentials.snaptradeUserId!,
+      userSecret: credentials.userSecret,
       accountId
     });
     
