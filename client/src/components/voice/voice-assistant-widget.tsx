@@ -52,7 +52,7 @@ export default function VoiceAssistantWidget({ onCommandExecuted }: VoiceAssista
       };
 
       recognitionRef.current.onerror = (event: any) => {
-        console.error('Speech recognition error', event.error);
+        // Speech recognition error handled
         setIsListening(false);
         if (event.error === 'no-speech') {
           toast({
@@ -73,7 +73,7 @@ export default function VoiceAssistantWidget({ onCommandExecuted }: VoiceAssista
         recognitionRef.current.stop();
       }
     };
-  }, []);
+  }, [toast]);
 
   const startListening = () => {
     if (recognitionRef.current && !isListening) {
@@ -110,7 +110,7 @@ export default function VoiceAssistantWidget({ onCommandExecuted }: VoiceAssista
         onCommandExecuted(command, result);
       }
     } catch (error) {
-      console.error('Error processing command:', error);
+      // Error processing command handled
       const errorMessage = "Sorry, I couldn't process that command. Please try again.";
       setResponse(errorMessage);
       speak(errorMessage);

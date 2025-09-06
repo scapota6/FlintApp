@@ -29,14 +29,14 @@ export function TradingViewChart({
       // Look for TradingView price elements in the DOM
       const priceElements = document.querySelectorAll('[data-name="legend-source-item"] [class*="price"], [class*="valueValue"], .js-symbol-last');
       
-      for (const element of priceElements) {
+      for (let i = 0; i < priceElements.length; i++) {
+        const element = priceElements[i];
         const text = element.textContent || '';
         const priceMatch = text.match(/[\d,]+\.?\d*/);
         if (priceMatch) {
           const price = parseFloat(priceMatch[0].replace(/,/g, ''));
           if (price > 0 && price < 10000) { // Reasonable stock price range
             onPriceUpdate?.(price);
-            console.log(`Extracted TradingView price: $${price}`);
             return price;
           }
         }
@@ -44,19 +44,20 @@ export function TradingViewChart({
 
       // Alternative: Look for price in TradingView widget iframe
       const iframes = document.querySelectorAll('iframe[src*="tradingview"]');
-      for (const iframe of iframes) {
+      for (let i = 0; i < iframes.length; i++) {
+        const iframe = iframes[i];
         try {
           const iframeDoc = (iframe as HTMLIFrameElement).contentDocument;
           if (iframeDoc) {
             const priceElements = iframeDoc.querySelectorAll('[class*="price"], [class*="last"]');
-            for (const element of priceElements) {
+            for (let j = 0; j < priceElements.length; j++) {
+              const element = priceElements[j];
               const text = element.textContent || '';
               const priceMatch = text.match(/[\d,]+\.?\d*/);
               if (priceMatch) {
                 const price = parseFloat(priceMatch[0].replace(/,/g, ''));
                 if (price > 0 && price < 10000) {
                   onPriceUpdate?.(price);
-                  console.log(`Extracted TradingView iframe price: $${price}`);
                   return price;
                 }
               }
@@ -74,14 +75,13 @@ export function TradingViewChart({
           const lastPrice = tv.activeChart.chart().getVisibleRange()?.to;
           if (lastPrice && typeof lastPrice === 'number') {
             onPriceUpdate?.(lastPrice);
-            console.log(`Extracted TradingView API price: $${lastPrice}`);
             return lastPrice;
           }
         }
       }
 
     } catch (error) {
-      console.log('TradingView price extraction not available:', error);
+      // TradingView price extraction not available
     }
     return null;
   }, [onPriceUpdate]);
