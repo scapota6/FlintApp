@@ -2992,12 +2992,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Return account details with all fields (null if missing) - ALWAYS include currency
+      // Return account details matching frontend expectations - fix data mapping issue
       const response = {
         account: {
           id: accountDetails.id || null,
           brokerage: brokerageName || 'Unknown',
-          name: accountDetails.name || 'Investment Account',
+          name: accountDetails.name === 'Default' 
+            ? `${brokerageName} ${accountDetails.meta?.type || accountDetails.raw_type || 'Account'}`.trim()
+            : (accountDetails.name || 'Investment Account'),
           numberMasked: accountDetails.number ? `...${accountDetails.number.slice(-4)}` : null,
           type: accountDetails.meta?.type || accountDetails.raw_type || 'unknown',
           status: accountDetails.status || accountDetails.meta?.status || 'unknown',

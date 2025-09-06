@@ -67,20 +67,20 @@ router.get('/accounts', isAuthenticated, async (req: any, res) => {
       
       return {
         id: account.id as UUID,
-        connectionId: account.brokerage_authorization as UUID,
-        institution: account.institution_name,
+        brokerageAuthId: account.brokerage_authorization as UUID,
+        institutionName: account.institution_name,
         name: account.name === 'Default' 
           ? `${account.institution_name} ${account.meta?.type || account.raw_type || 'Account'}`.trim()
           : account.name,
         numberMasked,
-        type: account.meta?.brokerage_account_type || account.meta?.type || account.raw_type || null,
+        accountType: account.meta?.brokerage_account_type || account.meta?.type || account.raw_type || null,
         status,
         currency: account.balance?.total?.currency || 'USD',
-        totalBalance: account.balance?.total ? {
+        balance: account.balance?.total ? {
           amount: parseFloat(account.balance.total.amount) || 0,
           currency: account.balance.total.currency || 'USD'
         } : null,
-        lastHoldingsSyncAt: account.sync_status?.holdings?.last_successful_sync || null
+        lastSyncAt: account.sync_status?.holdings?.last_successful_sync || null
       };
     });
     
@@ -151,7 +151,7 @@ router.get('/accounts/:accountId/details', isAuthenticated, async (req: any, res
     const credentials = await getSnaptradeCredentials(flintUser.id);
     console.log(`[DEBUG ${requestId}] SnapTrade credentials found:`, {
       snaptradeUserId: credentials.snaptradeUserId,
-      hasUserSecret: !!credentials.snaptradeUserSecret
+      hasUserSecret: !!credentials.userSecret
     });
     
     // Server-side debugging breadcrumb
@@ -199,14 +199,34 @@ router.get('/accounts/:accountId/details', isAuthenticated, async (req: any, res
     
     const accountDetailsDto: AccountDetails = {
       id: account.id as UUID,
-      institution: account.institution_name,
+      brokerageAuthId: account.brokerage_authorization as UUID,
+      institutionName: account.institution_name,
       name: account.name === 'Default' 
         ? `${account.institution_name} ${account.meta?.type || account.raw_type || 'Account'}`.trim()
         : account.name,
       numberMasked,
-      type: account.meta?.brokerage_account_type || account.meta?.type || account.raw_type || null,
+      accountType: account.meta?.brokerage_account_type || account.meta?.type || account.raw_type || null,
       status,
-      currency: account.balance?.total?.currency || 'USD'
+      currency: account.balance?.total?.currency || 'USD',
+      balance: account.balance?.total ? {
+        amount: parseFloat(account.balance.total.amount) || 0,
+        currency: account.balance.total.currency || 'USD'
+      } : null,
+      lastSyncAt: account.sync_status?.holdings?.last_successful_sync || null,
+      createdDate: account.created_date || null,
+      cashRestrictions: account.cash_restrictions || null,
+      meta: account.meta || null,
+      syncStatus: {
+        holdings: {
+          lastSuccessfulSync: account.sync_status?.holdings?.last_successful_sync || null,
+          initialSyncCompleted: account.sync_status?.holdings?.initial_sync_completed || null
+        },
+        transactions: {
+          lastSuccessfulSync: account.sync_status?.transactions?.last_successful_sync || null,
+          firstTransactionDate: account.sync_status?.transactions?.first_transaction_date || null,
+          initialSyncCompleted: account.sync_status?.transactions?.initial_sync_completed || null
+        }
+      }
     };
     
     const response: AccountDetailsResponse = {
@@ -1047,7 +1067,11 @@ router.get('/accounts/:id/orders', isAuthenticated, async (req: any, res) => {
       return {
         id: order.id,
         placedAt: order.created_at || null,
-        status: orderStatus,
+        status: statusStr.includes('pending') || statusStr.includes('open') ? 'open' :
+                statusStr.includes('filled') || statusStr.includes('executed') ? 'filled' :
+                statusStr.includes('cancelled') || statusStr.includes('expired') ? 'cancelled' :
+                statusStr.includes('rejected') ? 'rejected' :
+                statusStr.includes('partial') ? 'partial_filled' : 'unknown',
         side,
         type,
         timeInForce,
