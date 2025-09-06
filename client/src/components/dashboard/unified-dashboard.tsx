@@ -36,14 +36,6 @@ interface DashboardData {
   };
 }
 
-interface ProviderSummary {
-  provider: string;
-  institution: string;
-  totalBalance: number;
-  accountCount: number;
-  type: 'bank' | 'investment' | 'crypto';
-  color: string;
-}
 
 const COLORS = {
   bank: '#10b981', // green
@@ -51,9 +43,6 @@ const COLORS = {
   crypto: '#f59e0b', // orange
 };
 
-const PROVIDER_COLORS = [
-  '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#f97316', '#84cc16', '#ec4899'
-];
 
 export default function UnifiedDashboard() {
   const [selectedView, setSelectedView] = useState<'overview' | 'accounts'>('overview');
@@ -157,24 +146,6 @@ export default function UnifiedDashboard() {
     { name: 'Crypto', value: totals.cryptoValue, color: COLORS.crypto },
   ].filter(item => item.value > 0);
 
-  // Group connected accounts by provider for provider view
-  const providerSummary: ProviderSummary[] = connectedAccounts.reduce((acc, account) => {
-    const existingProvider = acc.find(p => p.provider === account.provider);
-    if (existingProvider) {
-      existingProvider.totalBalance += account.balance;
-      existingProvider.accountCount += 1;
-    } else {
-      acc.push({
-        provider: account.provider,
-        institution: account.institution || account.provider,
-        totalBalance: account.balance,
-        accountCount: 1,
-        type: account.type as 'bank' | 'investment' | 'crypto',
-        color: PROVIDER_COLORS[acc.length % PROVIDER_COLORS.length]
-      });
-    }
-    return acc;
-  }, [] as ProviderSummary[]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -412,66 +383,6 @@ export default function UnifiedDashboard() {
         </div>
       )}
 
-      {/* Providers View */}
-      {selectedView === 'providers' && (
-        <div className="space-y-6">
-          <Card className="flint-card">
-            <CardHeader>
-              <CardTitle>Balance by Provider</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {providerSummary.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={providerSummary}>
-                    <XAxis dataKey="institution" />
-                    <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
-                    <Tooltip formatter={(value) => formatCurrency(value as number)} />
-                    <Bar dataKey="totalBalance" fill="#8b5cf6" />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-300 flex items-center justify-center text-gray-400">
-                  No provider data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {providerSummary.map((provider, index) => (
-              <Card key={index} className="flint-card">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`p-2 rounded-lg ${
-                        provider.type === 'bank' ? 'bg-green-600/20 text-green-400' :
-                        provider.type === 'investment' ? 'bg-purple-600/20 text-purple-400' :
-                        'bg-orange-600/20 text-orange-400'
-                      }`}>
-                        {getProviderIcon(provider.type)}
-                      </div>
-                      <div>
-                        <div className="text-white font-medium">{provider.institution}</div>
-                        <div className="text-gray-400 text-sm">
-                          {provider.accountCount} account{provider.accountCount > 1 ? 's' : ''}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-white text-lg font-bold">
-                        {formatCurrency(provider.totalBalance)}
-                      </div>
-                      <div className="text-gray-400 text-sm">
-                        {totals.totalBalance > 0 ? ((provider.totalBalance / totals.totalBalance) * 100).toFixed(1) : 0}%
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Enhanced Account Details Dialog */}
       <AccountDetailsDialog
