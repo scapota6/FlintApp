@@ -146,7 +146,7 @@ export async function setupAuth(app: Express) {
         res.clearCookie('flint.sid', {
           httpOnly: true,
           secure: true,
-          sameSite: 'strict',
+          sameSite: 'lax',
           path: '/'
         });
         
