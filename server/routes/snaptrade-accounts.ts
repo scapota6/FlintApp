@@ -1,9 +1,7 @@
 import { Router } from 'express';
 import { authApi, accountsApi, getUserAccountDetails, getUserAccountBalance, getUserAccountPositions, getUserAccountOrders, getAccountActivities } from '../lib/snaptrade';
 import { isAuthenticated } from '../replitAuth';
-import { db } from '../db';
-import { users, snaptradeUsers } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { storage } from '../storage';
 import { mapSnapTradeError, logSnapTradeError, checkConnectionStatus, RateLimitHandler } from '../lib/snaptrade-errors';
 import type { AccountSummary, ListAccountsResponse, AccountDetails, AccountDetailsResponse, AccountBalances, AccountBalancesResponse, Position, PositionsResponse, Order, OrdersResponse, OrderSide, OrderType, TimeInForce, Activity, ActivitiesResponse, ActivityType, OptionHolding, OptionHoldingsResponse, AccountBalance, AccountPositions, AccountOrders, AccountActivities, ErrorResponse, ListResponse, DetailsResponse, ISODate, UUID, Money } from '@shared/types';
 
@@ -11,27 +9,17 @@ const router = Router();
 
 // Helper function to get Flint user by auth claims
 async function getFlintUserByAuth(authUser: any) {
-  const email = authUser?.claims?.email?.toLowerCase();
-  if (!email) throw new Error('User email required');
+  const userId = authUser?.claims?.sub;
+  if (!userId) throw new Error('User ID required');
   
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  
+  const user = await storage.getUser(userId);
   if (!user) throw new Error('User not found');
   return user;
 }
 
 // Helper function to get SnapTrade credentials
 async function getSnaptradeCredentials(flintUserId: string) {
-  const [credentials] = await db
-    .select()
-    .from(snaptradeUsers)
-    .where(eq(snaptradeUsers.flintUserId, flintUserId))
-    .limit(1);
-  
+  const credentials = await storage.getSnapTradeUser(flintUserId);
   if (!credentials) throw new Error('User not registered with SnapTrade');
   return credentials;
 }
@@ -53,8 +41,8 @@ router.get('/accounts', isAuthenticated, async (req: any, res) => {
     
     // Fetch accounts from SnapTrade
     const accountsResponse = await accountsApi.listUserAccounts({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret
+      userId: credentials.snaptradeUserId!,
+      userSecret: credentials.userSecret
     });
     
     const accounts = accountsResponse.data || [];
@@ -112,7 +100,7 @@ router.get('/accounts', isAuthenticated, async (req: any, res) => {
     if (['1076', '428', '409'].includes(mappedError.code)) {
       try {
         const flintUser = await getFlintUserByAuth(req.user);
-        await db.delete(snaptradeUsers).where(eq(snaptradeUsers.flintUserId, flintUser.id));
+        await storage.deleteSnapTradeUser(flintUser.id);
         console.log('[SnapTrade] Cleared stale credentials for user:', flintUser.id);
       } catch (cleanupError) {
         console.error('[SnapTrade] Failed to cleanup stale credentials:', cleanupError);
@@ -178,8 +166,8 @@ router.get('/accounts/:accountId/details', isAuthenticated, async (req: any, res
     
     // Get detailed account information
     const accountDetails = await accountsApi.getUserAccountDetails({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret,
+      userId: credentials.snaptradeUserId!,
+      userSecret: credentials.userSecret,
       accountId
     });
     
@@ -267,8 +255,8 @@ router.get('/accounts/:accountId/balances', isAuthenticated, async (req: any, re
     
     // Get detailed balance information
     const balanceResponse = await accountsApi.getUserAccountBalance({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret,
+      userId: credentials.snaptradeUserId!,
+      userSecret: credentials.userSecret,
       accountId
     });
     
@@ -350,8 +338,8 @@ router.get('/accounts/:accountId/positions', isAuthenticated, async (req: any, r
     
     // Get positions using fine-grained API (recommended by SnapTrade)
     const positionsResponse = await accountsApi.getUserAccountPositions({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret,
+      userId: credentials.snaptradeUserId!,
+      userSecret: credentials.userSecret,
       accountId
     });
     
@@ -431,8 +419,8 @@ router.get('/accounts/:accountId/orders', isAuthenticated, async (req: any, res)
     
     // Get orders for the account
     const ordersResponse = await accountsApi.getUserAccountOrders({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret,
+      userId: credentials.snaptradeUserId!,
+      userSecret: credentials.userSecret,
       accountId
     });
     
@@ -553,8 +541,8 @@ router.get('/accounts/:accountId/recent-orders', isAuthenticated, async (req: an
     startDate.setDate(startDate.getDate() - 30);
     
     const ordersResponse = await accountsApi.getUserAccountOrders({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret,
+      userId: credentials.snaptradeUserId!,
+      userSecret: credentials.userSecret,
       accountId,
       state: 'all', // Include all order states
       days: 30 // Last 30 days
@@ -654,8 +642,8 @@ router.get('/accounts/:accountId/activities', isAuthenticated, async (req: any, 
     
     // Get account activities
     const activitiesResponse = await accountsApi.getAccountActivities({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret,
+      userId: credentials.snaptradeUserId!,
+      userSecret: credentials.userSecret,
       accountId
     });
     
@@ -741,8 +729,8 @@ router.get('/options/:accountId', isAuthenticated, async (req: any, res) => {
     
     // Get options positions (if supported by account)
     const optionsResponse = await accountsApi.getUserAccountPositions({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret,
+      userId: credentials.snaptradeUserId!,
+      userSecret: credentials.userSecret,
       accountId
     });
     
@@ -817,8 +805,8 @@ router.get('/accounts/:id/details', isAuthenticated, async (req: any, res) => {
     
     // Get detailed account information
     const detailsResponse = await getUserAccountDetails(
-      credentials.snaptradeUserId,
-      credentials.snaptradeUserSecret,
+      credentials.snaptradeUserId!,
+      credentials.userSecret,
       accountId
     );
     
@@ -861,8 +849,8 @@ router.get('/accounts/:id/balances', isAuthenticated, async (req: any, res) => {
     
     // Get balance information
     const balanceResponse = await getUserAccountBalance(
-      credentials.snaptradeUserId,
-      credentials.snaptradeUserSecret,
+      credentials.snaptradeUserId!,
+      credentials.userSecret,
       accountId
     );
     
@@ -905,8 +893,8 @@ router.get('/accounts/:id/positions', isAuthenticated, async (req: any, res) => 
     
     // Get positions using fine-grained API
     const positionsResponse = await accountsApi.getUserAccountPositions({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret,
+      userId: credentials.snaptradeUserId!,
+      userSecret: credentials.userSecret,
       accountId
     });
     
@@ -984,8 +972,8 @@ router.get('/accounts/:id/orders', isAuthenticated, async (req: any, res) => {
     
     // Get orders with optional status filter
     const ordersResponse = await accountsApi.getUserAccountOrders({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret,
+      userId: credentials.snaptradeUserId!,
+      userSecret: credentials.userSecret,
       accountId
     });
     
@@ -1120,8 +1108,8 @@ router.get('/accounts/:id/activities', isAuthenticated, async (req: any, res) =>
     
     // Get activities with optional date filters
     const activitiesResponse = await accountsApi.getAccountActivities({
-      userId: credentials.snaptradeUserId,
-      userSecret: credentials.snaptradeUserSecret,
+      userId: credentials.snaptradeUserId!,
+      userSecret: credentials.userSecret,
       accountId
     });
     
