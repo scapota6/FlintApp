@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -402,6 +403,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [customPaymentAmount, setCustomPaymentAmount] = useState('');
   const { toast } = useToast();
+  const { user: currentUser, isLoading: authLoading, isAuthenticated } = useAuth();
 
   // Payment mutation
   const paymentMutation = useMutation({
@@ -454,7 +456,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
   const snapTradeQueries = {
     details: useQuery({
       queryKey: ['snaptrade-account-details', accountId],
-      enabled: open && isSnapTradeAccount,
+      enabled: open && isSnapTradeAccount && isAuthenticated && !authLoading && !!accountId,
       queryFn: async () => {
         const resp = await fetch(`/api/snaptrade/accounts/${accountId}/details`, {
           headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
@@ -470,7 +472,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
     
     balances: useQuery({
       queryKey: ['snaptrade-account-balances', accountId],
-      enabled: open && isSnapTradeAccount,
+      enabled: open && isSnapTradeAccount && isAuthenticated && !authLoading && !!accountId,
       queryFn: async () => {
         const resp = await fetch(`/api/snaptrade/accounts/${accountId}/balances`, {
           headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
@@ -486,7 +488,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
     
     positions: useQuery({
       queryKey: ['snaptrade-account-positions', accountId],
-      enabled: open && isSnapTradeAccount,
+      enabled: open && isSnapTradeAccount && isAuthenticated && !authLoading && !!accountId,
       queryFn: async () => {
         const resp = await fetch(`/api/snaptrade/accounts/${accountId}/positions`, {
           headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
@@ -502,7 +504,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
     
     orders: useQuery({
       queryKey: ['snaptrade-account-orders', accountId],
-      enabled: open && isSnapTradeAccount,
+      enabled: open && isSnapTradeAccount && isAuthenticated && !authLoading && !!accountId,
       queryFn: async () => {
         const resp = await fetch(`/api/snaptrade/accounts/${accountId}/orders`, {
           headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
@@ -518,7 +520,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
     
     activities: useQuery({
       queryKey: ['snaptrade-account-activities', accountId],
-      enabled: open && isSnapTradeAccount,
+      enabled: open && isSnapTradeAccount && isAuthenticated && !authLoading && !!accountId,
       queryFn: async () => {
         const resp = await fetch(`/api/snaptrade/accounts/${accountId}/activities`, {
           headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
@@ -536,7 +538,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
   // Legacy single query for Teller and other accounts
   const { data: legacyData, isLoading: legacyIsLoading, isError: legacyIsError, error: legacyError, refetch } = useQuery({
     queryKey: ['account-details', accountId],
-    enabled: open && !isSnapTradeAccount,
+    enabled: open && !isSnapTradeAccount && isAuthenticated && !authLoading && !!accountId,
     queryFn: async () => {
       const resp = await fetch(`/api/accounts/${accountId}/details`, {
         headers: { 'x-user-id': currentUserId },
