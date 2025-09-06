@@ -1,0 +1,52 @@
+[vite] connecting...
+[vite] connected.
+Sentry is disabled in development or DSN not provided
+accountId.includes is not a function
+at AccountDetailsDialog (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/components/AccountDetailsDialog.tsx:575:40)
+at renderWithHooks (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:11548:26)
+at updateFunctionComponent (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:14582:28)
+at beginWork (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:15924:22)
+at HTMLUnknownElement.callCallback2 (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:3674:22)
+at Object.invokeGuardedCallbackDev (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:3699:24)
+at invokeGuardedCallback (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:3733:39)
+at beginWork$1 (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:19765:15)
+at performUnitOfWork (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:19198:20)
+at workLoopSync (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:19137:13)
+accountId.includes is not a function
+at AccountDetailsDialog (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/components/AccountDetailsDialog.tsx:575:40)
+at renderWithHooks (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:11548:26)
+at updateFunctionComponent (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:14582:28)
+at beginWork (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:15924:22)
+at HTMLUnknownElement.callCallback2 (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:3674:22)
+at Object.invokeGuardedCallbackDev (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:3699:24)
+at invokeGuardedCallback (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:3733:39)
+at beginWork$1 (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:19765:15)
+at performUnitOfWork (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:19198:20)
+at workLoopSync (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=2f3e4443:19137:13)
+The above error occurred in the <AccountDetailsDialog> component:
+
+    at AccountDetailsDialog (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/components/AccountDetailsDialog.tsx:528:48)
+    at div
+    at UnifiedDashboard (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/components/dashboard/unified-dashboard.tsx:36:43)
+    at main
+    at div
+    at Dashboard (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/pages/dashboard.tsx:33:20)
+    at Route (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=2f3e4443:206:16)
+    at Switch (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=2f3e4443:262:17)
+    at PresenceChild (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=2f3e4443:121:24)
+    at AnimatePresence (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=2f3e4443:210:26)
+    at div
+    at Router (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/App.tsx?v=jXck8epg1dPGaIg-d0_jW:89:42)
+    at div
+    at TooltipProvider (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/components/ui/tooltip.tsx:20:35)
+    at ThemeProvider (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/contexts/ThemeContext.tsx:20:33)
+    at QueryClientProvider (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=2f3e4443:2929:3)
+    at App
+    at ErrorBoundary (https://28036d48-949d-4fd5-9e63-54ed8b7fd662-00-1i1qwnyczdy9x.kirk.replit.dev/src/components/error-boundary.tsx?v=jXck8epg1dPGaIg-d0_jW:10:5)
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
+Error caught by ErrorBoundary: 
+TypeError {}
+ 
+Object {componentStack: "↵    at AccountDetailsDialog…"}
+

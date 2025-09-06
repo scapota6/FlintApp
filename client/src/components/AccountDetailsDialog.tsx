@@ -448,7 +448,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
   const [isReconnecting, setIsReconnecting] = useState(false);
   
   // Detect if this is a SnapTrade account (UUID format)
-  const isSnapTradeAccount = accountId.includes('-') && accountId.length > 30;
+  const isSnapTradeAccount = typeof accountId === 'string' && accountId.includes('-') && accountId.length > 30;
   
   // For SnapTrade accounts, use parallel API calls to fix "—" everywhere problem
   const snapTradeQueries = {
@@ -675,7 +675,7 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
     try {
       // For now, assume reconnection flow since provider is not available
       // This will need to be enhanced when provider information is properly passed
-      const isSnapTrade = accountId.includes('-'); // SnapTrade accounts have UUID format
+      const isSnapTrade = typeof accountId === 'string' && accountId.includes('-'); // SnapTrade accounts have UUID format
       if (!isSnapTrade) {
         // Teller reconnection flow
         const response = await fetch('/api/teller/init-update', {
