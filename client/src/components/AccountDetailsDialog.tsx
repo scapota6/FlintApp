@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
+import { getCsrfToken } from '@/lib/csrf';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -127,8 +128,12 @@ const PayCardSection: React.FC<{
   // Check payment capability when from account is selected
   const checkCapabilityMutation = useMutation({
     mutationFn: async (fromAccountId: string) => {
+      const csrfToken = await getCsrfToken();
       const response = await apiRequest(`/api/payment-capability`, {
         method: 'POST',
+        headers: {
+          'x-csrf-token': csrfToken,
+        },
         body: JSON.stringify({
           fromAccountId,
           toAccountId: accountId
@@ -408,8 +413,12 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
   // Payment mutation
   const paymentMutation = useMutation({
     mutationFn: async ({ amount, paymentType }: { amount: number; paymentType: string }) => {
+      const csrfToken = await getCsrfToken();
       return await apiRequest(`/api/accounts/${accountId}/pay`, {
         method: 'POST',
+        headers: {
+          'x-csrf-token': csrfToken,
+        },
         body: JSON.stringify({ amount, paymentType })
       });
     },
