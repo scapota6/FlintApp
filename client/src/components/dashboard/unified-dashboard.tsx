@@ -56,7 +56,7 @@ const PROVIDER_COLORS = [
 ];
 
 export default function UnifiedDashboard() {
-  const [selectedView, setSelectedView] = useState<'overview' | 'accounts' | 'providers'>('overview');
+  const [selectedView, setSelectedView] = useState<'overview' | 'accounts'>('overview');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const { user } = useAuth();
 
@@ -214,8 +214,7 @@ export default function UnifiedDashboard() {
       <div className="flex space-x-2 justify-center">
         {[
           { key: 'overview', label: 'Overview' },
-          { key: 'accounts', label: 'Accounts' },
-          { key: 'providers', label: 'Providers' }
+          { key: 'accounts', label: 'Accounts' }
         ].map(view => (
           <button
             key={view.key}
