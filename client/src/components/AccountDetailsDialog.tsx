@@ -462,6 +462,12 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
           headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
           credentials: 'include',
         });
+        if (resp.status === 401) {
+          throw new Error('Please sign in again');
+        }
+        if (resp.status === 403) {
+          throw new Error('Session expired (CSRF). Refresh and try again');
+        }
         if (!resp.ok) {
           const errorData = await resp.json().catch(() => ({ message: resp.statusText, status: resp.status }));
           throw errorData;
@@ -478,6 +484,12 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
           headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
           credentials: 'include',
         });
+        if (resp.status === 401) {
+          throw new Error('Please sign in again');
+        }
+        if (resp.status === 403) {
+          throw new Error('Session expired (CSRF). Refresh and try again');
+        }
         if (!resp.ok) {
           const errorData = await resp.json().catch(() => ({ message: resp.statusText, status: resp.status }));
           throw errorData;
@@ -494,6 +506,12 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
           headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
           credentials: 'include',
         });
+        if (resp.status === 401) {
+          throw new Error('Please sign in again');
+        }
+        if (resp.status === 403) {
+          throw new Error('Session expired (CSRF). Refresh and try again');
+        }
         if (!resp.ok) {
           const errorData = await resp.json().catch(() => ({ message: resp.statusText, status: resp.status }));
           throw errorData;
@@ -510,6 +528,12 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
           headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
           credentials: 'include',
         });
+        if (resp.status === 401) {
+          throw new Error('Please sign in again');
+        }
+        if (resp.status === 403) {
+          throw new Error('Session expired (CSRF). Refresh and try again');
+        }
         if (!resp.ok) {
           const errorData = await resp.json().catch(() => ({ message: resp.statusText, status: resp.status }));
           throw errorData;
@@ -526,6 +550,12 @@ export default function AccountDetailsDialog({ accountId, open, onClose, current
           headers: { 'x-request-id': `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` },
           credentials: 'include',
         });
+        if (resp.status === 401) {
+          throw new Error('Please sign in again');
+        }
+        if (resp.status === 403) {
+          throw new Error('Session expired (CSRF). Refresh and try again');
+        }
         if (!resp.ok) {
           const errorData = await resp.json().catch(() => ({ message: resp.statusText, status: resp.status }));
           throw errorData;
