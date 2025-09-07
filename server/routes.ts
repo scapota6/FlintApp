@@ -929,12 +929,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const transactions: any[] = [];
 
       // Fetch SnapTrade transactions (brokerage)
-      if (snaptradeClient && user.snaptradeUserSecret) {
+      const snapUser = await getSnapUser(userId);
+      if (snaptradeClient && snapUser) {
         try {
           // Get all connected SnapTrade accounts
           const accountsResponse = await snaptradeClient.accountInformation.listUserAccounts({
-            userId: user.email,
-            userSecret: user.snaptradeUserSecret,
+            userId: snapUser.userId,
+            userSecret: snapUser.userSecret,
           });
 
           const accounts = accountsResponse.data || [];
@@ -946,8 +947,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             try {
               const activitiesResponse = await snaptradeClient.transactionsAndReporting.getActivities({
-                userId: user.email,
-                userSecret: user.snaptradeUserSecret,
+                userId: snapUser.userId,
+                userSecret: snapUser.userSecret,
                 accountId: account.id,
                 startDate: startDate as string,
                 endDate: endDate as string,
@@ -1169,14 +1170,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const userRecord = await storage.getUser(userId);
-      if (!userRecord?.snaptradeUserSecret) {
+      const snapUser = await getSnapUser(userId);
+      if (!snapUser) {
         return res.status(404).json({ message: 'SnapTrade credentials not found' });
       }
 
       const credentials = {
-        userId: userRecord.email,
-        userSecret: userRecord.snaptradeUserSecret
+        userId: snapUser.userId,
+        userSecret: snapUser.userSecret
       };
 
       // Generate UUID v4 for this trade
@@ -1691,14 +1692,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`✅ Teller account ${accountId} disconnected`);
       } else if (provider === 'snaptrade') {
         // Handle SnapTrade disconnect
-        const userRecord = await storage.getUser(userId);
-        if (!userRecord?.snaptradeUserSecret) {
+        const snapUser = await getSnapUser(userId);
+        if (!snapUser) {
           return res.status(404).json({ message: 'SnapTrade credentials not found' });
         }
 
         const credentials = {
-          userId: userRecord.email,
-          userSecret: userRecord.snaptradeUserSecret
+          userId: snapUser.userId,
+          userSecret: snapUser.userSecret
         };
 
         try {
@@ -1715,7 +1716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Remove credentials from database
-        await storage.updateUser(userId, { snaptradeUserSecret: null });
+        await deleteSnapUser(userId);
 
         // Remove connected accounts
         await storage.deleteConnectedAccount(userId, provider, accountId);
@@ -1813,9 +1814,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         // Save credentials to the user record
-        await storage.updateUser(user.id, {
-          snaptradeUserId: data.userId!,
-          snaptradeUserSecret: data.userSecret!
+        await saveSnapUser({
+          userId: user.id,
+          userSecret: data.userSecret!
         });
         
         // Get login portal URL

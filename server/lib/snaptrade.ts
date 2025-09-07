@@ -193,8 +193,8 @@ export async function getOrderImpact(
   params: {
     action: 'BUY' | 'SELL';
     universal_symbol_id: string;
-    orderType: 'Market' | 'Limit';
-    timeInForce?: 'Day' | 'GTC' | 'IOC' | 'FOK';
+    order_type: 'Market' | 'Limit';
+    time_in_force?: 'Day' | 'GTC' | 'IOC' | 'FOK';
     units: number;
     price?: number;
   }
@@ -206,8 +206,8 @@ export async function getOrderImpact(
       account_id: accountId,
       action: params.action,
       universal_symbol_id: params.universal_symbol_id,
-      orderType: params.orderType,
-      timeInForce: params.timeInForce || 'Day',
+      order_type: params.order_type,
+      time_in_force: params.time_in_force || 'Day',
       units: params.units,
       price: params.price,
     });
@@ -254,8 +254,8 @@ export async function placeOrder(
   params: {
     action: 'BUY' | 'SELL';
     universal_symbol_id: string;
-    orderType: 'Market' | 'Limit';
-    timeInForce?: 'Day' | 'GTC' | 'IOC' | 'FOK';
+    order_type: 'Market' | 'Limit';
+    time_in_force?: 'Day' | 'GTC' | 'IOC' | 'FOK';
     units: number;
     price?: number;
     idempotencyKey?: string;
@@ -269,8 +269,8 @@ export async function placeOrder(
       accountId,
       action: params.action,
       universal_symbol_id: params.universal_symbol_id,
-      orderType: params.orderType,
-      timeInForce: params.timeInForce || 'Day',
+      order_type: params.order_type,
+      time_in_force: params.time_in_force || 'Day',
       units: params.units,
       price: params.price,
       // Include idempotency key if provided (industry best practice)
