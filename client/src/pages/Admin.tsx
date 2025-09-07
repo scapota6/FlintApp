@@ -28,6 +28,7 @@ import {
   UserX,
   RotateCcw
 } from "lucide-react";
+import { Trash2, Eye, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 
 interface AdminStats {
@@ -74,6 +75,11 @@ interface User {
   connectedAccountsCount?: number;
 }
 
+interface SnapTradeUser {
+  userId: string;
+  userSecret: string;
+}
+
 export default function Admin() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -82,6 +88,7 @@ export default function Admin() {
   const [userFilter, setUserFilter] = useState({ tier: "", status: "" });
   const [page, setPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showSnapTradeUsers, setShowSnapTradeUsers] = useState(false);
 
   // Check if user is admin
   useEffect(() => {
@@ -122,6 +129,13 @@ export default function Admin() {
     queryKey: ["/api/admin/users", selectedUser?.id],
     queryFn: async () => apiRequest(`/api/admin/users/${selectedUser?.id}`),
     enabled: !!selectedUser?.id
+  });
+
+  // Fetch SnapTrade users
+  const { data: snapTradeUsers, isLoading: snapTradeUsersLoading, refetch: refetchSnapTradeUsers } = useQuery<SnapTradeUser[]>({
+    queryKey: ["/api/admin/snaptrade/users"],
+    queryFn: async () => apiRequest("/api/admin/snaptrade/users"),
+    enabled: isAuthenticated && user?.isAdmin && showSnapTradeUsers
   });
 
   // Update subscription mutation
@@ -263,6 +277,66 @@ export default function Admin() {
   const handleCleanupSnapTrade = () => {
     if (confirm("This will permanently delete duplicate SnapTrade users. Only the newest user for each email will be kept. This action cannot be undone. Continue?")) {
       cleanupMutation.mutate();
+    }
+  };
+
+  // Delete individual SnapTrade user mutation
+  const deleteSnapTradeUserMutation = useMutation({
+    mutationFn: async ({ userId }: { userId: string }) => {
+      return apiRequest(`/api/admin/snaptrade/users/${userId}`, {
+        method: "DELETE"
+      });
+    },
+    onSuccess: () => {
+      toast({ 
+        title: "Success", 
+        description: "SnapTrade user deleted successfully" 
+      });
+      refetchSnapTradeUsers();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete SnapTrade user",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Bulk delete all SnapTrade users mutation
+  const bulkDeleteSnapTradeUsersMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/admin/snaptrade/users`, {
+        method: "DELETE"
+      });
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: "Success", 
+        description: `Bulk delete completed: ${data.deleted} deleted, ${data.failed} failed` 
+      });
+      refetchSnapTradeUsers();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to bulk delete SnapTrade users",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleDeleteSnapTradeUser = (userId: string) => {
+    if (confirm(`Are you sure you want to delete SnapTrade user ${userId.slice(-8)}? This action cannot be undone.`)) {
+      deleteSnapTradeUserMutation.mutate({ userId });
+    }
+  };
+
+  const handleBulkDeleteSnapTradeUsers = () => {
+    if (confirm(`Are you sure you want to delete ALL SnapTrade users? This will delete ${snapTradeUsers?.length || 0} users and cannot be undone.`)) {
+      bulkDeleteSnapTradeUsersMutation.mutate();
     }
   };
 
