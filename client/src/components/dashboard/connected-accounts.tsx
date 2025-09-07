@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ExternalLink, Plus, Building2, TrendingUp, Loader2, Landmark, CreditCard, Eye } from 'lucide-react';
+import { ExternalLink, Plus, Building2, TrendingUp, Loader2, Landmark, CreditCard, Eye, RefreshCw } from 'lucide-react';
 import { Link } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ interface Account {
   lastUpdated: string;
   institutionName?: string;
   accountType?: string;
+  needsReconnection?: boolean;
 }
 
 interface ConnectedAccountsProps {
@@ -104,7 +105,10 @@ export default function ConnectedAccounts({
     }
   };
 
-  const getProviderBadge = (provider: string) => {
+  const getProviderBadge = (provider: string, needsReconnection?: boolean) => {
+    if (needsReconnection) {
+      return <Badge variant="outline" className="border-red-400 text-red-400">Disconnected</Badge>;
+    }
     switch (provider.toLowerCase()) {
       case 'teller':
         return <Badge variant="outline" className="border-blue-400 text-blue-400">Bank</Badge>;
@@ -183,7 +187,7 @@ export default function ConnectedAccounts({
                             ? 'Coinbase' 
                             : account.accountName}
                         </h3>
-                        {getProviderBadge(account.provider)}
+                        {getProviderBadge(account.provider, account.needsReconnection)}
                       </div>
                       <p className="text-sm text-gray-400">
                         {account.institutionName || account.provider}
@@ -194,16 +198,30 @@ export default function ConnectedAccounts({
                     <div className="text-lg font-semibold text-white">
                       ${parseFloat(account.balance).toLocaleString()}
                     </div>
-                    <Tooltip content="View details" position="top">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-purple-400 hover:text-purple-300 interactive-glow focus-visible:outline-purple-400"
-                        onClick={() => handleAccountDetails(account)}
-                      >
-                        Details <Eye className="h-3 w-3 ml-1" />
-                      </Button>
-                    </Tooltip>
+                    {account.needsReconnection ? (
+                      <Tooltip content="Reconnect account" position="top">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-red-400 hover:text-red-300 border-red-400 hover:border-red-300 interactive-glow focus-visible:outline-red-400"
+                          onClick={handleConnectBrokerage}
+                        >
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          Resync
+                        </Button>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip content="View details" position="top">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-purple-400 hover:text-purple-300 interactive-glow focus-visible:outline-purple-400"
+                          onClick={() => handleAccountDetails(account)}
+                        >
+                          Details <Eye className="h-3 w-3 ml-1" />
+                        </Button>
+                      </Tooltip>
+                    )}
                   </div>
                 </div>
               </div>
