@@ -1472,12 +1472,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bulk cleanup endpoint for duplicate SnapTrade users
   app.post('/api/admin/snaptrade-cleanup', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
-      if (!snaptradeClient) {
+      if (!authApi) {
         return res.status(500).json({ message: 'SnapTrade client not initialized' });
       }
       
       // Get all SnapTrade users
-      const { data: snaptradeUsers } = await snaptradeClient.authentication.listSnapTradeUsers();
+      const { data: snaptradeUsers } = await authApi.listSnapTradeUsers();
       
       // Get all Flint users to compare
       const flintUsers = await storage.getAllUsers();
@@ -1511,7 +1511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Delete all but the newest
           for (let i = 1; i < users.length; i++) {
             try {
-              await snaptradeClient.authentication.deleteSnapTradeUser({
+              await authApi.deleteSnapTradeUser({
                 userId: users[i].userId
               });
               deletedCount++;
@@ -1528,7 +1528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Delete users without email metadata that don't correspond to Flint users
       for (const user of usersWithoutEmail) {
         try {
-          await snaptradeClient.authentication.deleteSnapTradeUser({
+          await authApi.deleteSnapTradeUser({
             userId: user.userId
           });
           deletedCount++;
@@ -2622,8 +2622,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       try {
-        if (snaptradeClient) {
-          const { data: snaptradeUsers } = await snaptradeClient.authentication.listSnapTradeUsers();
+        if (authApi && accountsApi) {
+          const { data: snaptradeUsers } = await authApi.listSnapTradeUsers();
           snaptradeStats.totalUsers = snaptradeUsers.length;
           
           // Count users with active connections
@@ -2632,7 +2632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           for (const snapUser of snaptradeUsers) {
             try {
-              const accountsResponse = await snaptradeClient.accountInformation.listUserAccounts({
+              const accountsResponse = await accountsApi.listUserAccounts({
                 userId: snapUser.userId,
                 userSecret: snapUser.userSecret
               });
