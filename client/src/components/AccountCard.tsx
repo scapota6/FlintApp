@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Eye } from 'lucide-react';
+import { Eye, RefreshCw } from 'lucide-react';
 import { formatCurrency } from '@/utils/money';
 import AccountDetailsDialog from './AccountDetailsDialog';
 import type { ComputedAccount } from '@/hooks/useAccounts';
@@ -38,15 +38,52 @@ export default function AccountCard({ account, currentUserId }: AccountCardProps
                 </div>
               </div>
               
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-purple-400 hover:text-purple-300 flex-shrink-0"
-                onClick={() => setShowDetails(true)}
-              >
-                <Eye className="h-3 w-3 mr-1" />
-                Details
-              </Button>
+              {(account as any).needsReconnection ? (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-red-400 hover:text-red-300 border-red-400 hover:border-red-300 flex-shrink-0"
+                  onClick={async () => {
+                    // Trigger SnapTrade reconnection
+                    try {
+                      const response = await fetch('/api/snaptrade/register', {
+                        method: 'POST',
+                        credentials: 'include'
+                      });
+                      const data = await response.json();
+                      
+                      if (data.redirectUrl) {
+                        // Open SnapTrade connection portal in a popup
+                        const width = 800;
+                        const height = 700;
+                        const left = (window.innerWidth - width) / 2;
+                        const top = (window.innerHeight - height) / 2;
+                        
+                        window.open(
+                          data.redirectUrl,
+                          'SnapTradeConnect',
+                          `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+                        );
+                      }
+                    } catch (error) {
+                      console.error('Failed to start SnapTrade connection:', error);
+                    }
+                  }}
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Resync
+                </Button>
+              ) : (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-purple-400 hover:text-purple-300 flex-shrink-0"
+                  onClick={() => setShowDetails(true)}
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  Details
+                </Button>
+              )}
             </div>
 
             {/* Big number: display_value with currency format */}
