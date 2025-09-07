@@ -62,8 +62,9 @@ router.post("/snaptrade/register", isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
     const userEmail = req.user.claims.email || `user${userId}@flint.app`;
     
-    // Check if user already has SnapTrade credentials
-    let snaptradeUser = await storage.getSnapTradeUser(userId);
+    // Check if user already has SnapTrade credentials  
+    const { getSnapUser } = await import('../store/snapUsers');
+    let snaptradeUser = await getSnapUser(userId);
     
     if (!snaptradeUser) {
       // Generate a unique SnapTrade user ID (must be UUID format)
@@ -75,8 +76,18 @@ router.post("/snaptrade/register", isAuthenticated, async (req: any, res) => {
           userId: snaptradeUserId
         });
         
-        // Store credentials in database using the userSecret returned by SnapTrade
-        await storage.createSnapTradeUser(userId, snaptradeUserId, registerData.userSecret);
+        // Store credentials in file-based storage (using Flint user ID as key)
+        const { saveSnapUser } = await import('../store/snapUsers');
+        await saveSnapUser({ 
+          userId: userId, // Use Flint user ID as key for lookup
+          userSecret: registerData.userSecret 
+        });
+        
+        // Also store the mapping for the SnapTrade user ID
+        await saveSnapUser({ 
+          userId: snaptradeUserId, // Also store with SnapTrade ID as key
+          userSecret: registerData.userSecret 
+        });
         
         snaptradeUser = { snaptradeUserId: registerData.userId, userSecret: registerData.userSecret };
         
