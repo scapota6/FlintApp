@@ -1796,8 +1796,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "SnapTrade client not initialized" });
       }
 
-      // Use email as userId for SnapTrade (Saturday night working version)
-      const snaptradeUserId = email;
+      // Generate UUID for SnapTrade userId (not email!)
+      const { v4: uuidv4 } = require('uuid');
+      const snaptradeUserId = uuidv4();
       
       try {
         console.log('SnapTrade Register: Calling registerSnapTradeUser...');

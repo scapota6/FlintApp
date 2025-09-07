@@ -1,0 +1,20 @@
+ET /api/dashboard 200 in 848ms :: {"totalBalance":139196.38,"bankBalance":1391…
+12:20:30 AM [express] GET /api/auth/user 304 in 173ms :: {"id":"45137738","email":"scapota@flint-inve…
+12:20:30 AM [express] GET /api/csrf-token 200 in 0ms :: {"csrfToken":"i0BMvY0r-uzHHv4NwIH-HnxKPhF5_13…
+[2025-09-07T00:20:31.112Z] ERROR: SnapTrade registration error {
+  "timestamp": "2025-09-07T00:20:31.112Z",
+  "level": "ERROR",
+  "message": "SnapTrade registration error",
+  "error": "Request failed with status code 400\nRESPONSE HEADERS:\n{\n  \"date\": \"Sun, 07 Sep 2025 00:20:31 GMT\",\n  \"content-type\": \"application/json\",\n  \"content-length\": \"107\",\n  \"connection\": \"keep-alive\",\n  \"server\": \"gunicorn\",\n  \"allow\": \"POST, OPTIONS\",\n  \"x-frame-options\": \"DENY\",\n  \"x-request-id\": \"[REDACTED_KEY]\",\n  \"x-ratelimit-limit\": \"250\",\n  \"x-ratelimit-remaining\": \"248\",\n  \"vary\": \"origin\",\n  \"strict-transport-security\": \"max-age=31536000; includeSubDomains; preload\",\n  \"x-content-type-options\": \"nosniff\",\n  \"referrer-policy\": \"same-origin\",\n  \"cross-origin-opener-policy\": \"same-origin\"\n}",
+  "userId": "45137738"
+}
+12:20:31 AM [express] POST /api/connections/snaptrade/register 500 in 476ms :: {"message":"Failed to …
+12:20:32 AM [express] GET /api/auth/user 304 in 171ms :: {"id":"45137738","email":"scapota@flint-inve…
+[2025-09-07T00:20:33.193Z] ERROR: SnapTrade registration error {
+  "timestamp": "2025-09-07T00:20:33.193Z",
+  "level": "ERROR",
+  "message": "SnapTrade registration error",
+  "error": "Request failed with status code 400\nRESPONSE HEADERS:\n{\n  \"date\": \"Sun, 07 Sep 2025 00:20:33 GMT\",\n  \"content-type\": \"application/json\",\n  \"content-length\": \"107\",\n  \"connection\": \"keep-alive\",\n  \"server\": \"gunicorn\",\n  \"allow\": \"POST, OPTIONS\",\n  \"x-frame-options\": \"DENY\",\n  \"x-request-id\": \"[REDACTED_KEY]\",\n  \"x-ratelimit-limit\": \"250\",\n  \"x-ratelimit-remaining\": \"247\",\n  \"vary\": \"origin\",\n  \"strict-transport-security\": \"max-age=31536000; includeSubDomains; preload\",\n  \"x-content-type-options\": \"nosniff\",\n  \"referrer-policy\": \"same-origin\",\n  \"cross-origin-opener-policy\": \"same-origin\"\n}",
+  "userId": "45137738"
+}
+12:20:33 AM [express] POST /api/connections/snaptrade/register 500 in 259ms :: {"message":"Failed to …
