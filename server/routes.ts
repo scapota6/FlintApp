@@ -2067,9 +2067,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/snaptrade', snaptradeTradingRouter);
   app.use('/api/snaptrade', snaptradeWebhooksRouter);
 
-  // Mount diagnostics routes
-  const diagnosticsRouter = await import('./routes/diagnostics');
-  app.use('/api/diagnostics', diagnosticsRouter.default);
   
   // Disconnect account endpoint
   app.post('/api/accounts/disconnect', isAuthenticated, async (req: any, res) => {
