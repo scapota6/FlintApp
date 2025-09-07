@@ -1881,9 +1881,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "SnapTrade client not initialized" });
       }
 
-      // Generate consistent userId like SnapTrade CLI
-      const emailUsername = email.split('@')[0];
-      const snaptradeUserId = `flint-${emailUsername}-${user.id.slice(-8)}`;
+      // Use simple, consistent userId format - just use Flint user ID
+      const snaptradeUserId = user.id;
       
       // Check if user already has credentials (avoid duplicates)
       let snapUser = await getSnapUser(user.id);
@@ -1901,10 +1900,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log('[SnapTrade] User created:', { userId: data.userId });
         
-        // Save credentials
+        // Save credentials with proper user ID mapping
         await saveSnapUser({
-          userId: user.id,
-          userSecret: data.userSecret!
+          userId: data.userId!, // SnapTrade user ID
+          userSecret: data.userSecret!,
+          flintUserId: user.id // Use Flint user ID as storage key
         });
         
         return { userId: data.userId!, userSecret: data.userSecret! };
@@ -1916,7 +1916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           snapUser = await registerUser();
         } else {
           console.log('SnapTrade Register: Using existing credentials');
-          snapUser = { userId: snaptradeUserId, userSecret: snapUser.userSecret };
+          snapUser = { userId: snapUser.userId, userSecret: snapUser.userSecret };
         }
         
         console.log('SnapTrade Register: Registration successful:', {

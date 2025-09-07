@@ -9,6 +9,22 @@ function ensure(){ if(!fs.existsSync(DIR)) fs.mkdirSync(DIR,{recursive:true}); i
 function read(): DB { ensure(); try { return JSON.parse(fs.readFileSync(FILE,'utf8')) as DB; } catch { return {}; } }
 function write(db: DB){ fs.writeFileSync(FILE, JSON.stringify(db,null,2), 'utf8'); }
 
-export async function getSnapUser(userId: string){ return read()[userId] || null; }
-export async function saveSnapUser(rec: Rec){ const db = read(); db[rec.userId] = rec; write(db); }
-export async function deleteSnapUser(userId: string){ const db = read(); delete db[userId]; write(db); }
+export async function getSnapUser(flintUserId: string){ 
+  const db = read();
+  // Look for entry by Flint user ID (the key) 
+  return db[flintUserId] || null; 
+}
+
+export async function saveSnapUser(rec: Rec & { flintUserId?: string }){ 
+  const db = read(); 
+  // Use flintUserId as key if provided, otherwise use userId
+  const key = rec.flintUserId || rec.userId;
+  db[key] = rec; 
+  write(db); 
+}
+
+export async function deleteSnapUser(flintUserId: string){ 
+  const db = read(); 
+  delete db[flintUserId]; 
+  write(db); 
+}
