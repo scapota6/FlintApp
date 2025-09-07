@@ -109,8 +109,8 @@ export default function Admin() {
         page: page.toString(),
         limit: "20",
         ...(userSearch && { search: userSearch }),
-        ...(userFilter.tier && { tier: userFilter.tier }),
-        ...(userFilter.status && { status: userFilter.status })
+        ...(userFilter.tier && userFilter.tier !== 'all' && { tier: userFilter.tier }),
+        ...(userFilter.status && userFilter.status !== 'all' && { status: userFilter.status })
       });
       return apiRequest(`/api/admin/users?${params}`);
     },
@@ -518,7 +518,7 @@ export default function Admin() {
                     <SelectValue placeholder="All Tiers" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Tiers</SelectItem>
+                    <SelectItem value="all">All Tiers</SelectItem>
                     <SelectItem value="free">Free</SelectItem>
                     <SelectItem value="basic">Basic</SelectItem>
                     <SelectItem value="pro">Pro</SelectItem>
@@ -530,7 +530,7 @@ export default function Admin() {
                     <SelectValue placeholder="All Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Status</SelectItem>
+                    <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="banned">Banned</SelectItem>
                   </SelectContent>
