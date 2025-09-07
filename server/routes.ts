@@ -1881,35 +1881,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "SnapTrade client not initialized" });
       }
 
-      // Generate UUID for SnapTrade userId (not email!)
-      const { v4: uuidv4 } = require('uuid');
-      const snaptradeUserId = uuidv4();
+      // Generate consistent userId like SnapTrade CLI
+      const emailUsername = email.split('@')[0];
+      const snaptradeUserId = `flint-${emailUsername}-${user.id.slice(-8)}`;
       
-      try {
-        console.log('SnapTrade Register: Calling registerSnapTradeUser...');
-        
-        const { data } = await snaptradeClient.authentication.registerSnapTradeUser({
-          userId: snaptradeUserId
+      // Check if user already has credentials (avoid duplicates)
+      let snapUser = await getSnapUser(user.id);
+      
+      // Helper function to register user (CLI pattern)
+      const registerUser = async () => {
+        const { data } = await authApi.registerSnapTradeUser({
+          userId: snaptradeUserId,
+          metadata: {
+            email: email,
+            flintUserId: user.id,
+            createdAt: new Date().toISOString()
+          }
         });
         
-        console.log('SnapTrade Register: Registration successful:', {
-          userId: data.userId,
-          hasUserSecret: !!data.userSecret
-        });
+        console.log('[SnapTrade] User created:', { userId: data.userId });
         
-        // Save credentials to the user record
+        // Save credentials
         await saveSnapUser({
           userId: user.id,
           userSecret: data.userSecret!
         });
         
-        // Get login portal URL
-        const loginPayload = {
-          userId: data.userId!,
-          userSecret: data.userSecret!,
-        };
+        return { userId: data.userId!, userSecret: data.userSecret! };
+      };
+      
+      try {
+        if (!snapUser) {
+          console.log('SnapTrade Register: Creating new user...');
+          snapUser = await registerUser();
+        } else {
+          console.log('SnapTrade Register: Using existing credentials');
+          snapUser = { userId: snaptradeUserId, userSecret: snapUser.userSecret };
+        }
         
-        const { data: portal } = await snaptradeClient.authentication.loginSnapTradeUser(loginPayload);
+        console.log('SnapTrade Register: Registration successful:', {
+          userId: snapUser.userId,
+          hasUserSecret: !!snapUser.userSecret
+        });
+        
+        // Get login portal URL using CLI pattern
+        const { data: portal } = await authApi.loginSnapTradeUser({
+          userId: snapUser.userId,
+          userSecret: snapUser.userSecret,
+          connectionType: "trade" // Default to trade like CLI
+        });
         
         console.log('SnapTrade Register: Portal response received:', {
           hasRedirectURI: !!(portal as any).redirectURI
@@ -1920,22 +1940,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (err: any) {
         console.error('SnapTrade Registration Error:', err);
         
-        // Handle USER_EXISTS error gracefully (user already registered) 
+        // Handle error code 1010 (user exists) like the CLI
         const errData = err.response?.data || err.responseBody;
         if (errData?.code === "USER_EXISTS" || errData?.code === "1010") {
-          console.log('SnapTrade Register: User already exists, returning success');
+          console.log('[SnapTrade] User already exists, deleting and recreating...');
           
-          // Return a success response - the connection flow can proceed
-          return res.json({ 
-            url: `https://connect.snaptrade.com/portal?clientId=${process.env.SNAPTRADE_CLIENT_ID}&userId=${encodeURIComponent(snaptradeUserId)}`,
-            message: "User already registered" 
-          });
-        } else {
-          // Other registration errors
-          const status = err.response?.status || 500;
-          const body = err.response?.data || { message: err.message };
-          return res.status(status).json(body);
+          try {
+            // Delete existing user and recreate (CLI pattern)
+            await authApi.deleteSnapTradeUser({ userId: snaptradeUserId });
+            snapUser = await registerUser();
+            
+            // Get login portal URL
+            const { data: portal } = await authApi.loginSnapTradeUser({
+              userId: snapUser.userId,
+              userSecret: snapUser.userSecret,
+              connectionType: "trade"
+            });
+            
+            return res.json({ url: (portal as any).redirectURI });
+          } catch (deleteError) {
+            console.error('[SnapTrade] Failed to delete and recreate user:', deleteError);
+            // Fall through to general error handling
+          }
         }
+        
+        // Other registration errors
+        const status = err.response?.status || 500;
+        const body = err.response?.data || { message: err.message };
+        return res.status(status).json(body);
       }
       
     } catch (error: any) {
