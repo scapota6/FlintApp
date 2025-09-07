@@ -58,11 +58,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/snaptrade/callback', async (req, res) => {
     try {
       // Handle success/error from SnapTrade connection
-      const { success, error } = req.query;
+      const { success, error, userId, userSecret } = req.query;
       
       if (error) {
         logger.error('SnapTrade callback error', { error });
         return res.redirect('/?snaptrade=error');
+      }
+      
+      // Validate that connection actually worked by checking for accounts
+      if (userId && userSecret && snaptradeClient) {
+        try {
+          console.log('🔍 Validating SnapTrade connection for user:', userId);
+          
+          const accountsResponse = await snaptradeClient.accountInformation.listUserAccounts({
+            userId: userId as string,
+            userSecret: userSecret as string
+          });
+          
+          const accounts = accountsResponse.data || [];
+          console.log('📊 Found', accounts.length, 'connected accounts');
+          
+          if (accounts.length > 0) {
+            console.log('✅ Connection validated - accounts found');
+            logger.info('SnapTrade connection validated successfully', { 
+              userId, 
+              accountCount: accounts.length 
+            });
+            return res.redirect('/accounts?snaptrade=success');
+          } else {
+            console.log('❌ Connection failed - no accounts found');
+            // Clean up user with no connections
+            try {
+              await snaptradeClient.authentication.deleteSnapTradeUser({ 
+                userId: userId as string 
+              });
+              console.log('🧹 Deleted user with no connections');
+            } catch (cleanupError) {
+              console.log('⚠️ Failed to cleanup user:', cleanupError);
+            }
+            
+            logger.warn('SnapTrade connection failed - no accounts', { userId });
+            return res.redirect('/?snaptrade=error&reason=no_accounts');
+          }
+        } catch (validationError) {
+          console.error('❌ Connection validation failed:', validationError);
+          logger.error('SnapTrade connection validation failed', { 
+            userId, 
+            error: validationError 
+          });
+          return res.redirect('/?snaptrade=error&reason=validation_failed');
+        }
       }
       
       // Success - redirect to dashboard or accounts page
@@ -1924,15 +1969,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           hasUserSecret: !!snapUser.userSecret
         });
         
-        // Get login portal URL using CLI pattern
+        // Get login portal URL using CLI pattern with validation callback
+        const callbackUrl = `${req.protocol}://${req.get('host')}/snaptrade/callback?userId=${encodeURIComponent(snapUser.userId)}&userSecret=${encodeURIComponent(snapUser.userSecret)}`;
+        
         const { data: portal } = await authApi.loginSnapTradeUser({
           userId: snapUser.userId,
           userSecret: snapUser.userSecret,
-          connectionType: "trade" // Default to trade like CLI
+          connectionType: "trade", // Default to trade like CLI
+          customRedirect: callbackUrl
         });
         
         console.log('SnapTrade Register: Portal response received:', {
-          hasRedirectURI: !!(portal as any).redirectURI
+          hasRedirectURI: !!(portal as any).redirectURI,
+          callbackUrl
         });
         
         return res.json({ url: (portal as any).redirectURI });
