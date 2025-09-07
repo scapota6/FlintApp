@@ -541,14 +541,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
           
-          // Trigger repair flow - delete stale user and let them re-register
-          console.log('[SnapTrade] Detected stale user credentials, triggering repair flow for:', userId);
-          try {
-            await deleteSnapUser(userId);
-            console.log('[SnapTrade] Deleted stale user credentials for repair');
-          } catch (deleteError) {
-            console.error('[SnapTrade] Error deleting stale user:', deleteError);
-          }
+          // Keep stale credentials for reconnection - don't delete them
+          console.log('[SnapTrade] Detected stale user credentials, keeping for reconnection:', userId);
         } else {
           snapTradeError = 'fetch_failed';
         }
@@ -561,8 +555,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasConnectedAccounts = enrichedAccounts.length > 0;
       const needsConnection = !hasConnectedAccounts || snapTradeError === 'not_connected';
       
-      // Filter out disconnected accounts (ones with needsReconnection)
-      const activeAccounts = enrichedAccounts.filter(account => !account.needsReconnection);
+      // Include disconnected accounts so users can see them and reconnect
+      const activeAccounts = enrichedAccounts;
       
       // Calculate percentages based on total assets (excluding liabilities)
       const totalAssets = bankBalance + investmentValue + cryptoValue;

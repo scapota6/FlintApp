@@ -158,7 +158,8 @@ export default function Dashboard() {
     balance: account.balance?.toString() || '0',
     lastUpdated: account.lastSynced || new Date().toISOString(),
     institutionName: account.institutionName,
-    accountType: account.accountType
+    accountType: account.accountType,
+    needsReconnection: account.needsReconnection || false
   })) : [];
 
   if (isLoading) {
