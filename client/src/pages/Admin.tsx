@@ -512,7 +512,7 @@ export default function Admin() {
                 </div>
               )}
               
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button
                   onClick={() => {
                     queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
@@ -542,7 +542,114 @@ export default function Admin() {
                     </>
                   )}
                 </Button>
+
+                <Button
+                  onClick={() => setShowSnapTradeUsers(!showSnapTradeUsers)}
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-show-snaptrade-users"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  {showSnapTradeUsers ? 'Hide Users' : 'Show All Users'}
+                </Button>
               </div>
+
+              {/* SnapTrade Users List */}
+              {showSnapTradeUsers && (
+                <div className="mt-6 border-t pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold">SnapTrade User Management</h4>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => refetchSnapTradeUsers()}
+                        variant="outline"
+                        size="sm"
+                        disabled={snapTradeUsersLoading}
+                        data-testid="button-refresh-snaptrade-users"
+                      >
+                        <RefreshCw className={`h-4 w-4 mr-2 ${snapTradeUsersLoading ? 'animate-spin' : ''}`} />
+                        Refresh
+                      </Button>
+                      <Button
+                        onClick={handleBulkDeleteSnapTradeUsers}
+                        disabled={bulkDeleteSnapTradeUsersMutation.isPending || !snapTradeUsers?.length}
+                        variant="destructive"
+                        size="sm"
+                        data-testid="button-bulk-delete-snaptrade-users"
+                      >
+                        {bulkDeleteSnapTradeUsersMutation.isPending ? (
+                          <>
+                            <RotateCcw className="h-4 w-4 mr-2 animate-spin" />
+                            Deleting All...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete All ({snapTradeUsers?.length || 0})
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {snapTradeUsersLoading ? (
+                    <div className="text-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">Loading SnapTrade users...</p>
+                    </div>
+                  ) : snapTradeUsers && snapTradeUsers.length > 0 ? (
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="text-left p-3 font-medium">User ID</th>
+                            <th className="text-left p-3 font-medium">User Secret (Masked)</th>
+                            <th className="text-center p-3 font-medium">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {snapTradeUsers.map((snapUser, index) => (
+                            <tr key={snapUser.userId} className={index % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                              <td className="p-3 font-mono text-sm">
+                                <span className="inline-flex items-center gap-2">
+                                  {snapUser.userId}
+                                  <Badge variant="secondary" className="text-xs">
+                                    ...{snapUser.userId.slice(-8)}
+                                  </Badge>
+                                </span>
+                              </td>
+                              <td className="p-3 font-mono text-sm text-muted-foreground">
+                                {snapUser.userSecret ? `${'*'.repeat(Math.min(snapUser.userSecret.length - 8, 40))}...${snapUser.userSecret.slice(-8)}` : 'N/A'}
+                              </td>
+                              <td className="p-3 text-center">
+                                <Button
+                                  onClick={() => handleDeleteSnapTradeUser(snapUser.userId)}
+                                  disabled={deleteSnapTradeUserMutation.isPending}
+                                  variant="destructive"
+                                  size="sm"
+                                  data-testid={`button-delete-snaptrade-user-${snapUser.userId.slice(-8)}`}
+                                >
+                                  {deleteSnapTradeUserMutation.isPending ? (
+                                    <RotateCcw className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-muted/20 rounded-lg">
+                      <UserX className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground mb-2">No SnapTrade users found</p>
+                      <p className="text-xs text-muted-foreground">This means you have no SnapTrade API costs!</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
