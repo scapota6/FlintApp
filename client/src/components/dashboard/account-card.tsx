@@ -9,7 +9,8 @@ import {
   DollarSign, 
   ChevronRight,
   Activity,
-  Wallet
+  Wallet,
+  RefreshCw
 } from 'lucide-react';
 import { 
   SiCapitalone,
@@ -206,16 +207,53 @@ export default function AccountCard({ account }: AccountCardProps) {
                 )}
               </div>
               
-              {/* View Details Button */}
-              <Button
-                onClick={() => setShowDetails(true)}
-                variant="ghost"
-                size="sm"
-                className="group-hover:bg-primary/10 group-hover:text-primary transition-colors"
-              >
-                View Details
-                <ChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
-              </Button>
+              {/* View Details or Resync Button */}
+              {account.needsReconnection ? (
+                <Button
+                  onClick={async () => {
+                    // Trigger SnapTrade reconnection
+                    try {
+                      const response = await fetch('/api/snaptrade/register', {
+                        method: 'POST',
+                        credentials: 'include'
+                      });
+                      const data = await response.json();
+                      
+                      if (data.redirectUrl) {
+                        // Open SnapTrade connection portal in a popup
+                        const width = 800;
+                        const height = 700;
+                        const left = (window.innerWidth - width) / 2;
+                        const top = (window.innerHeight - height) / 2;
+                        
+                        window.open(
+                          data.redirectUrl,
+                          'SnapTradeConnect',
+                          `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+                        );
+                      }
+                    } catch (error) {
+                      console.error('Failed to start SnapTrade connection:', error);
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Resync
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setShowDetails(true)}
+                  variant="ghost"
+                  size="sm"
+                  className="group-hover:bg-primary/10 group-hover:text-primary transition-colors"
+                >
+                  View Details
+                  <ChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>

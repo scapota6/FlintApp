@@ -57,7 +57,7 @@ export function useAccounts() {
 
       const dashboardData = await dashboardResponse.json();
 
-      // Extract only the connected accounts that are actually working
+      // Extract all accounts including disconnected ones
       const allAccounts = (dashboardData.accounts || []).map((account: any) => ({
         id: account.id,
         provider: account.provider,
@@ -68,14 +68,15 @@ export function useAccounts() {
         institution: account.institution || account.provider,
         lastUpdated: account.lastUpdated,
         currency: account.currency || 'USD',
-        status: 'connected', // Only connected accounts are in dashboard
+        status: account.needsReconnection ? 'disconnected' : 'connected',
         // Extended fields for UI
         holdings: account.holdings,
         cash: account.cash,
         buyingPower: account.buyingPower,
         percentOfTotal: account.percentOfTotal,
         availableCredit: account.availableCredit,
-        amountSpent: account.amountSpent
+        amountSpent: account.amountSpent,
+        needsReconnection: account.needsReconnection || false
       }));
 
       return {
