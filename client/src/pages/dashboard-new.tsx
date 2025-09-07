@@ -151,16 +151,23 @@ export default function Dashboard() {
   };
 
   // Transform accounts for ConnectedAccounts component
-  const transformedAccounts = dashboardData?.accounts ? dashboardData.accounts.map((account: any) => ({
-    id: account.id,
-    provider: account.provider || 'unknown',
-    accountName: account.name || account.accountName || 'Account',
-    balance: account.balance?.toString() || '0',
-    lastUpdated: account.lastSynced || new Date().toISOString(),
-    institutionName: account.institutionName,
-    accountType: account.accountType,
-    needsReconnection: account.needsReconnection || false
-  })) : [];
+  const transformedAccounts = dashboardData?.accounts ? dashboardData.accounts.map((account: any) => {
+    const transformed = {
+      id: account.id,
+      provider: account.provider || 'unknown',
+      accountName: account.name || account.accountName || 'Account',
+      balance: account.balance?.toString() || '0',
+      lastUpdated: account.lastSynced || account.lastUpdated || new Date().toISOString(),
+      institutionName: account.institution || account.institutionName,
+      accountType: account.type || account.accountType,
+      needsReconnection: account.needsReconnection || false
+    };
+    // Debug logging for disconnected accounts
+    if (account.id?.includes('disconnected')) {
+      console.log('Disconnected account data:', { original: account, transformed });
+    }
+    return transformed;
+  }) : [];
 
   if (isLoading) {
     return (
