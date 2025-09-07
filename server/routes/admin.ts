@@ -5,7 +5,8 @@ import { logger } from "@shared/logger";
 import { z } from "zod";
 import { db } from "../db";
 import { eq, desc, sql, and, or } from "drizzle-orm";
-import { users, connectedAccounts, snaptradeUsers, activityLog } from "@shared/schema";
+import { users, connectedAccounts, snaptradeUsers, activityLog, holdings } from "@shared/schema";
+import { deleteSnapUser } from "../store/snapUsers";
 
 const router = Router();
 
@@ -441,6 +442,93 @@ router.get("/activity", isAdmin, async (req, res) => {
   } catch (error) {
     logger.error("Admin get activity logs error:", error);
     res.status(500).json({ message: "Failed to fetch activity logs" });
+  }
+});
+
+// Reset user's SnapTrade connections
+router.post("/users/:userId/reset-snaptrade", isAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Verify user exists
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // 1. Clear file-based SnapTrade user storage
+    await deleteSnapUser(userId);
+
+    // 2. Reset database SnapTrade credentials
+    await db
+      .update(users)
+      .set({
+        snaptradeUserId: null,
+        snaptradeUserSecret: null,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId));
+
+    // 3. Soft delete connected SnapTrade accounts
+    const snaptradeAccounts = await db
+      .select()
+      .from(connectedAccounts)
+      .where(
+        and(
+          eq(connectedAccounts.userId, userId),
+          eq(connectedAccounts.provider, 'snaptrade')
+        )
+      );
+
+    if (snaptradeAccounts.length > 0) {
+      await db
+        .update(connectedAccounts)
+        .set({
+          isActive: false,
+          updatedAt: new Date()
+        })
+        .where(
+          and(
+            eq(connectedAccounts.userId, userId),
+            eq(connectedAccounts.provider, 'snaptrade')
+          )
+        );
+
+      // 4. Clear holdings for those accounts
+      const accountIds = snaptradeAccounts.map(acc => acc.id);
+      if (accountIds.length > 0) {
+        await db
+          .delete(holdings)
+          .where(
+            sql`${holdings.accountId} IN (${sql.join(accountIds.map(id => sql`${id}`), sql`, `)})`
+          );
+      }
+    }
+
+    // 5. Remove from SnapTrade users table
+    await db
+      .delete(snaptradeUsers)
+      .where(eq(snaptradeUsers.flintUserId, userId));
+
+    // Log admin action
+    await storage.logActivity({
+      userId: (req as any).adminUser.id,
+      action: 'admin_reset_snaptrade',
+      description: `Reset SnapTrade connections for user ${user.email}`,
+      metadata: {
+        targetUserId: userId,
+        targetUserEmail: user.email,
+        accountsReset: snaptradeAccounts.length
+      }
+    });
+
+    res.json({ 
+      message: "SnapTrade connections reset successfully",
+      accountsReset: snaptradeAccounts.length
+    });
+  } catch (error) {
+    logger.error("Admin reset SnapTrade error:", error);
+    res.status(500).json({ message: "Failed to reset SnapTrade connections" });
   }
 });
 
