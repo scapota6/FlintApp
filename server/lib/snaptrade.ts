@@ -41,6 +41,19 @@ export async function registerUser(userId: string, flintUserId?: string) {
   );
 }
 
+/**
+ * List all SnapTrade users - Admin endpoint for user management
+ * Following official SnapTrade docs: Authentication_listSnapTradeUsers
+ */
+export async function listAllSnapTradeUsers() {
+  return await retryableSnapTradeCall(
+    'listSnapTradeUsers',
+    () => authApi.listSnapTradeUsers(),
+    3
+  );
+}
+
+
 export async function createLoginUrl(params: { userId: string; userSecret: string; redirect: string }) {
   const login = await authApi.loginSnapTradeUser({
     userId: params.userId,
@@ -551,14 +564,12 @@ export async function listSnapTradeUsers() {
  * Authentication - Delete a SnapTrade user
  * Following: https://docs.snaptrade.com/reference/Authentication/Authentication_deleteSnapTradeUser
  */
-export async function deleteSnapTradeUser(userId: string) {
-  try {
-    const response = await authApi.deleteSnapTradeUser({ userId });
-    return response.data;
-  } catch (e: any) {
-    console.error('SnapTrade deleteSnapTradeUser error:', e?.responseBody || e?.message || e);
-    throw e;
-  }
+export async function deleteSnapTradeUser(userId: string, flintUserId?: string) {
+  return await monitoredSnapTradeCall(
+    'deleteSnapTradeUser',
+    () => authApi.deleteSnapTradeUser({ userId }),
+    flintUserId
+  );
 }
 
 /**

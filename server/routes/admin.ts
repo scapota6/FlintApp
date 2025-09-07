@@ -7,6 +7,7 @@ import { db } from "../db";
 import { eq, desc, sql, and, or } from "drizzle-orm";
 import { users, connectedAccounts, snaptradeUsers, activityLog, holdings } from "@shared/schema";
 import { deleteSnapUser } from "../store/snapUsers";
+import * as snapTrade from "../lib/snaptrade";
 
 const router = Router();
 
@@ -519,6 +520,113 @@ router.post("/users/:userId/reset-snaptrade", isAdmin, async (req, res) => {
   } catch (error) {
     logger.error("Admin reset SnapTrade error:", error);
     res.status(500).json({ message: "Failed to reset SnapTrade connections" });
+  }
+});
+
+// SnapTrade User Management
+router.get("/snaptrade/users", isAdmin, async (req, res) => {
+  try {
+    const snapUsers = await snapTrade.listAllSnapTradeUsers();
+    res.json(snapUsers.data || []);
+  } catch (error: any) {
+    logger.error('Failed to fetch SnapTrade users', { error: error as Error });
+    res.status(500).json({ 
+      error: 'Failed to fetch SnapTrade users',
+      message: error.message 
+    });
+  }
+});
+
+router.delete("/snaptrade/users/:userId", isAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    await snapTrade.deleteSnapTradeUser(userId, (req as any).adminUser.id);
+    
+    // Log admin action
+    await storage.logActivity({
+      userId: (req as any).adminUser.id,
+      action: 'admin_delete_snaptrade_user',
+      description: `Deleted SnapTrade user ${userId}`,
+      metadata: {
+        snaptradeUserId: userId
+      }
+    });
+    
+    logger.info('SnapTrade user deleted', { 
+      metadata: { snaptradeUserId: userId, adminUserId: (req as any).adminUser.id }
+    });
+    
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (error: any) {
+    logger.error('Failed to delete SnapTrade user', { 
+      error: error as Error,
+      metadata: { snaptradeUserId: req.params.userId }
+    });
+    res.status(500).json({ 
+      error: 'Failed to delete SnapTrade user',
+      message: error.message 
+    });
+  }
+});
+
+router.delete("/snaptrade/users", isAdmin, async (req, res) => {
+  try {
+    // First get all users
+    const snapUsers = await snapTrade.listAllSnapTradeUsers();
+    const usersData = snapUsers.data || [];
+    
+    // Delete all users
+    let deleted = 0;
+    let failed = 0;
+    const errors: string[] = [];
+    
+    for (const user of usersData) {
+      try {
+        await snapTrade.deleteSnapTradeUser(user.userId, (req as any).adminUser.id);
+        deleted++;
+        logger.info('Bulk delete: SnapTrade user deleted', { 
+          metadata: { snaptradeUserId: user.userId }
+        });
+      } catch (error: any) {
+        failed++;
+        errors.push(`${user.userId}: ${error.message}`);
+        logger.error('Bulk delete: Failed to delete SnapTrade user', { 
+          error: error as Error,
+          metadata: { snaptradeUserId: user.userId }
+        });
+      }
+    }
+    
+    // Log admin action
+    await storage.logActivity({
+      userId: (req as any).adminUser.id,
+      action: 'admin_bulk_delete_snaptrade_users',
+      description: `Bulk deleted SnapTrade users: ${deleted} deleted, ${failed} failed`,
+      metadata: {
+        totalUsers: usersData.length,
+        deleted,
+        failed
+      }
+    });
+    
+    logger.info('Bulk delete completed', { 
+      metadata: { totalUsers: usersData.length, deleted, failed, adminUserId: (req as any).adminUser.id }
+    });
+    
+    res.json({ 
+      success: true, 
+      message: `Bulk delete completed: ${deleted} deleted, ${failed} failed`,
+      deleted,
+      failed,
+      errors: errors.slice(0, 5) // Limit error messages
+    });
+  } catch (error: any) {
+    logger.error('Failed to complete bulk delete', { error: error as Error });
+    res.status(500).json({ 
+      error: 'Failed to complete bulk delete',
+      message: error.message 
+    });
   }
 });
 
