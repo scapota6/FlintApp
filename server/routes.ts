@@ -1469,6 +1469,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk cleanup endpoint for duplicate SnapTrade users
+  app.post('/api/admin/snaptrade-cleanup', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      if (!snaptradeClient) {
+        return res.status(500).json({ message: 'SnapTrade client not initialized' });
+      }
+      
+      // Get all SnapTrade users
+      const { data: snaptradeUsers } = await snaptradeClient.authentication.listSnapTradeUsers();
+      
+      // Get all Flint users to compare
+      const flintUsers = await storage.getAllUsers();
+      const flintEmails = flintUsers.map(u => u.email).filter(Boolean);
+      
+      // Group SnapTrade users by email to find duplicates
+      const usersByEmail = new Map<string, any[]>();
+      const usersWithoutEmail: any[] = [];
+      
+      for (const user of snaptradeUsers) {
+        const email = user.metadata?.email;
+        if (email) {
+          if (!usersByEmail.has(email)) {
+            usersByEmail.set(email, []);
+          }
+          usersByEmail.get(email)!.push(user);
+        } else {
+          usersWithoutEmail.push(user);
+        }
+      }
+      
+      let deletedCount = 0;
+      const errors: string[] = [];
+      
+      // Delete duplicate users (keep the most recent one for each email)
+      for (const [email, users] of usersByEmail.entries()) {
+        if (users.length > 1) {
+          // Sort by creation date (newest first) and keep the first one
+          users.sort((a, b) => new Date(b.metadata?.createdAt || 0).getTime() - new Date(a.metadata?.createdAt || 0).getTime());
+          
+          // Delete all but the newest
+          for (let i = 1; i < users.length; i++) {
+            try {
+              await snaptradeClient.authentication.deleteSnapTradeUser({
+                userId: users[i].userId
+              });
+              deletedCount++;
+              console.log(`Deleted duplicate SnapTrade user: ${users[i].userId} for email: ${email}`);
+            } catch (error: any) {
+              const errorMsg = `Failed to delete ${users[i].userId}: ${error.message}`;
+              errors.push(errorMsg);
+              console.error(errorMsg);
+            }
+          }
+        }
+      }
+      
+      // Delete users without email metadata that don't correspond to Flint users
+      for (const user of usersWithoutEmail) {
+        try {
+          await snaptradeClient.authentication.deleteSnapTradeUser({
+            userId: user.userId
+          });
+          deletedCount++;
+          console.log(`Deleted orphaned SnapTrade user: ${user.userId}`);
+        } catch (error: any) {
+          const errorMsg = `Failed to delete ${user.userId}: ${error.message}`;
+          errors.push(errorMsg);
+          console.error(errorMsg);
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        deletedCount,
+        totalUsers: snaptradeUsers.length,
+        remainingUsers: snaptradeUsers.length - deletedCount,
+        errors: errors.length > 0 ? errors : undefined
+      });
+    } catch (error: any) {
+      console.error("Error cleaning up SnapTrade users:", error);
+      res.status(500).json({ message: "Failed to cleanup SnapTrade users: " + error.message });
+    }
+  });
+
   // Teller.io API routes (simplified working version)
   app.post('/api/teller/connect-init', isAuthenticated, async (req: any, res) => {
     try {
@@ -2530,6 +2614,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const users = await storage.getAllUsers();
       const connectedAccounts = await storage.getConnectedAccounts('');
       
+      // Get real SnapTrade user counts
+      let snaptradeStats = {
+        totalUsers: 0,
+        connectedUsers: 0,
+        activeConnections: 0
+      };
+      
+      try {
+        if (snaptradeClient) {
+          const { data: snaptradeUsers } = await snaptradeClient.authentication.listSnapTradeUsers();
+          snaptradeStats.totalUsers = snaptradeUsers.length;
+          
+          // Count users with active connections
+          let connectedCount = 0;
+          let activeConnectionsCount = 0;
+          
+          for (const snapUser of snaptradeUsers) {
+            try {
+              const accountsResponse = await snaptradeClient.accountInformation.listUserAccounts({
+                userId: snapUser.userId,
+                userSecret: snapUser.userSecret
+              });
+              if (accountsResponse.data && accountsResponse.data.length > 0) {
+                connectedCount++;
+                activeConnectionsCount += accountsResponse.data.length;
+              }
+            } catch (accountError) {
+              // User exists but has no valid connections
+              continue;
+            }
+          }
+          
+          snaptradeStats.connectedUsers = connectedCount;
+          snaptradeStats.activeConnections = activeConnectionsCount;
+        }
+      } catch (snaptradeError) {
+        console.error('Error fetching SnapTrade stats:', snaptradeError);
+      }
+      
       const stats = {
         totalUsers: users.length,
         freeUsers: users.filter(u => u.subscriptionTier === 'free').length,
@@ -2543,7 +2666,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const daysSinceLogin = (Date.now() - lastLogin.getTime()) / (1000 * 60 * 60 * 24);
           return daysSinceLogin < 7;
         }).length,
-        churnRate: 0 // Placeholder for churn calculation
+        churnRate: 0, // Placeholder for churn calculation
+        // Add SnapTrade-specific stats
+        snaptrade: snaptradeStats
       };
       
       res.json(stats);
