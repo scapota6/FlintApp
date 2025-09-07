@@ -499,7 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Trigger repair flow - delete stale user and let them re-register
           console.log('[SnapTrade] Detected stale user credentials, triggering repair flow for:', userId);
           try {
-            await deleteUserLocal(userId);
+            await deleteSnapUser(userId);
             console.log('[SnapTrade] Deleted stale user credentials for repair');
           } catch (deleteError) {
             console.error('[SnapTrade] Error deleting stale user:', deleteError);
@@ -929,10 +929,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const transactions: any[] = [];
 
       // Fetch SnapTrade transactions (brokerage)
-      if (snapTradeClient && user.snaptradeUserSecret) {
+      if (snaptradeClient && user.snaptradeUserSecret) {
         try {
           // Get all connected SnapTrade accounts
-          const accountsResponse = await snapTradeClient.accountInformation.listUserAccounts({
+          const accountsResponse = await snaptradeClient.accountInformation.listUserAccounts({
             userId: user.email,
             userSecret: user.snaptradeUserSecret,
           });
@@ -945,7 +945,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (accountId && account.id !== accountId) continue;
 
             try {
-              const activitiesResponse = await snapTradeClient.transactionsAndReporting.getActivities({
+              const activitiesResponse = await snaptradeClient.transactionsAndReporting.getActivities({
                 userId: user.email,
                 userSecret: user.snaptradeUserSecret,
                 accountId: account.id,
@@ -1155,7 +1155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enhanced SnapTrade order placement with UUID
   app.post('/api/snaptrade/place-order', rateLimits.trading, isAuthenticated, async (req: any, res) => {
     try {
-      if (!snapTradeClient) {
+      if (!snaptradeClient) {
         return res.status(500).json({ message: 'SnapTrade client not initialized' });
       }
 
@@ -1183,7 +1183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tradeId = uuidv4();
 
       // Place order using SnapTrade API
-      const orderResponse = await snapTradeClient.trading.placeForceOrder({
+      const orderResponse = await snaptradeClient.trading.placeForceOrder({
         userId: credentials.userId,
         userSecret: credentials.userSecret,
         accountId,
@@ -1440,10 +1440,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/admin/snaptrade-users', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
-      if (!snapTradeClient) {
+      if (!snaptradeClient) {
         return res.status(500).json({ message: 'SnapTrade client not initialized' });
       }
-      const { data } = await snapTradeClient.authentication.listSnapTradeUsers();
+      const { data } = await snaptradeClient.authentication.listSnapTradeUsers();
       res.json({ users: data });
     } catch (error: any) {
       console.error("Error listing SnapTrade users:", error);
@@ -1453,11 +1453,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/admin/snaptrade-user/:userId', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
-      if (!snapTradeClient) {
+      if (!snaptradeClient) {
         return res.status(500).json({ message: 'SnapTrade client not initialized' });
       }
       const { userId } = req.params;
-      await snapTradeClient.authentication.deleteSnapTradeUser({
+      await snaptradeClient.authentication.deleteSnapTradeUser({
         userId
       });
       
@@ -1703,8 +1703,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         try {
           // Delete SnapTrade user (this revokes all access)
-          if (snapTradeClient) {
-            await snapTradeClient.authentication.deleteSnapTradeUser({
+          if (snaptradeClient) {
+            await snaptradeClient.authentication.deleteSnapTradeUser({
               userId: credentials.userId,
               userSecret: credentials.userSecret
             });
@@ -1792,7 +1792,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
-      if (!snapTradeClient) {
+      if (!snaptradeClient) {
         return res.status(500).json({ error: "SnapTrade client not initialized" });
       }
 
@@ -1803,7 +1803,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         console.log('SnapTrade Register: Calling registerSnapTradeUser...');
         
-        const { data } = await snapTradeClient.authentication.registerSnapTradeUser({
+        const { data } = await snaptradeClient.authentication.registerSnapTradeUser({
           userId: snaptradeUserId
         });
         
@@ -1824,7 +1824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userSecret: data.userSecret!,
         };
         
-        const { data: portal } = await snapTradeClient.authentication.loginSnapTradeUser(loginPayload);
+        const { data: portal } = await snaptradeClient.authentication.loginSnapTradeUser(loginPayload);
         
         console.log('SnapTrade Register: Portal response received:', {
           hasRedirectURI: !!(portal as any).redirectURI
