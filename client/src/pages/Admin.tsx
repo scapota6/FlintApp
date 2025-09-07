@@ -53,6 +53,11 @@ interface AdminStats {
     createdAt: string;
     metadata?: any;
   }>;
+  snaptrade?: {
+    totalUsers: number;
+    connectedUsers: number;
+    activeConnections: number;
+  };
 }
 
 interface User {
@@ -232,6 +237,35 @@ export default function Admin() {
     }
   });
 
+  // Cleanup SnapTrade duplicates mutation
+  const cleanupMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/admin/snaptrade-cleanup`, {
+        method: "POST"
+      });
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: "Cleanup Completed", 
+        description: `Successfully cleaned up ${data.deletedCount} duplicate users. ${data.remainingUsers} users remaining.`
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Cleanup Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleCleanupSnapTrade = () => {
+    if (confirm("This will permanently delete duplicate SnapTrade users. Only the newest user for each email will be kept. This action cannot be undone. Continue?")) {
+      cleanupMutation.mutate();
+    }
+  };
+
   if (authLoading || statsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -351,6 +385,89 @@ export default function Admin() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* SnapTrade Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                SnapTrade User Management
+              </CardTitle>
+              <CardDescription>
+                Monitor and manage SnapTrade connections to optimize costs
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {stats?.snaptrade?.totalUsers || 0}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Total SnapTrade Users</p>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">
+                    {stats?.snaptrade?.connectedUsers || 0}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Connected Users</p>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {stats?.snaptrade?.activeConnections || 0}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Active Connections</p>
+                </div>
+              </div>
+              
+              {stats?.snaptrade && stats.snaptrade.totalUsers > stats.snaptrade.connectedUsers && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-yellow-800 dark:text-yellow-200">
+                        Duplicate Users Detected
+                      </h4>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                        You have {stats.snaptrade.totalUsers - stats.snaptrade.connectedUsers} unused SnapTrade users that are increasing your costs.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Refresh Stats
+                </Button>
+                
+                <Button
+                  onClick={handleCleanupSnapTrade}
+                  disabled={cleanupMutation.isPending || !stats?.snaptrade?.totalUsers}
+                  variant="destructive"
+                  size="sm"
+                >
+                  {cleanupMutation.isPending ? (
+                    <>
+                      <RotateCcw className="h-4 w-4 mr-2 animate-spin" />
+                      Cleaning up...
+                    </>
+                  ) : (
+                    <>
+                      <UserX className="h-4 w-4 mr-2" />
+                      Clean Up Duplicates
+                    </>
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
