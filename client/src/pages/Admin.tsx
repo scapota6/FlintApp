@@ -25,7 +25,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Crown,
-  UserX
+  UserX,
+  RotateCcw
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -197,6 +198,30 @@ export default function Admin() {
     onSuccess: () => {
       toast({ title: "Success", description: "Account disconnected successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users", selectedUser?.id] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Reset SnapTrade connections mutation
+  const resetSnapTradeMutation = useMutation({
+    mutationFn: async ({ userId }: { userId: string }) => {
+      return apiRequest(`/api/admin/users/${userId}/reset-snaptrade`, {
+        method: "POST"
+      });
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: "Success", 
+        description: `SnapTrade connections reset successfully. ${data.accountsReset} accounts cleared.` 
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users", selectedUser?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin"] });
     },
     onError: (error: Error) => {
       toast({
@@ -511,6 +536,20 @@ export default function Admin() {
                   >
                     <Crown className="h-4 w-4 mr-2" />
                     {userDetails.user.isAdmin ? "Revoke Admin" : "Grant Admin"}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to reset all SnapTrade connections for ${selectedUser.email}? This will clear all connected brokerage accounts and cannot be undone.`)) {
+                        resetSnapTradeMutation.mutate({ userId: selectedUser.id });
+                      }
+                    }}
+                    disabled={resetSnapTradeMutation.isPending}
+                    data-testid="button-reset-snaptrade"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    {resetSnapTradeMutation.isPending ? "Resetting..." : "Reset SnapTrade"}
                   </Button>
                 </div>
 

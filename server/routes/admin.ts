@@ -459,17 +459,7 @@ router.post("/users/:userId/reset-snaptrade", isAdmin, async (req, res) => {
     // 1. Clear file-based SnapTrade user storage
     await deleteSnapUser(userId);
 
-    // 2. Reset database SnapTrade credentials
-    await db
-      .update(users)
-      .set({
-        snaptradeUserId: null,
-        snaptradeUserSecret: null,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, userId));
-
-    // 3. Soft delete connected SnapTrade accounts
+    // 2. Soft delete connected SnapTrade accounts
     const snaptradeAccounts = await db
       .select()
       .from(connectedAccounts)
@@ -494,7 +484,7 @@ router.post("/users/:userId/reset-snaptrade", isAdmin, async (req, res) => {
           )
         );
 
-      // 4. Clear holdings for those accounts
+      // 3. Clear holdings for those accounts
       const accountIds = snaptradeAccounts.map(acc => acc.id);
       if (accountIds.length > 0) {
         await db
@@ -505,7 +495,7 @@ router.post("/users/:userId/reset-snaptrade", isAdmin, async (req, res) => {
       }
     }
 
-    // 5. Remove from SnapTrade users table
+    // 4. Remove from SnapTrade users table
     await db
       .delete(snaptradeUsers)
       .where(eq(snaptradeUsers.flintUserId, userId));
