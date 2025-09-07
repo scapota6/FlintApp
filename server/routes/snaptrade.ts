@@ -74,7 +74,7 @@ const snaptradeRateLimit = rateLimitMiddleware((req) => {
  */
 function handleSnapTradeError(error: any, context: string, res: any) {
   const normalized = normalizeSnapTradeError(error, context);
-  
+
   console.error(`[SnapTrade API Error] ${context}:`, {
     code: normalized.code,
     message: normalized.message,
@@ -115,7 +115,7 @@ function handleSnapTradeError(error: any, context: string, res: any) {
  */
 router.post('/register', snaptradeRateLimit, async (req: any, res: any) => {
   const requestId = req.headers['x-request-id'] || nanoid();
-  
+
   try {
     const flintUserId = req.user?.id;
     if (!flintUserId) {
@@ -143,7 +143,7 @@ router.post('/register', snaptradeRateLimit, async (req: any, res: any) => {
         hasSecret: !!existingUser.userSecret,
         requestId 
       });
-      
+
       return res.json(adaptSnapTradeUserStatus({
         userId: flintUserId,
         userSecret: existingUser.userSecret,
@@ -193,7 +193,7 @@ router.post('/register', snaptradeRateLimit, async (req: any, res: any) => {
  */
 router.get('/connections', snaptradeRateLimit, async (req: any, res: any) => {
   const requestId = req.headers['x-request-id'] || nanoid();
-  
+
   try {
     const flintUserId = req.user?.id;
     if (!flintUserId) {
@@ -248,7 +248,7 @@ router.get('/connections', snaptradeRateLimit, async (req: any, res: any) => {
  */
 router.get('/accounts', snaptradeRateLimit, async (req: any, res: any) => {
   const requestId = req.headers['x-request-id'] || nanoid();
-  
+
   try {
     const flintUserId = req.user?.id;
     if (!flintUserId) {
@@ -301,7 +301,7 @@ router.get('/accounts', snaptradeRateLimit, async (req: any, res: any) => {
 router.get('/accounts/:accountId/details', snaptradeRateLimit, async (req: any, res: any) => {
   const requestId = req.headers['x-request-id'] || nanoid();
   const { accountId } = req.params;
-  
+
   try {
     const flintUserId = req.user?.id;
     if (!flintUserId) {
@@ -354,7 +354,7 @@ router.get('/accounts/:accountId/details', snaptradeRateLimit, async (req: any, 
 router.get('/accounts/:accountId/balances', snaptradeRateLimit, async (req: any, res: any) => {
   const requestId = req.headers['x-request-id'] || nanoid();
   const { accountId } = req.params;
-  
+
   try {
     const flintUserId = req.user?.id;
     if (!flintUserId) {
@@ -407,7 +407,7 @@ router.get('/accounts/:accountId/balances', snaptradeRateLimit, async (req: any,
 router.get('/accounts/:accountId/positions', snaptradeRateLimit, async (req: any, res: any) => {
   const requestId = req.headers['x-request-id'] || nanoid();
   const { accountId } = req.params;
-  
+
   try {
     const flintUserId = req.user?.id;
     if (!flintUserId) {
@@ -463,7 +463,7 @@ router.get('/accounts/:accountId/orders', snaptradeRateLimit, async (req: any, r
   const requestId = req.headers['x-request-id'] || nanoid();
   const { accountId } = req.params;
   const { startDate, endDate, page = '1', pageSize = '50' } = req.query;
-  
+
   try {
     const flintUserId = req.user?.id;
     if (!flintUserId) {
@@ -529,7 +529,7 @@ router.get('/accounts/:accountId/activities', snaptradeRateLimit, async (req: an
   const requestId = req.headers['x-request-id'] || nanoid();
   const { accountId } = req.params;
   const { startDate, endDate, page = '1', pageSize = '50' } = req.query;
-  
+
   try {
     const flintUserId = req.user?.id;
     if (!flintUserId) {
@@ -594,7 +594,7 @@ router.get('/accounts/:accountId/activities', snaptradeRateLimit, async (req: an
 router.get('/symbols/search', snaptradeRateLimit, async (req: any, res: any) => {
   const requestId = req.headers['x-request-id'] || nanoid();
   const { q: query } = req.query;
-  
+
   try {
     const flintUserId = req.user?.id;
     if (!flintUserId) {
@@ -656,7 +656,7 @@ router.get('/symbols/search', snaptradeRateLimit, async (req: any, res: any) => 
  */
 router.post('/trades/impact', snaptradeRateLimit, async (req: any, res: any) => {
   const requestId = req.headers['x-request-id'] || nanoid();
-  
+
   try {
     const flintUserId = req.user?.id;
     if (!flintUserId) {
@@ -734,7 +734,7 @@ router.post('/trades/impact', snaptradeRateLimit, async (req: any, res: any) => 
  */
 router.post('/trades/place', snaptradeRateLimit, async (req: any, res: any) => {
   const requestId = req.headers['x-request-id'] || nanoid();
-  
+
   try {
     const flintUserId = req.user?.id;
     if (!flintUserId) {

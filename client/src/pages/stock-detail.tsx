@@ -97,10 +97,20 @@ export function StockDetailPage() {
       });
 
       if (stockResult) {
+        // Extract symbol string from object or use as string
+        const symbolString = typeof stockResult.symbol === 'string'
+          ? stockResult.symbol
+          : (stockResult.symbol?.symbol || stockResult.symbol?.raw_symbol || symbol.toUpperCase());
+
+        // Extract name from symbol object or use provided name
+        const nameString = stockResult.name ||
+          (typeof stockResult.symbol === 'object' ? stockResult.symbol.description : null) ||
+          `${symbol.toUpperCase()} Inc.`;
+
         setStockData({
-          symbol: stockResult.symbol,
-          name: stockResult.name,
-          price: stockResult.price,
+          symbol: symbolString,
+          name: nameString,
+          price: stockResult.price || 0,
           change: stockResult.change || 0,
           changePercent: stockResult.changePercent || 0,
           volume: stockResult.volume,
@@ -304,7 +314,7 @@ export function StockDetailPage() {
         <CardHeader>
           <CardTitle className="text-black dark:text-white">Live Chart - {stockData.symbol}</CardTitle>
           <CardDescription className="text-gray-600 dark:text-gray-300">
-            {tradingViewPrice ? 'TradingView live price' : 'Real-time price'}: ${stockData.price.toFixed(2)} 
+            {tradingViewPrice ? 'TradingView live price' : 'Real-time price'}: ${stockData.price.toFixed(2)}
             <span className={`ml-2 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
               ({isPositive ? '+' : ''}{stockData.changePercent.toFixed(2)}%)
             </span>

@@ -126,7 +126,21 @@ export class SnapTradeAPI {
 
   static async searchSymbols(query: string): Promise<SnapTradeQuote[]> {
     const response = await apiRequest("GET", `/api/snaptrade/search?q=${encodeURIComponent(query)}`);
-    return response.json();
+    const data = await response.json();
+    
+    // Normalize the symbol data to ensure consistent structure
+    if (Array.isArray(data)) {
+      return data.map((item: any) => ({
+        ...item,
+        symbol: typeof item.symbol === 'string' ? item.symbol : (item.symbol?.symbol || item.symbol?.raw_symbol || query.toUpperCase()),
+        name: item.name || (typeof item.symbol === 'object' ? item.symbol.description : `${query.toUpperCase()} Inc.`),
+        price: item.price || 0,
+        change: item.change || 0,
+        changePercent: item.changePercent || 0
+      }));
+    }
+    
+    return data || [];
   }
 
   static async getQuote(symbol: string): Promise<SnapTradeQuote> {
