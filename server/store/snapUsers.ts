@@ -12,7 +12,8 @@ function write(db: DB){ fs.writeFileSync(FILE, JSON.stringify(db,null,2), 'utf8'
 export async function getSnapUser(flintUserId: string){ 
   const db = read();
   // Look for entry by Flint user ID (the key) 
-  return db[flintUserId] || null; 
+  // Try multiple formats for backwards compatibility
+  return db[flintUserId] || db[`flint_${flintUserId}`] || null; 
 }
 
 export async function saveSnapUser(rec: Rec & { flintUserId?: string }){ 
