@@ -1,9 +1,7 @@
 import { Snaptrade } from 'snaptrade-typescript-sdk';
-import { TellerApi } from '@/teller/client';
-import { storage } from '@/storage';
-import { getSnapUser } from '@/store/snapUsers';
-import { snaptradeClient } from '@/snaptrade/client';
-import { tellerApiForUser } from '@/teller/client';
+import { storage } from '../storage';
+import { getSnapUser } from '../store/snapUsers';
+import { accountsApi } from '../lib/snaptrade';
 
 export interface ConnectionIssue {
   id: string;
@@ -142,12 +140,12 @@ export class ConnectionDiagnostics {
     try {
       // Check if user has SnapTrade credentials
       const snapUser = await getSnapUser(userId);
-      if (!snapUser || !snaptradeClient) {
+      if (!snapUser || !accountsApi) {
         return status;
       }
 
       // Test API connectivity
-      const accountsResponse = await snaptradeClient.accountInformation.listUserAccounts({
+      const accountsResponse = await accountsApi.listUserAccounts({
         userId: snapUser.userId,
         userSecret: snapUser.userSecret
       });
@@ -158,8 +156,8 @@ export class ConnectionDiagnostics {
       // Check each account's health
       for (const account of accounts) {
         try {
-          // Test account balance fetch
-          const balanceResponse = await snaptradeClient.accountInformation.getUserAccountBalance({
+          // Test account balance fetch  
+          const balanceResponse = await accountsApi.getUserAccountBalance({
             userId: snapUser.userId,
             userSecret: snapUser.userSecret,
             accountId: account.id
@@ -199,7 +197,7 @@ export class ConnectionDiagnostics {
 
       // Get connected accounts from database
       const accounts = await storage.getConnectedAccounts(userId);
-      const tellerAccounts = accounts.filter(acc => acc.provider === 'teller');
+      const tellerAccounts = accounts.filter((acc: any) => acc.provider === 'teller');
       
       status.totalAccounts = tellerAccounts.length;
 
@@ -211,13 +209,31 @@ export class ConnectionDiagnostics {
             continue;
           }
 
-          // Test account access
-          const tellerApi = tellerApiForUser(account.accessToken);
-          const accountData = await tellerApi.accounts.get(account.externalAccountId);
-          
-          if (accountData && accountData.status !== 'closed') {
-            status.connectedAccounts++;
-            status.lastSuccessfulSync = new Date();
+          // Test account access with direct API call
+          if (account.accessToken && account.externalAccountId) {
+            try {
+              const response = await fetch(`https://api.teller.io/accounts/${account.externalAccountId}`, {
+                headers: {
+                  'Authorization': `Bearer ${account.accessToken}`,
+                  'Accept': 'application/json'
+                }
+              });
+              
+              if (response.ok) {
+                const accountData = await response.json();
+                if (accountData && accountData.status !== 'closed') {
+                  status.connectedAccounts++;
+                  status.lastSuccessfulSync = new Date();
+                } else {
+                  status.failedAccounts++;
+                }
+              } else {
+                status.failedAccounts++;
+              }
+            } catch (apiError) {
+              console.error(`[ConnectionDiagnostics] Teller API call failed for account ${account.id}:`, apiError);
+              status.failedAccounts++;
+            }
           } else {
             status.failedAccounts++;
           }
@@ -524,7 +540,7 @@ export class ConnectionDiagnostics {
   private async identifyFailedTellerAccounts(userId: string) {
     try {
       const accounts = await storage.getConnectedAccounts(userId);
-      const tellerAccounts = accounts.filter(acc => acc.provider === 'teller');
+      const tellerAccounts = accounts.filter((acc: any) => acc.provider === 'teller');
       return { 
         success: true, 
         message: `Identified ${tellerAccounts.length} Teller accounts for review` 

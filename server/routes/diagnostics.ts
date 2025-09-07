@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { isAuthenticated } from '@/middleware/auth';
-import { rateLimits } from '@/middleware/rateLimits';
-import { connectionDiagnostics } from '@/services/ConnectionDiagnostics';
+import { isAuthenticated } from '../replitAuth';
+import { rateLimits } from '../middleware/rateLimiter';
+import { connectionDiagnostics } from '../services/ConnectionDiagnostics';
 
 const router = Router();
 
@@ -9,7 +9,7 @@ const router = Router();
  * GET /api/diagnostics/health
  * Run comprehensive connection diagnostics for the current user
  */
-router.get('/health', rateLimits.general, isAuthenticated, async (req: any, res) => {
+router.get('/health', rateLimits.auth, isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.claims.sub;
     
@@ -71,7 +71,7 @@ router.post('/repair', rateLimits.auth, isAuthenticated, async (req: any, res) =
  * GET /api/diagnostics/quick-check
  * Lightweight health check for dashboard status indicators
  */
-router.get('/quick-check', rateLimits.general, isAuthenticated, async (req: any, res) => {
+router.get('/quick-check', rateLimits.auth, isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.claims.sub;
     
@@ -81,9 +81,9 @@ router.get('/quick-check', rateLimits.general, isAuthenticated, async (req: any,
     // Return simplified status
     const quickStatus = {
       overallHealth: report.overallHealth,
-      criticalIssues: report.issues.filter(i => i.type === 'critical').length,
-      warningIssues: report.issues.filter(i => i.type === 'warning').length,
-      hasAutoRepairs: report.issues.some(i => i.autoRepairAvailable),
+      criticalIssues: report.issues.filter((i: any) => i.type === 'critical').length,
+      warningIssues: report.issues.filter((i: any) => i.type === 'warning').length,
+      hasAutoRepairs: report.issues.some((i: any) => i.autoRepairAvailable),
       accountStatus: report.accountStatus,
       lastChecked: report.lastChecked
     };
