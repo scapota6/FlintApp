@@ -1,5 +1,6 @@
 import { Snaptrade } from 'snaptrade-typescript-sdk';
 import * as SnaptradeModule from 'snaptrade-typescript-sdk';
+import { monitoredSnapTradeCall, retryableSnapTradeCall } from '../utils/snaptradeRequestMonitor';
 
 function hasFn(obj: any, name: string){ return obj && typeof obj[name] === 'function'; }
 
@@ -19,6 +20,7 @@ export const authApi = snaptrade.authentication;
 export const accountsApi = snaptrade.accountInformation;
 export const portfolioApi = snaptrade.transactionsAndReporting;
 export const tradingApi = snaptrade.trading;
+export const connectionsApi = snaptrade.connections;
 
 // Back-compat alias in case old code referenced a client object
 export const snaptradeClient = { authApi, accountsApi, portfolioApi, tradingApi };
@@ -31,8 +33,12 @@ console.log('[SnapTrade] SDK init', {
 });
 
 // Version-safe wrapper functions
-export async function registerUser(userId: string) {
-  return await authApi.registerSnapTradeUser({ userId });
+export async function registerUser(userId: string, flintUserId?: string) {
+  return await monitoredSnapTradeCall(
+    'registerSnapTradeUser',
+    () => authApi.registerSnapTradeUser({ userId }),
+    flintUserId
+  );
 }
 
 export async function createLoginUrl(params: { userId: string; userSecret: string; redirect: string }) {
@@ -47,8 +53,13 @@ export async function createLoginUrl(params: { userId: string; userSecret: strin
   return (login.data as any)?.redirectURI || (login.data as any)?.url;
 }
 
-export async function listAccounts(userId: string, userSecret: string) {
-  const response = await accountsApi.listUserAccounts({ userId, userSecret });
+export async function listAccounts(userId: string, userSecret: string, flintUserId?: string) {
+  const response = await retryableSnapTradeCall(
+    'listUserAccounts',
+    () => accountsApi.listUserAccounts({ userId, userSecret }),
+    3,
+    flintUserId
+  );
   return response.data;
 }
 
@@ -774,14 +785,13 @@ export async function refreshBrokerageAuthorization(userId: string, userSecret: 
  * List brokerage authorizations - Check connection status and disabled state
  * Following fix-broken-connections docs: check disabled status for connection health
  */
-export async function listBrokerageAuthorizations(userId: string, userSecret: string) {
-  try {
-    const response = await snaptrade.connections.listBrokerageAuthorizations({ userId, userSecret });
-    return response.data;
-  } catch (e: any) {
-    console.error('SnapTrade listBrokerageAuthorizations error:', e?.responseBody || e?.message || e);
-    throw e;
-  }
+export async function listBrokerageAuthorizations(userId: string, userSecret: string, flintUserId?: string) {
+  return await retryableSnapTradeCall(
+    'listBrokerageAuthorizations',
+    () => connectionsApi.listBrokerageAuthorizations({ userId, userSecret }),
+    3,
+    flintUserId
+  );
 }
 
 /**
