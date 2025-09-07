@@ -22,6 +22,7 @@ import { QuickActionsBar } from "@/components/ui/quick-actions-bar";
 import { BankAccountsSection } from "@/components/dashboard/bank-accounts-section";
 import { ErrorRetryCard } from "@/components/ui/error-retry-card";
 import { RealTimeAPI } from "@/lib/real-time-api";
+import ConnectionHealthIndicator from "@/components/troubleshooting/ConnectionHealthIndicator";
 
 interface DashboardData {
   totalBalance: number;
@@ -204,10 +205,15 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto p-6">
         {/* Dashboard Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2 font-mono">
-            <SparkleTitle>Dashboard</SparkleTitle>
-          </h1>
-          <p className="text-gray-400">Welcome back, {(user as any)?.firstName || (user as any)?.email?.split('@')[0] || 'Trader'}</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold mb-2 font-mono">
+                <SparkleTitle>Dashboard</SparkleTitle>
+              </h1>
+              <p className="text-gray-400">Welcome back, {(user as any)?.firstName || (user as any)?.email?.split('@')[0] || 'Trader'}</p>
+            </div>
+            <ConnectionHealthIndicator />
+          </div>
         </div>
 
         {/* Summary Cards */}
