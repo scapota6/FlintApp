@@ -85,7 +85,7 @@ export async function getPositions(userId: string, userSecret: string, accountId
   } catch (e: any) {
     // Final fallback attempt
     try {
-      const response = await accountsApi.getUserAccountHoldings({ userId, userSecret, accountId });
+      const response = await accountsApi.getUserHoldings({ userId, userSecret, accountId });
       return response.data ? [response.data] : [];
     } catch (fallbackError: any) {
       const errorInfo = handleSnapTradeError(e, 'getPositions');
@@ -192,7 +192,7 @@ export async function getOrderImpact(
   accountId: string, 
   params: {
     action: 'BUY' | 'SELL';
-    universalSymbolId: string;
+    universal_symbol_id: string;
     orderType: 'Market' | 'Limit';
     timeInForce?: 'Day' | 'GTC' | 'IOC' | 'FOK';
     units: number;
@@ -203,9 +203,9 @@ export async function getOrderImpact(
     const orderImpact = await tradingApi.getOrderImpact({
       userId,
       userSecret,
-      accountId,
+      account_id: accountId,
       action: params.action,
-      universalSymbolId: params.universalSymbolId,
+      universal_symbol_id: params.universal_symbol_id,
       orderType: params.orderType,
       timeInForce: params.timeInForce || 'Day',
       units: params.units,
@@ -253,7 +253,7 @@ export async function placeOrder(
   accountId: string,
   params: {
     action: 'BUY' | 'SELL';
-    universalSymbolId: string;
+    universal_symbol_id: string;
     orderType: 'Market' | 'Limit';
     timeInForce?: 'Day' | 'GTC' | 'IOC' | 'FOK';
     units: number;
@@ -268,7 +268,7 @@ export async function placeOrder(
       userSecret,
       accountId,
       action: params.action,
-      universalSymbolId: params.universalSymbolId,
+      universal_symbol_id: params.universal_symbol_id,
       orderType: params.orderType,
       timeInForce: params.timeInForce || 'Day',
       units: params.units,
@@ -912,7 +912,7 @@ export async function getAccountPositionsDetailed(userId: string, userSecret: st
 
 export async function getUserAccountActivities(userId: string, userSecret: string, accountId: string) {
   try {
-    const response = await portfolioApi.getActivities({ userId, userSecret, accountId });
+    const response = await portfolioApi.getActivities({ userId, userSecret, accounts: accountId });
     return response.data;
   } catch (e: any) {
     console.error('SnapTrade getUserAccountActivities error:', e?.responseBody || e?.message || e);

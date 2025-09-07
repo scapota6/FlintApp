@@ -23,9 +23,9 @@ export function installCsrf(app: Express) {
       httpOnly: false, // client must read to echo in header
     },
     ignoreMethods: ['GET', 'HEAD', 'OPTIONS'], // Exclude GET routes from CSRF protection
-    skip: function (req: any) {
+    value: function (req: any) {
       // Skip CSRF protection for webhook endpoints and analytics
-      const isWebhook = req.path === '/api/snaptrade/webhooks' || req.url.includes('/webhooks');
+      const isWebhook = req.path === '/api/teller/webhook' || req.path === '/api/snaptrade/webhooks' || req.url.includes('/webhooks');
       const isAnalytics = req.path === '/api/log-login';
       
       if (isWebhook) {
@@ -35,7 +35,7 @@ export function installCsrf(app: Express) {
         console.log('[CSRF] Skipping CSRF for analytics:', req.path);
       }
       
-      return isWebhook || isAnalytics;
+      return isWebhook || isAnalytics ? null : req.csrfToken();
     }
   }));
 
